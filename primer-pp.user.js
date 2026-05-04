@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Primer++ for Gemini (v11.0)
+// @name         Primer++ for Gemini™ (v11.0)
 // @namespace    http://tampermonkey.net/
 // @version      11.0
-// @description  模块化架构：可扩展的 Gemini 助手平台 - 原生 UI 集成 + 模块引导 + 计数器 + 热力图 + 配额追踪 + 对话文件夹 (Pure Enhancement)
+// @description  非官方 Gemini™ 助手平台：原生 UI 集成、计数器、热力图、配额追踪、对话文件夹等模块化增强
 // @author       Script Weaver
 // @match        https://gemini.google.com/*
 // @homepageURL  https://github.com/Shallow-dusty/primer-pp
@@ -18,6 +18,7 @@
 // @grant        GM_registerMenuCommand
 // @run-at       document-idle
 // ==/UserScript==
+
 (() => {
   var __create = Object.create;
   var __defProp = Object.defineProperty;
@@ -49,7 +50,7 @@
   ));
 
   // src/constants.js
-  var THEMES, GLOBAL_KEYS, TIMINGS, QUOTA_COLORS, VERSION, PANEL_ID, DEFAULT_POS, TEMP_USER;
+  var THEMES, GLOBAL_KEYS, TIMINGS, QUOTA_COLORS, VERSION, APP_NAME, TRADEMARK_NOTICE, PANEL_ID, DEFAULT_POS, TEMP_USER;
   var init_constants = __esm({
     "src/constants.js"() {
       THEMES = {
@@ -167,6 +168,8 @@
       };
       QUOTA_COLORS = { safe: "#34a853", warn: "#fbbc04", danger: "#ea4335" };
       VERSION = "11.0";
+      APP_NAME = "Primer++ for Gemini™";
+      TRADEMARK_NOTICE = "Primer++ is an unofficial community extension. Gemini™ is a trademark of Google LLC.";
       PANEL_ID = "gemini-monitor-panel-v7";
       DEFAULT_POS = { top: "20px", left: "auto", bottom: "auto", right: "220px" };
       TEMP_USER = "Guest";
@@ -565,6 +568,25 @@
         t(zh, en) {
           return this.isZH ? zh : en;
         },
+        trapFocus(container) {
+          const selector = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+          const handler = (e) => {
+            if (e.key !== "Tab") return;
+            const focusable = Array.from(container.querySelectorAll(selector)).filter((el) => !el.disabled && el.tabIndex !== -1);
+            if (focusable.length === 0) return;
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (e.shiftKey && document.activeElement === first) {
+              e.preventDefault();
+              last.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+              e.preventDefault();
+              first.focus();
+            }
+          };
+          container.addEventListener("keydown", handler);
+          return () => container.removeEventListener("keydown", handler);
+        },
         /**
          * Show a brief toast notification at the bottom of the screen.
          * @param {string} message
@@ -668,12 +690,14 @@
         showConfirm(message, onConfirm, opts = {}) {
           const overlay = document.createElement("div");
           overlay.className = "settings-overlay";
+          let releaseFocus = null;
           const escHandler = (e) => {
             if (e.key === "Escape") close(false);
           };
           document.addEventListener("keydown", escHandler);
           const close = (confirmed) => {
             document.removeEventListener("keydown", escHandler);
+            if (releaseFocus) releaseFocus();
             overlay.remove();
             if (confirmed) onConfirm();
           };
@@ -708,6 +732,7 @@
           modal.appendChild(actions);
           overlay.appendChild(modal);
           document.body.appendChild(overlay);
+          releaseFocus = this.trapFocus(modal);
           confirmBtn.focus();
         },
         // Called from zone handlers — only processes dirty modules
@@ -2025,12 +2050,14 @@
     const overlay = document.createElement("div");
     overlay.id = SETTINGS_MODAL_ID;
     overlay.className = "settings-overlay";
+    let releaseFocus = null;
     const escHandler = (e) => {
       if (e.key === "Escape") closeOverlay();
     };
     document.addEventListener("keydown", escHandler);
     const closeOverlay = () => {
       document.removeEventListener("keydown", escHandler);
+      if (releaseFocus) releaseFocus();
       overlay.remove();
     };
     overlay.onclick = (e) => {
@@ -2042,11 +2069,17 @@
     const header = document.createElement("div");
     header.className = "settings-header";
     const title = document.createElement("h3");
-    setIconText(title, "settings", "Settings");
+    setIconText(title, "settings", NativeUI.t("设置", "Settings"));
     const closeBtn = document.createElement("span");
     closeBtn.className = "settings-close";
+    closeBtn.tabIndex = 0;
+    closeBtn.setAttribute("role", "button");
+    closeBtn.setAttribute("aria-label", NativeUI.t("关闭设置", "Close settings"));
     closeBtn.appendChild(createIcon("x", 16));
     closeBtn.onclick = () => closeOverlay();
+    closeBtn.onkeydown = (e) => {
+      if (e.key === "Enter" || e.key === " ") closeOverlay();
+    };
     header.appendChild(title);
     header.appendChild(closeBtn);
     const body = document.createElement("div");
@@ -2056,7 +2089,7 @@
     const extTitle = document.createElement("div");
     extTitle.className = "settings-section-title";
     extTitle.textContent = "";
-    setIconText(extTitle, "package", "Feature Extensions");
+    setIconText(extTitle, "package", NativeUI.t("功能扩展", "Feature Extensions"));
     extSection.appendChild(extTitle);
     const PanelUI2 = this;
     ModuleRegistry.getAll().forEach((mod) => {
@@ -2078,7 +2111,7 @@
         const infoBtn = document.createElement("span");
         infoBtn.className = "onboarding-info-btn";
         infoBtn.appendChild(createIcon("info", 12));
-        infoBtn.title = "Show guide";
+        infoBtn.title = NativeUI.t("显示引导", "Show guide");
         infoBtn.onclick = (e) => {
           e.stopPropagation();
           PanelUI2.showOnboarding(mod.id);
@@ -2108,7 +2141,7 @@
         modTitle.className = "settings-section-title";
         modTitle.textContent = "";
         modTitle.appendChild(renderModIcon(mod, 12));
-        modTitle.appendChild(document.createTextNode(" " + mod.name + " Settings"));
+        modTitle.appendChild(document.createTextNode(" " + NativeUI.t("设置", "Settings")));
         modSection.appendChild(modTitle);
         mod.renderToSettings(modSection);
         body.appendChild(modSection);
@@ -2119,13 +2152,13 @@
     resetSection.className = "settings-section";
     const resetTitle = document.createElement("div");
     resetTitle.className = "settings-section-title";
-    resetTitle.textContent = "Daily Reset";
+    resetTitle.textContent = NativeUI.t("每日重置", "Daily Reset");
     resetSection.appendChild(resetTitle);
     const resetRow = document.createElement("div");
     resetRow.className = "settings-row";
     const resetLabel = document.createElement("span");
     resetLabel.className = "settings-label";
-    resetLabel.textContent = "Reset Hour";
+    resetLabel.textContent = NativeUI.t("重置时间", "Reset Hour");
     const resetSelect = document.createElement("select");
     resetSelect.className = "settings-select";
     for (let h = 0; h < 24; h++) {
@@ -2151,13 +2184,13 @@
     quotaSection.className = "settings-section";
     const quotaTitle = document.createElement("div");
     quotaTitle.className = "settings-section-title";
-    quotaTitle.textContent = "Daily Quota";
+    quotaTitle.textContent = NativeUI.t("每日配额", "Daily Quota");
     quotaSection.appendChild(quotaTitle);
     const quotaRow = document.createElement("div");
     quotaRow.className = "settings-row";
     const quotaLabelEl = document.createElement("span");
     quotaLabelEl.className = "settings-label";
-    quotaLabelEl.textContent = "Message Limit";
+    quotaLabelEl.textContent = NativeUI.t("消息限制", "Message Limit");
     const quotaInput = document.createElement("input");
     quotaInput.type = "number";
     quotaInput.min = "1";
@@ -2185,7 +2218,7 @@
     chartSection.className = "settings-section";
     const chartTitle = document.createElement("div");
     chartTitle.className = "settings-section-title";
-    chartTitle.textContent = "Usage History (Last 7 Days)";
+    chartTitle.textContent = NativeUI.t("使用历史（最近 7 天）", "Usage History (Last 7 Days)");
     chartSection.appendChild(chartTitle);
     const chartContainer = document.createElement("div");
     chartContainer.style.cssText = "background: rgba(0,0,0,0.2); border-radius: 8px; padding: 10px; margin-top: 4px;";
@@ -2249,14 +2282,14 @@
     dataSection.className = "settings-section";
     const dataTitle = document.createElement("div");
     dataTitle.className = "settings-section-title";
-    dataTitle.textContent = "Data";
+    dataTitle.textContent = NativeUI.t("数据", "Data");
     dataSection.appendChild(dataTitle);
     if (ModuleRegistry.isEnabled("export")) {
       ExportModule.renderExportButtons(dataSection);
     } else {
       const exportBtn = document.createElement("button");
       exportBtn.className = "settings-btn";
-      setIconText(exportBtn, "download", "Export Data (JSON)");
+      setIconText(exportBtn, "download", NativeUI.t("导出数据 (JSON)", "Export Data (JSON)"));
       exportBtn.onclick = () => {
         const exportData = {
           total: cm.state.total,
@@ -2278,12 +2311,12 @@
     }
     const calibrateBtn = document.createElement("button");
     calibrateBtn.className = "settings-btn";
-    setIconText(calibrateBtn, "wrench", "Calibrate Data");
+    setIconText(calibrateBtn, "wrench", NativeUI.t("校准数据", "Calibrate Data"));
     calibrateBtn.onclick = () => PanelUI2.openCalibrationModal();
     dataSection.appendChild(calibrateBtn);
     const resetPosBtn = document.createElement("button");
     resetPosBtn.className = "settings-btn";
-    setIconText(resetPosBtn, "pin", "Reset Panel Position");
+    setIconText(resetPosBtn, "pin", NativeUI.t("重置面板位置", "Reset Panel Position"));
     resetPosBtn.onclick = () => {
       try {
         GM_setValue(GLOBAL_KEYS.POS, DEFAULT_POS);
@@ -2295,7 +2328,7 @@
     dataSection.appendChild(resetPosBtn);
     const tourBtn = document.createElement("button");
     tourBtn.className = "settings-btn";
-    setIconText(tourBtn, "compass", "Guided Tour");
+    setIconText(tourBtn, "compass", NativeUI.t("引导教程", "Guided Tour"));
     tourBtn.onclick = () => {
       closeOverlay();
       GuidedTour.start();
@@ -2306,13 +2339,13 @@
     debugSection.className = "settings-section";
     const debugTitle = document.createElement("div");
     debugTitle.className = "settings-section-title";
-    debugTitle.textContent = "Debug";
+    debugTitle.textContent = NativeUI.t("调试", "Debug");
     debugSection.appendChild(debugTitle);
     const debugToggleRow = document.createElement("div");
     debugToggleRow.className = "settings-row";
     const debugLabel = document.createElement("span");
     debugLabel.className = "settings-label";
-    debugLabel.textContent = "Enable Debug";
+    debugLabel.textContent = NativeUI.t("启用调试", "Enable Debug");
     const debugToggle = document.createElement("div");
     debugToggle.className = `toggle-switch ${isDebugEnabled() ? "on" : ""}`;
     debugToggle.onclick = () => {
@@ -2328,7 +2361,7 @@
     logLevelRow.className = "settings-row";
     const logLevelLabel = document.createElement("span");
     logLevelLabel.className = "settings-label";
-    logLevelLabel.textContent = "Log Level";
+    logLevelLabel.textContent = NativeUI.t("日志级别", "Log Level");
     const logSelect = document.createElement("select");
     logSelect.className = "settings-select";
     ["error", "warn", "info", "debug"].forEach((lvl) => {
@@ -2344,18 +2377,21 @@
     debugSection.appendChild(logLevelRow);
     const debugPanelBtn = document.createElement("button");
     debugPanelBtn.className = "settings-btn";
-    setIconText(debugPanelBtn, "bug", "Open Debug Panel");
+    setIconText(debugPanelBtn, "bug", NativeUI.t("打开调试面板", "Open Debug Panel"));
     debugPanelBtn.onclick = () => PanelUI2.openDebugModal();
     debugSection.appendChild(debugPanelBtn);
     body.appendChild(debugSection);
     const version = document.createElement("div");
     version.className = "settings-version";
-    version.textContent = "Primer++ for Gemini v" + VERSION;
+    version.textContent = APP_NAME + " v" + VERSION;
+    version.title = TRADEMARK_NOTICE;
     body.appendChild(version);
     modal.appendChild(header);
     modal.appendChild(body);
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
+    releaseFocus = NativeUI.trapFocus(modal);
+    closeBtn.focus();
   }
   function showOnboarding(moduleId) {
     const mod = ModuleRegistry.modules[moduleId];
@@ -2374,12 +2410,14 @@
     const overlay = document.createElement("div");
     overlay.id = MODAL_ID;
     overlay.className = "onboarding-overlay";
+    let releaseFocus = null;
     const escHandler = (e) => {
       if (e.key === "Escape") closeOverlay();
     };
     document.addEventListener("keydown", escHandler);
     const closeOverlay = () => {
       document.removeEventListener("keydown", escHandler);
+      if (releaseFocus) releaseFocus();
       overlay.remove();
     };
     overlay.onclick = (e) => {
@@ -2399,8 +2437,14 @@
       title.appendChild(document.createTextNode(" " + mod.name));
       const closeBtn = document.createElement("span");
       closeBtn.className = "onboarding-close";
+      closeBtn.tabIndex = 0;
+      closeBtn.setAttribute("role", "button");
+      closeBtn.setAttribute("aria-label", NativeUI.t("关闭引导", "Close guide"));
       closeBtn.appendChild(createIcon("x", 16));
       closeBtn.onclick = () => closeOverlay();
+      closeBtn.onkeydown = (e) => {
+        if (e.key === "Enter" || e.key === " ") closeOverlay();
+      };
       header.appendChild(title);
       header.appendChild(closeBtn);
       modal.appendChild(header);
@@ -2478,6 +2522,9 @@
     renderContent();
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
+    releaseFocus = NativeUI.trapFocus(modal);
+    const firstButton = modal.querySelector('button, [tabindex]:not([tabindex="-1"])');
+    if (firstButton) firstButton.focus();
   }
   function openDebugModal() {
     const DEBUG_MODAL_ID = "gemini-debug-modal";
@@ -2486,6 +2533,7 @@
     overlay.id = DEBUG_MODAL_ID;
     overlay.className = "debug-overlay";
     let unsubscribe = null;
+    let releaseFocus = null;
     const escHandler = (e) => {
       if (e.key === "Escape") closeModal();
     };
@@ -2493,6 +2541,7 @@
     const closeModal = () => {
       document.removeEventListener("keydown", escHandler);
       if (unsubscribe) unsubscribe();
+      if (releaseFocus) releaseFocus();
       overlay.remove();
     };
     overlay.onclick = (e) => {
@@ -2504,11 +2553,17 @@
     const header = document.createElement("div");
     header.className = "debug-header";
     const title = document.createElement("h3");
-    setIconText(title, "bug", "Debug Panel");
+    setIconText(title, "bug", NativeUI.t("调试面板", "Debug Panel"));
     const closeBtn = document.createElement("span");
     closeBtn.className = "debug-close";
+    closeBtn.tabIndex = 0;
+    closeBtn.setAttribute("role", "button");
+    closeBtn.setAttribute("aria-label", NativeUI.t("关闭调试面板", "Close debug panel"));
     closeBtn.appendChild(createIcon("x", 16));
     closeBtn.onclick = () => closeModal();
+    closeBtn.onkeydown = (e) => {
+      if (e.key === "Enter" || e.key === " ") closeModal();
+    };
     header.appendChild(title);
     header.appendChild(closeBtn);
     const body = document.createElement("div");
@@ -2558,7 +2613,7 @@
     });
     const search = document.createElement("input");
     search.className = "debug-search";
-    search.placeholder = "Search logs...";
+    search.placeholder = NativeUI.t("搜索日志...", "Search logs...");
     search.oninput = () => {
       searchTerm = search.value.trim().toLowerCase();
       renderLogs();
@@ -2572,13 +2627,13 @@
       b.onclick = onClick;
       return b;
     };
-    actions.appendChild(mkBtn("Show Detected User", () => debugShowDetectedUser()));
-    actions.appendChild(mkBtn("Dump Storage Keys", () => debugDumpStorageKeys()));
-    actions.appendChild(mkBtn("Dump Gemini Storage", () => debugDumpGeminiStores()));
-    actions.appendChild(mkBtn("Export Legacy Data", () => debugExportLegacyData()));
-    actions.appendChild(mkBtn("Export All Storage", () => debugExportAllStorage()));
-    actions.appendChild(mkBtn("Export Logs", () => debugExportLogs()));
-    actions.appendChild(mkBtn("Clear Logs", () => Logger.clear()));
+    actions.appendChild(mkBtn(NativeUI.t("显示检测用户", "Show Detected User"), () => debugShowDetectedUser()));
+    actions.appendChild(mkBtn(NativeUI.t("导出存储键", "Dump Storage Keys"), () => debugDumpStorageKeys()));
+    actions.appendChild(mkBtn(NativeUI.t("导出 Gemini 存储", "Dump Gemini Storage"), () => debugDumpGeminiStores()));
+    actions.appendChild(mkBtn(NativeUI.t("导出旧版数据", "Export Legacy Data"), () => debugExportLegacyData()));
+    actions.appendChild(mkBtn(NativeUI.t("导出全部存储", "Export All Storage"), () => debugExportAllStorage()));
+    actions.appendChild(mkBtn(NativeUI.t("导出日志", "Export Logs"), () => debugExportLogs()));
+    actions.appendChild(mkBtn(NativeUI.t("清空日志", "Clear Logs"), () => Logger.clear()));
     const logList = document.createElement("div");
     logList.className = "debug-log-list";
     const renderLogs = () => {
@@ -2587,7 +2642,7 @@
       if (entries.length === 0) {
         const empty = document.createElement("div");
         empty.className = "debug-log-item";
-        empty.textContent = "No logs yet.";
+        empty.textContent = NativeUI.t("暂无日志。", "No logs yet.");
         logList.appendChild(empty);
         return;
       }
@@ -2616,6 +2671,8 @@
     modal.appendChild(body);
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
+    releaseFocus = NativeUI.trapFocus(modal);
+    closeBtn.focus();
   }
   function openCalibrationModal() {
     const MODAL_ID = "gemini-calibrate-modal";
@@ -2626,12 +2683,14 @@
     const overlay = document.createElement("div");
     overlay.id = MODAL_ID;
     overlay.className = "settings-overlay";
+    let releaseFocus = null;
     const escHandler = (e) => {
       if (e.key === "Escape") closeOverlay();
     };
     document.addEventListener("keydown", escHandler);
     const closeOverlay = () => {
       document.removeEventListener("keydown", escHandler);
+      if (releaseFocus) releaseFocus();
       overlay.remove();
     };
     overlay.onclick = (e) => {
@@ -2643,11 +2702,17 @@
     const header = document.createElement("div");
     header.className = "settings-header";
     const title = document.createElement("h3");
-    title.textContent = "Calibrate Data";
+    title.textContent = NativeUI.t("校准数据", "Calibrate Data");
     const closeBtn = document.createElement("span");
     closeBtn.className = "settings-close";
+    closeBtn.tabIndex = 0;
+    closeBtn.setAttribute("role", "button");
+    closeBtn.setAttribute("aria-label", NativeUI.t("关闭校准", "Close calibration"));
     closeBtn.appendChild(createIcon("x", 16));
     closeBtn.onclick = () => closeOverlay();
+    closeBtn.onkeydown = (e) => {
+      if (e.key === "Enter" || e.key === " ") closeOverlay();
+    };
     header.appendChild(title);
     header.appendChild(closeBtn);
     const body = document.createElement("div");
@@ -2673,11 +2738,11 @@
     section.className = "settings-section";
     const sTitle = document.createElement("div");
     sTitle.className = "settings-section-title";
-    sTitle.textContent = "Adjust Values";
+    sTitle.textContent = NativeUI.t("调整数值", "Adjust Values");
     section.appendChild(sTitle);
-    const todayField = mkField("Today Messages", cm.state.dailyCounts[todayKey]?.messages || 0);
-    const totalField = mkField("Lifetime Total", cm.state.total);
-    const chatsField = mkField("Chats Created", cm.state.totalChatsCreated);
+    const todayField = mkField(NativeUI.t("今日消息", "Today Messages"), cm.state.dailyCounts[todayKey]?.messages || 0);
+    const totalField = mkField(NativeUI.t("总消息数", "Lifetime Total"), cm.state.total);
+    const chatsField = mkField(NativeUI.t("创建对话数", "Chats Created"), cm.state.totalChatsCreated);
     section.appendChild(todayField.row);
     section.appendChild(totalField.row);
     section.appendChild(chatsField.row);
@@ -2689,9 +2754,9 @@
       chatSection.className = "settings-section";
       const chatTitle = document.createElement("div");
       chatTitle.className = "settings-section-title";
-      chatTitle.textContent = "Current Chat";
+      chatTitle.textContent = NativeUI.t("当前对话", "Current Chat");
       chatSection.appendChild(chatTitle);
-      chatField = mkField("Chat Messages", cm.state.chats[currentCid] || 0);
+      chatField = mkField(NativeUI.t("对话消息数", "Chat Messages"), cm.state.chats[currentCid] || 0);
       chatSection.appendChild(chatField.row);
       const chatIdHint = document.createElement("div");
       chatIdHint.style.cssText = "font-size: 9px; color: var(--text-sub); opacity: 0.5; margin-top: 2px;";
@@ -2701,7 +2766,7 @@
     }
     const applyBtn = document.createElement("button");
     applyBtn.className = "settings-btn";
-    applyBtn.textContent = "Apply Calibration";
+    applyBtn.textContent = NativeUI.t("应用校准", "Apply Calibration");
     applyBtn.style.marginTop = "12px";
     applyBtn.style.background = "rgba(138, 180, 248, 0.2)";
     applyBtn.style.color = "var(--accent, #8ab4f8)";
@@ -2732,12 +2797,14 @@
     body.appendChild(applyBtn);
     const note = document.createElement("div");
     note.className = "settings-version";
-    note.textContent = "Manually adjust counter values";
+    note.textContent = NativeUI.t("手动调整计数器数值", "Manually adjust counter values");
     body.appendChild(note);
     modal.appendChild(header);
     modal.appendChild(body);
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
+    releaseFocus = NativeUI.trapFocus(modal);
+    closeBtn.focus();
   }
   var init_panel_settings = __esm({
     "src/panel_settings.js"() {
@@ -2748,6 +2815,7 @@
       init_core();
       init_module_registry();
       init_state();
+      init_native_ui();
       init_counter();
       init_export();
       init_debug_utils();
@@ -2763,8 +2831,10 @@
     const overlay = document.createElement("div");
     overlay.id = "gemini-dashboard-overlay";
     overlay.className = "dash-overlay";
+    let releaseFocus = null;
     const closeDash = () => {
       document.removeEventListener("keydown", escHandler);
+      if (releaseFocus) releaseFocus();
       const tip = document.getElementById("g-heatmap-tooltip");
       if (tip) tip.remove();
       overlay.remove();
@@ -2785,7 +2855,7 @@
     titleDiv.className = "dash-title";
     titleDiv.textContent = "";
     titleDiv.appendChild(createIcon("chart", 20));
-    titleDiv.appendChild(document.createTextNode(" Analytics "));
+    titleDiv.appendChild(document.createTextNode(" " + NativeUI.t("统计", "Analytics") + " "));
     const userSpan = document.createElement("span");
     userSpan.style.fontSize = "12px";
     userSpan.style.opacity = "0.5";
@@ -2794,8 +2864,14 @@
     titleDiv.appendChild(userSpan);
     const close = document.createElement("div");
     close.className = "dash-close";
+    close.tabIndex = 0;
+    close.setAttribute("role", "button");
+    close.setAttribute("aria-label", NativeUI.t("关闭统计面板", "Close analytics"));
     close.appendChild(createIcon("x", 22));
     close.onclick = () => closeDash();
+    close.onkeydown = (e) => {
+      if (e.key === "Enter" || e.key === " ") closeDash();
+    };
     header.appendChild(titleDiv);
     header.appendChild(close);
     modal.appendChild(header);
@@ -2805,10 +2881,10 @@
     const grid = document.createElement("div");
     grid.className = "metric-grid";
     const metrics = [
-      { label: "Total Messages", val: cm.state.total.toLocaleString() },
-      { label: "Chats Created", val: cm.state.totalChatsCreated.toLocaleString() },
-      { label: "Current Streak", val: streaks.current + " Days" },
-      { label: "Best Streak", val: streaks.best + " Days" }
+      { label: NativeUI.t("总消息数", "Total Messages"), val: cm.state.total.toLocaleString() },
+      { label: NativeUI.t("创建对话数", "Chats Created"), val: cm.state.totalChatsCreated.toLocaleString() },
+      { label: NativeUI.t("当前连续天数", "Current Streak"), val: streaks.current + " " + NativeUI.t("天", "Days") },
+      { label: NativeUI.t("最长连续天数", "Best Streak"), val: streaks.best + " " + NativeUI.t("天", "Days") }
     ];
     metrics.forEach((m) => {
       const card = document.createElement("div");
@@ -2829,16 +2905,16 @@
     const hmHeader = document.createElement("div");
     hmHeader.className = "heatmap-title";
     const titleSpan = document.createElement("span");
-    titleSpan.textContent = "Activity (Last 365 Days)";
+    titleSpan.textContent = NativeUI.t("活动记录（最近 365 天）", "Activity (Last 365 Days)");
     const legend = document.createElement("div");
     legend.className = "heatmap-legend";
-    legend.appendChild(document.createTextNode("Less "));
+    legend.appendChild(document.createTextNode(NativeUI.t("少 ", "Less ")));
     ["l-0", "l-1", "l-3", "l-4"].forEach((cls) => {
       const item = document.createElement("div");
       item.className = `legend-item ${cls}`;
       legend.appendChild(item);
     });
-    legend.appendChild(document.createTextNode(" More"));
+    legend.appendChild(document.createTextNode(NativeUI.t(" 多", " More")));
     hmHeader.appendChild(titleSpan);
     hmHeader.appendChild(legend);
     hmContainer.appendChild(hmHeader);
@@ -2849,7 +2925,7 @@
     ["", "Mon", "", "Wed", "", "Fri", ""].forEach((d) => {
       const label = document.createElement("div");
       label.className = "week-label";
-      label.textContent = d;
+      label.textContent = NativeUI.t({ Mon: "一", Wed: "三", Fri: "五" }[d] || "", d);
       weekCol.appendChild(label);
     });
     hmWrapper.appendChild(weekCol);
@@ -2952,7 +3028,7 @@
       const modelTitle = document.createElement("div");
       modelTitle.className = "heatmap-title";
       const modelTitleSpan = document.createElement("span");
-      modelTitleSpan.textContent = "Model Usage Distribution";
+      modelTitleSpan.textContent = NativeUI.t("模型使用分布", "Model Usage Distribution");
       modelTitle.appendChild(modelTitleSpan);
       modelContainer.appendChild(modelTitle);
       const modelColors = { flash: CounterModule.MODEL_CONFIG.flash.color, thinking: CounterModule.MODEL_CONFIG.thinking.color, pro: CounterModule.MODEL_CONFIG.pro.color };
@@ -2985,13 +3061,15 @@
       const wStr = weightedTotal % 1 === 0 ? String(weightedTotal) : weightedTotal.toFixed(1);
       const weightedRow = document.createElement("div");
       weightedRow.style.cssText = "font-size: 11px; color: var(--text-sub); margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--divider, rgba(255,255,255,0.05));";
-      weightedRow.textContent = `Total Weighted: ${wStr} | Raw Messages: ${modelTotal}`;
+      weightedRow.textContent = NativeUI.t(`加权总量: ${wStr} | 原始消息: ${modelTotal}`, `Total Weighted: ${wStr} | Raw Messages: ${modelTotal}`);
       modelContainer.appendChild(weightedRow);
       content.appendChild(modelContainer);
     }
     modal.appendChild(content);
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
+    releaseFocus = NativeUI.trapFocus(modal);
+    close.focus();
     setTimeout(() => {
       hmContainer.scrollLeft = hmContainer.scrollWidth;
     }, 0);
@@ -3004,6 +3082,7 @@
       init_state();
       init_counter();
       import_date_utils = __toESM(require_date_utils());
+      init_native_ui();
     }
   });
 
@@ -3030,6 +3109,7 @@
       init_module_registry();
       init_state();
       init_counter();
+      init_native_ui();
       init_panel_settings();
       init_panel_dashboard();
       MODULE_ICON_MAP = {
@@ -3177,6 +3257,20 @@
                 cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); width: 100%;
             }
             .g-btn:hover { background: var(--row-hover); color: var(--text-main); }
+            .g-btn:focus-visible,
+            .settings-btn:focus-visible,
+            .settings-select:focus-visible,
+            .settings-close:focus-visible,
+            .onboarding-close:focus-visible,
+            .dash-close:focus-visible,
+            .debug-close:focus-visible,
+            .detail-row:focus-visible,
+            .onboarding-lang-btn:focus-visible,
+            .gc-native-btn:focus-visible,
+            .gc-dropdown-item:focus-visible {
+                outline: 2px solid var(--accent, #8ab4f8);
+                outline-offset: 2px;
+            }
             .g-btn:active { transform: scale(0.97); opacity: 0.85; }
             .g-btn.danger-1 { color: #f28b82; border-color: #f28b82; }
             .g-btn.danger-2 { background: #f28b82; color: #202124; font-weight: bold; }
@@ -3497,6 +3591,22 @@
                 cursor: pointer; display: flex; align-items: center; gap: 8px;
             }
             .gc-dropdown-item:hover { background: rgba(255,255,255,0.08); }
+            @media (prefers-reduced-motion: reduce) {
+                #gemini-monitor-panel-v7 *,
+                .settings-overlay *,
+                .debug-overlay *,
+                .dash-overlay *,
+                .onboarding-overlay *,
+                .settings-overlay,
+                .debug-overlay,
+                .dash-overlay,
+                .onboarding-overlay {
+                    animation-duration: 0.01ms !important;
+                    animation-iteration-count: 1 !important;
+                    transition-duration: 0.01ms !important;
+                    scroll-behavior: auto !important;
+                }
+            }
         `);
         },
         // --- 面板创建 ---
@@ -3541,7 +3651,7 @@
             const subInfo = document.createElement("div");
             subInfo.id = "g-sub-info";
             subInfo.className = "gemini-sub-info";
-            subInfo.textContent = "Today";
+            subInfo.textContent = NativeUI.t("今天", "Today");
             const quotaWrap = document.createElement("div");
             quotaWrap.id = "g-quota-wrap";
             quotaWrap.className = "quota-bar-wrap";
@@ -3555,7 +3665,7 @@
             const actionBtn = document.createElement("button");
             actionBtn.id = "g-action-btn";
             actionBtn.className = "g-btn";
-            actionBtn.textContent = "Reset Today";
+            actionBtn.textContent = NativeUI.t("重置今天", "Reset Today");
             actionBtn.onclick = () => CounterModule.handleReset();
             actionBtn.onpointerdown = (e) => e.stopPropagation();
             mainView.appendChild(bigDisplay);
@@ -3678,13 +3788,13 @@
             });
             pane.appendChild(modelRow);
           }
-          pane.appendChild(this.createSectionTitle("Profiles"));
+          pane.appendChild(this.createSectionTitle(NativeUI.t("账号", "Profiles")));
           const users = Core.getAllUsers();
           const sortedUsers = users.sort((a, b) => a === user ? -1 : b === user ? 1 : a.localeCompare(b));
           if (sortedUsers.length === 0 && user === TEMP_USER) {
             const row = document.createElement("div");
             row.className = "detail-row";
-            row.textContent = "Waiting for login...";
+            row.textContent = NativeUI.t("等待登录...", "Waiting for login...");
             pane.appendChild(row);
           } else {
             sortedUsers.forEach((uid) => {
@@ -3703,13 +3813,13 @@
               if (uid === user) {
                 const meBadge = document.createElement("span");
                 meBadge.className = "user-indicator";
-                meBadge.textContent = "ME";
+                meBadge.textContent = NativeUI.t("我", "ME");
                 row.appendChild(meBadge);
               }
               pane.appendChild(row);
             });
           }
-          pane.appendChild(this.createSectionTitle("Themes"));
+          pane.appendChild(this.createSectionTitle(NativeUI.t("主题", "Themes")));
           const themes = Core.getThemes();
           Object.keys(themes).forEach((key) => {
             const row = document.createElement("div");
@@ -3732,7 +3842,7 @@
           const statsBtn = document.createElement("button");
           statsBtn.className = "g-btn";
           statsBtn.textContent = "";
-          setIconText(statsBtn, "chart", "Stats");
+          setIconText(statsBtn, "chart", NativeUI.t("统计", "Stats"));
           statsBtn.style.flex = "1";
           statsBtn.onclick = (e) => {
             e.stopPropagation();
@@ -3741,8 +3851,9 @@
           const settingsBtn = document.createElement("button");
           settingsBtn.className = "g-btn";
           settingsBtn.appendChild(createIcon("settings", 14));
-          settingsBtn.style.width = "32px";
-          settingsBtn.title = "Settings";
+          settingsBtn.style.width = "44px";
+          settingsBtn.style.minWidth = "44px";
+          settingsBtn.title = NativeUI.t("设置", "Settings");
           settingsBtn.onclick = (e) => {
             e.stopPropagation();
             this.openSettingsModal();
@@ -3802,35 +3913,35 @@
           const displayName = inspecting === TEMP_USER ? "Guest" : inspecting.split("@")[0];
           const accountType = cm.accountType || "free";
           const modelKey = cm.currentModel;
-          let val = 0, sub = "", btn = "Reset";
+          let val = 0, sub = "", btn = NativeUI.t("重置", "Reset");
           let disableBtn = !isMe;
           if (cm.state.viewMode === "today") {
             val = cm.getTodayMessages();
-            sub = `Today (Reset @${cm.resetHour}:00)`;
-            btn = "Reset Today";
+            sub = NativeUI.t(`今天（${cm.resetHour}:00 重置）`, `Today (Reset @${cm.resetHour}:00)`);
+            btn = NativeUI.t("重置今天", "Reset Today");
             if (!isMe) {
-              sub = `Today (${inspecting.split("@")[0]})`;
+              sub = NativeUI.t(`今天（${inspecting.split("@")[0]}）`, `Today (${inspecting.split("@")[0]})`);
             }
           } else if (cm.state.viewMode === "chat") {
             if (!isMe) {
               val = "--";
-              sub = "Different Context";
+              sub = NativeUI.t("不同上下文", "Different Context");
               disableBtn = true;
             } else {
               const cid = Core.getChatId();
               val = cid ? cm.state.chats[cid] || 0 : 0;
-              sub = cid ? `ID: ${cid.slice(0, 8)}...` : "ID: New Chat";
-              btn = "Reset Chat";
+              sub = cid ? `ID: ${cid.slice(0, 8)}...` : NativeUI.t("ID: 新对话", "ID: New Chat");
+              btn = NativeUI.t("重置对话", "Reset Chat");
             }
           } else if (cm.state.viewMode === "chatsCreated") {
             val = cm.state.totalChatsCreated;
-            sub = "Chats Created";
-            btn = "View Only";
+            sub = NativeUI.t("创建对话数", "Chats Created");
+            btn = NativeUI.t("仅查看", "View Only");
             disableBtn = true;
           } else if (cm.state.viewMode === "total") {
             val = cm.state.total;
-            sub = "Lifetime History";
-            btn = "Clear History";
+            sub = NativeUI.t("历史总计", "Lifetime History");
+            btn = NativeUI.t("清空历史", "Clear History");
           }
           const used = cm.getTodayMessages();
           const weighted = cm.getWeightedQuota();
@@ -3853,11 +3964,11 @@
               badge.className = "acct-badge-inline";
               badge.dataset.tier = accountType;
               badge.textContent = accountType === "ultra" ? "Ultra" : "Pro";
-              badge.title = "Account Tier";
+              badge.title = NativeUI.t("账户等级", "Account Tier");
               capsule.appendChild(badge);
             }
             capsule.classList.toggle("viewing-other", !isMe);
-            capsule.title = isMe ? "Active User" : "Viewing other user (Read Only)";
+            capsule.title = isMe ? NativeUI.t("活跃用户", "Active User") : NativeUI.t("查看其他用户（只读）", "Viewing other user (Read Only)");
             p.displayName = displayName;
             p.isMe = isMe;
             p.accountType = accountType;
@@ -3900,7 +4011,7 @@
           }
           if (p.btn !== btn || p.disableBtn !== disableBtn || p.resetStep !== resetStep) {
             if (disableBtn) {
-              actionBtn.textContent = "View Only";
+              actionBtn.textContent = NativeUI.t("仅查看", "View Only");
               actionBtn.className = "g-btn disabled";
               actionBtn.disabled = true;
             } else {
@@ -6849,6 +6960,14 @@
             color: #e8eaed;
             opacity: 1;
         }
+        .gc-filter-tab:focus-visible,
+        .gc-sidebar-btn:focus-visible,
+        .gc-input-btn:focus-visible,
+        .gc-header-btn:focus-visible,
+        .gc-quote-fab:focus-visible {
+            outline: 2px solid #8ab4f8;
+            outline-offset: 2px;
+        }
         .gc-filter-tab.active {
             font-weight: 500;
             opacity: 1;
@@ -7094,6 +7213,23 @@
         @keyframes gcFadeIn {
             from { opacity: 0; }
             to   { opacity: 1; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .gc-filter-bar,
+            .gc-filter-tab,
+            .gc-sidebar-toolbar,
+            .gc-sidebar-btn,
+            .gc-batch-check,
+            .gc-input-btn,
+            .gc-tweaks-dot,
+            .gc-header-btn,
+            .gc-quote-fab,
+            .gc-toast {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
         }
     `);
   }

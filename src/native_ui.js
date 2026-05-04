@@ -6,6 +6,27 @@ export const NativeUI = {
     isZH: navigator.language.startsWith('zh'),
     t(zh, en) { return this.isZH ? zh : en; },
 
+    trapFocus(container) {
+        const selector = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+        const handler = (e) => {
+            if (e.key !== 'Tab') return;
+            const focusable = Array.from(container.querySelectorAll(selector))
+                .filter(el => !el.disabled && el.tabIndex !== -1);
+            if (focusable.length === 0) return;
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (e.shiftKey && document.activeElement === first) {
+                e.preventDefault();
+                last.focus();
+            } else if (!e.shiftKey && document.activeElement === last) {
+                e.preventDefault();
+                first.focus();
+            }
+        };
+        container.addEventListener('keydown', handler);
+        return () => container.removeEventListener('keydown', handler);
+    },
+
     /**
      * Show a brief toast notification at the bottom of the screen.
      * @param {string} message
@@ -122,10 +143,12 @@ export const NativeUI = {
     showConfirm(message, onConfirm, opts = {}) {
         const overlay = document.createElement('div');
         overlay.className = 'settings-overlay';
+        let releaseFocus = null;
         const escHandler = (e) => { if (e.key === 'Escape') close(false); };
         document.addEventListener('keydown', escHandler);
         const close = (confirmed) => {
             document.removeEventListener('keydown', escHandler);
+            if (releaseFocus) releaseFocus();
             overlay.remove();
             if (confirmed) onConfirm();
         };
@@ -161,6 +184,7 @@ export const NativeUI = {
         modal.appendChild(actions);
         overlay.appendChild(modal);
         document.body.appendChild(overlay);
+        releaseFocus = this.trapFocus(modal);
         confirmBtn.focus();
     },
 

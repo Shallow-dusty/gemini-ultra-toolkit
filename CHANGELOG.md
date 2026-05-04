@@ -1,6 +1,16 @@
 # Primer++ for Gemini — Changelog
 
-> Formerly known as "Gemini Counter Pro" (v1–v8) → "Gemini Primer++" (v9–v10.17) → "Primer++ for Gemini" (v10.17+)
+> Formerly known as "Gemini Counter Pro" (v1–v8) → "Gemini Primer++" (v9–v10.17) → "Primer++ for Gemini™" (v10.17+)
+
+### v11.0 Current Release Cleanup
+
+> _2026/05/05_
+
+- **Branding and store readiness**: aligned public name to `Primer++ for Gemini™`, added unofficial/community disclaimer, and synchronized userscript metadata, extension manifest, README, and generated userscript.
+- **Security/dependency cleanup**: updated `brace-expansion` to 5.0.5 through `npm audit fix`; `npm audit --audit-level=moderate` now reports 0 vulnerabilities.
+- **Accessibility and i18n**: added modal focus traps, keyboard-operable close controls, focus-visible styles, reduced-motion guards, and localized key panel/settings/dashboard strings through `NativeUI.t()`.
+- **Docs consolidation**: replaced obsolete long-form planning/audit documents with current status, roadmap, and audit-state docs.
+- **Smoke checks**: added `tests/app_smoke.test.js` for release metadata, manifest scope, accessibility guards, and dependency-audit pin.
 
 ### 📦 v9.x Series: Native UI Integration (原生界面集成)
 

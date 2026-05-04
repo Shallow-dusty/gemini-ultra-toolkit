@@ -1,6 +1,8 @@
-# Primer++ for Gemini
+# Primer++ for Gemini™
 
-Modular assistant platform for [Google Gemini](https://gemini.google.com/) — available as both a **Tampermonkey userscript** and a **browser extension** (Chrome/Edge/Firefox).
+Unofficial modular assistant platform for [Google Gemini](https://gemini.google.com/) — available as both a **Tampermonkey userscript** and a **browser extension** (Chrome/Edge/Firefox).
+
+Primer++ is an unofficial community extension. Gemini™ is a trademark of Google LLC. This project is not affiliated with, endorsed by, or sponsored by Google.
 
 ## Features
 
@@ -52,7 +54,7 @@ npm install
 | `npm run build` | Build both userscript and extension |
 | `npm run build:userscript` | Build userscript only → `primer-pp.user.js` |
 | `npm run build:extension` | Build extension only → `dist/extension/` |
-| `npm test` | Run tests with 100% coverage enforcement |
+| `npm test` | Run tests with 100% coverage enforcement for `lib/` plus smoke checks |
 
 ### Project Structure
 
@@ -67,6 +69,8 @@ src/
 lib/                  # Pure utility modules (CommonJS, 100% test coverage)
 tests/                # Unit tests (Node.js test runner + c8)
 ```
+
+For the fuller project map, current release status, and roadmap, see [docs/README.md](docs/README.md).
 
 ### Architecture
 

@@ -8,14 +8,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 npm run build              # Build both userscript + extension
 npm run build:userscript   # Build userscript only → primer-pp.user.js
 npm run build:extension    # Build extension only → dist/extension/
-npm test                   # Run tests with 100% coverage enforcement (c8 + node --test)
+npm test                   # Run lib coverage checks plus project smoke checks
 ```
 
-Tests enforce **100% branch/function/line/statement coverage** on `lib/`. `pretest` hook auto-builds the userscript before testing. There is no watch mode or per-file test command.
+Tests enforce **100% branch/function/line/statement coverage** on `lib/`; `tests/app_smoke.test.js` covers release metadata, manifest scope, accessibility guards, and the dependency-audit pin. `pretest` auto-builds the userscript before testing. There is no watch mode or per-file test command.
 
 ## Architecture
 
-**Dual-platform project**: a single codebase produces both a Tampermonkey/Violentmonkey **userscript** and a Chrome/Edge/Firefox **browser extension** (MV3). All 8 modules + core + UI are shared; only thin platform entry points differ.
+**Dual-platform project**: a single codebase produces both a Tampermonkey/Violentmonkey **userscript** and a Chrome/Edge/Firefox **browser extension** (MV3). All 8 modules + core + UI are shared; only thin platform entry points differ. Public branding is `Primer++ for Gemini™`; keep `src/meta.txt`, `src/platforms/extension/manifest.json`, `src/constants.js`, `README.md`, and generated `primer-pp.user.js` aligned.
 
 ### Build Pipeline
 
@@ -81,6 +81,7 @@ tests/                  → Unit tests for lib/ (node:test + c8)
 
 ## Important Conventions
 
+- Current docs entry point: `docs/README.md`; current release state: `docs/PROJECT_STATUS.md`; near-term scope: `docs/ROADMAP.md`; current audit state: `docs/audits/CURRENT_AUDIT_STATUS.md`.
 - **Timezone safety**: All date operations use `formatLocalDate()` / `parseLocalDate()` / `getDayKey()` from `lib/date_utils.js`. Never use `toISOString().slice(0,10)` or `new Date("YYYY-MM-DD")` — both produce UTC dates that shift in non-UTC timezones.
 - `lib/model_config.js` is the single source for MODEL_CONFIG — a sync guard test ensures it stays in sync with `src/modules/counter.js`.
 - Four built-in themes (Glass/Cyber/Paper/Auto) defined in `src/constants.js`. Auto syncs with system color scheme.

@@ -54,6 +54,14 @@ export function injectNativeUIStyles() {
             color: #e8eaed;
             opacity: 1;
         }
+        .gc-filter-tab:focus-visible,
+        .gc-sidebar-btn:focus-visible,
+        .gc-input-btn:focus-visible,
+        .gc-header-btn:focus-visible,
+        .gc-quote-fab:focus-visible {
+            outline: 2px solid #8ab4f8;
+            outline-offset: 2px;
+        }
         .gc-filter-tab.active {
             font-weight: 500;
             opacity: 1;
@@ -299,6 +307,23 @@ export function injectNativeUIStyles() {
         @keyframes gcFadeIn {
             from { opacity: 0; }
             to   { opacity: 1; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .gc-filter-bar,
+            .gc-filter-tab,
+            .gc-sidebar-toolbar,
+            .gc-sidebar-btn,
+            .gc-batch-check,
+            .gc-input-btn,
+            .gc-tweaks-dot,
+            .gc-header-btn,
+            .gc-quote-fab,
+            .gc-toast {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
         }
     `);
 }

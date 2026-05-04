@@ -5,6 +5,7 @@ import { Core } from './core.js';
 import { ModuleRegistry } from './module_registry.js';
 import { getCurrentTheme, setCurrentTheme } from './state.js';
 import { CounterModule } from './modules/counter.js';
+import { NativeUI } from './native_ui.js';
 import {
     openSettingsModal as _openSettingsModal,
     showOnboarding as _showOnboarding,
@@ -180,6 +181,20 @@ export const PanelUI = {
                 cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); width: 100%;
             }
             .g-btn:hover { background: var(--row-hover); color: var(--text-main); }
+            .g-btn:focus-visible,
+            .settings-btn:focus-visible,
+            .settings-select:focus-visible,
+            .settings-close:focus-visible,
+            .onboarding-close:focus-visible,
+            .dash-close:focus-visible,
+            .debug-close:focus-visible,
+            .detail-row:focus-visible,
+            .onboarding-lang-btn:focus-visible,
+            .gc-native-btn:focus-visible,
+            .gc-dropdown-item:focus-visible {
+                outline: 2px solid var(--accent, #8ab4f8);
+                outline-offset: 2px;
+            }
             .g-btn:active { transform: scale(0.97); opacity: 0.85; }
             .g-btn.danger-1 { color: #f28b82; border-color: #f28b82; }
             .g-btn.danger-2 { background: #f28b82; color: #202124; font-weight: bold; }
@@ -500,6 +515,22 @@ export const PanelUI = {
                 cursor: pointer; display: flex; align-items: center; gap: 8px;
             }
             .gc-dropdown-item:hover { background: rgba(255,255,255,0.08); }
+            @media (prefers-reduced-motion: reduce) {
+                #gemini-monitor-panel-v7 *,
+                .settings-overlay *,
+                .debug-overlay *,
+                .dash-overlay *,
+                .onboarding-overlay *,
+                .settings-overlay,
+                .debug-overlay,
+                .dash-overlay,
+                .onboarding-overlay {
+                    animation-duration: 0.01ms !important;
+                    animation-iteration-count: 1 !important;
+                    transition-duration: 0.01ms !important;
+                    scroll-behavior: auto !important;
+                }
+            }
         `);
     },
 
@@ -551,7 +582,7 @@ export const PanelUI = {
             const subInfo = document.createElement('div');
             subInfo.id = 'g-sub-info';
             subInfo.className = 'gemini-sub-info';
-            subInfo.textContent = 'Today';
+            subInfo.textContent = NativeUI.t('今天', 'Today');
 
             const quotaWrap = document.createElement('div');
             quotaWrap.id = 'g-quota-wrap';
@@ -568,7 +599,7 @@ export const PanelUI = {
             const actionBtn = document.createElement('button');
             actionBtn.id = 'g-action-btn';
             actionBtn.className = 'g-btn';
-            actionBtn.textContent = 'Reset Today';
+            actionBtn.textContent = NativeUI.t('重置今天', 'Reset Today');
             actionBtn.onclick = () => CounterModule.handleReset();
             actionBtn.onpointerdown = (e) => e.stopPropagation();
 
@@ -720,14 +751,14 @@ export const PanelUI = {
         }
 
         // Profiles
-        pane.appendChild(this.createSectionTitle('Profiles'));
+        pane.appendChild(this.createSectionTitle(NativeUI.t('账号', 'Profiles')));
         const users = Core.getAllUsers();
         const sortedUsers = users.sort((a, b) => (a === user ? -1 : b === user ? 1 : a.localeCompare(b)));
 
         if (sortedUsers.length === 0 && user === TEMP_USER) {
             const row = document.createElement('div');
             row.className = 'detail-row';
-            row.textContent = 'Waiting for login...';
+            row.textContent = NativeUI.t('等待登录...', 'Waiting for login...');
             pane.appendChild(row);
         } else {
             sortedUsers.forEach(uid => {
@@ -746,7 +777,7 @@ export const PanelUI = {
                 if (uid === user) {
                     const meBadge = document.createElement('span');
                     meBadge.className = 'user-indicator';
-                    meBadge.textContent = 'ME';
+                    meBadge.textContent = NativeUI.t('我', 'ME');
                     row.appendChild(meBadge);
                 }
                 pane.appendChild(row);
@@ -754,7 +785,7 @@ export const PanelUI = {
         }
 
         // Themes
-        pane.appendChild(this.createSectionTitle('Themes'));
+        pane.appendChild(this.createSectionTitle(NativeUI.t('主题', 'Themes')));
         const themes = Core.getThemes();
         Object.keys(themes).forEach(key => {
             const row = document.createElement('div');
@@ -780,15 +811,16 @@ export const PanelUI = {
         const statsBtn = document.createElement('button');
         statsBtn.className = 'g-btn';
         statsBtn.textContent = '';
-        setIconText(statsBtn, 'chart', 'Stats');
+        setIconText(statsBtn, 'chart', NativeUI.t('统计', 'Stats'));
         statsBtn.style.flex = '1';
         statsBtn.onclick = (e) => { e.stopPropagation(); this.openDashboard(); };
 
         const settingsBtn = document.createElement('button');
         settingsBtn.className = 'g-btn';
         settingsBtn.appendChild(createIcon('settings', 14));
-        settingsBtn.style.width = '32px';
-        settingsBtn.title = "Settings";
+        settingsBtn.style.width = '44px';
+        settingsBtn.style.minWidth = '44px';
+        settingsBtn.title = NativeUI.t('设置', 'Settings');
         settingsBtn.onclick = (e) => { e.stopPropagation(); this.openSettingsModal(); };
 
         actionsRow.appendChild(statsBtn);
@@ -856,32 +888,32 @@ export const PanelUI = {
         const accountType = cm.accountType || 'free';
         const modelKey = cm.currentModel;
 
-        let val = 0, sub = "", btn = "Reset";
+        let val = 0, sub = "", btn = NativeUI.t('重置', 'Reset');
         let disableBtn = !isMe;
 
         if (cm.state.viewMode === 'today') {
             val = cm.getTodayMessages();
-            sub = `Today (Reset @${cm.resetHour}:00)`;
-            btn = "Reset Today";
-            if (!isMe) { sub = `Today (${inspecting.split('@')[0]})`; }
+            sub = NativeUI.t(`今天（${cm.resetHour}:00 重置）`, `Today (Reset @${cm.resetHour}:00)`);
+            btn = NativeUI.t('重置今天', 'Reset Today');
+            if (!isMe) { sub = NativeUI.t(`今天（${inspecting.split('@')[0]}）`, `Today (${inspecting.split('@')[0]})`); }
         } else if (cm.state.viewMode === 'chat') {
             if (!isMe) {
-                val = "--"; sub = "Different Context"; disableBtn = true;
+                val = "--"; sub = NativeUI.t('不同上下文', 'Different Context'); disableBtn = true;
             } else {
                 const cid = Core.getChatId();
                 val = cid ? (cm.state.chats[cid] || 0) : 0;
-                sub = cid ? `ID: ${cid.slice(0, 8)}...` : 'ID: New Chat';
-                btn = "Reset Chat";
+                sub = cid ? `ID: ${cid.slice(0, 8)}...` : NativeUI.t('ID: 新对话', 'ID: New Chat');
+                btn = NativeUI.t('重置对话', 'Reset Chat');
             }
         } else if (cm.state.viewMode === 'chatsCreated') {
             val = cm.state.totalChatsCreated;
-            sub = "Chats Created";
-            btn = "View Only";
+            sub = NativeUI.t('创建对话数', 'Chats Created');
+            btn = NativeUI.t('仅查看', 'View Only');
             disableBtn = true;
         } else if (cm.state.viewMode === 'total') {
             val = cm.state.total;
-            sub = "Lifetime History";
-            btn = "Clear History";
+            sub = NativeUI.t('历史总计', 'Lifetime History');
+            btn = NativeUI.t('清空历史', 'Clear History');
         }
 
         const used = cm.getTodayMessages();
@@ -910,12 +942,14 @@ export const PanelUI = {
                 badge.className = 'acct-badge-inline';
                 badge.dataset.tier = accountType;
                 badge.textContent = accountType === 'ultra' ? 'Ultra' : 'Pro';
-                badge.title = 'Account Tier';
+                badge.title = NativeUI.t('账户等级', 'Account Tier');
                 capsule.appendChild(badge);
             }
 
             capsule.classList.toggle('viewing-other', !isMe);
-            capsule.title = isMe ? "Active User" : "Viewing other user (Read Only)";
+            capsule.title = isMe
+                ? NativeUI.t('活跃用户', 'Active User')
+                : NativeUI.t('查看其他用户（只读）', 'Viewing other user (Read Only)');
             p.displayName = displayName;
             p.isMe = isMe;
             p.accountType = accountType;
@@ -969,7 +1003,7 @@ export const PanelUI = {
         // Action button
         if (p.btn !== btn || p.disableBtn !== disableBtn || p.resetStep !== resetStep) {
             if (disableBtn) {
-                actionBtn.textContent = "View Only";
+                actionBtn.textContent = NativeUI.t('仅查看', 'View Only');
                 actionBtn.className = 'g-btn disabled';
                 actionBtn.disabled = true;
             } else {

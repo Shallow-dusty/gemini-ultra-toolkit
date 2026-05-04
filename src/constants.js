@@ -121,6 +121,8 @@ export const QUOTA_COLORS = { safe: '#34a853', warn: '#fbbc04', danger: '#ea4335
 
 // --- Panel config ---
 export const VERSION = '11.0';
+export const APP_NAME = 'Primer++ for Gemini\u2122';
+export const TRADEMARK_NOTICE = 'Primer++ is an unofficial community extension. Gemini\u2122 is a trademark of Google LLC.';
 export const PANEL_ID = 'gemini-monitor-panel-v7';
 export const DEFAULT_POS = { top: '20px', left: 'auto', bottom: 'auto', right: '220px' };
 export const TEMP_USER = "Guest";

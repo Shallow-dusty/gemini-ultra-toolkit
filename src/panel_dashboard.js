@@ -8,6 +8,7 @@ import { Core } from './core.js';
 import { getCurrentTheme } from './state.js';
 import { CounterModule } from './modules/counter.js';
 import { formatLocalDate } from '../lib/date_utils.js';
+import { NativeUI } from './native_ui.js';
 
 export function openDashboard() {
     const exist = document.getElementById('gemini-dashboard-overlay');
@@ -17,8 +18,10 @@ export function openDashboard() {
     const overlay = document.createElement('div');
     overlay.id = 'gemini-dashboard-overlay';
     overlay.className = 'dash-overlay';
+    let releaseFocus = null;
     const closeDash = () => {
         document.removeEventListener('keydown', escHandler);
+        if (releaseFocus) releaseFocus();
         const tip = document.getElementById('g-heatmap-tooltip');
         if (tip) tip.remove();
         overlay.remove();
@@ -39,7 +42,7 @@ export function openDashboard() {
     titleDiv.className = 'dash-title';
     titleDiv.textContent = '';
     titleDiv.appendChild(createIcon('chart', 20));
-    titleDiv.appendChild(document.createTextNode(' Analytics '));
+    titleDiv.appendChild(document.createTextNode(' ' + NativeUI.t('统计', 'Analytics') + ' '));
     const userSpan = document.createElement('span');
     userSpan.style.fontSize = '12px';
     userSpan.style.opacity = '0.5';
@@ -49,8 +52,12 @@ export function openDashboard() {
 
     const close = document.createElement('div');
     close.className = 'dash-close';
+    close.tabIndex = 0;
+    close.setAttribute('role', 'button');
+    close.setAttribute('aria-label', NativeUI.t('关闭统计面板', 'Close analytics'));
     close.appendChild(createIcon('x', 22));
     close.onclick = () => closeDash();
+    close.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') closeDash(); };
 
     header.appendChild(titleDiv);
     header.appendChild(close);
@@ -66,10 +73,10 @@ export function openDashboard() {
     grid.className = 'metric-grid';
 
     const metrics = [
-        { label: 'Total Messages', val: cm.state.total.toLocaleString() },
-        { label: 'Chats Created', val: cm.state.totalChatsCreated.toLocaleString() },
-        { label: 'Current Streak', val: streaks.current + ' Days' },
-        { label: 'Best Streak', val: streaks.best + ' Days' },
+        { label: NativeUI.t('总消息数', 'Total Messages'), val: cm.state.total.toLocaleString() },
+        { label: NativeUI.t('创建对话数', 'Chats Created'), val: cm.state.totalChatsCreated.toLocaleString() },
+        { label: NativeUI.t('当前连续天数', 'Current Streak'), val: streaks.current + ' ' + NativeUI.t('天', 'Days') },
+        { label: NativeUI.t('最长连续天数', 'Best Streak'), val: streaks.best + ' ' + NativeUI.t('天', 'Days') },
     ];
 
     metrics.forEach(m => {
@@ -94,17 +101,17 @@ export function openDashboard() {
     const hmHeader = document.createElement('div');
     hmHeader.className = 'heatmap-title';
     const titleSpan = document.createElement('span');
-    titleSpan.textContent = 'Activity (Last 365 Days)';
+    titleSpan.textContent = NativeUI.t('活动记录（最近 365 天）', 'Activity (Last 365 Days)');
 
     const legend = document.createElement('div');
     legend.className = 'heatmap-legend';
-    legend.appendChild(document.createTextNode('Less '));
+    legend.appendChild(document.createTextNode(NativeUI.t('少 ', 'Less ')));
     ['l-0', 'l-1', 'l-3', 'l-4'].forEach(cls => {
         const item = document.createElement('div');
         item.className = `legend-item ${cls}`;
         legend.appendChild(item);
     });
-    legend.appendChild(document.createTextNode(' More'));
+    legend.appendChild(document.createTextNode(NativeUI.t(' 多', ' More')));
 
     hmHeader.appendChild(titleSpan);
     hmHeader.appendChild(legend);
@@ -119,7 +126,7 @@ export function openDashboard() {
     ['', 'Mon', '', 'Wed', '', 'Fri', ''].forEach(d => {
         const label = document.createElement('div');
         label.className = 'week-label';
-        label.textContent = d;
+        label.textContent = NativeUI.t({ Mon: '一', Wed: '三', Fri: '五' }[d] || '', d);
         weekCol.appendChild(label);
     });
     hmWrapper.appendChild(weekCol);
@@ -241,7 +248,7 @@ export function openDashboard() {
         const modelTitle = document.createElement('div');
         modelTitle.className = 'heatmap-title';
         const modelTitleSpan = document.createElement('span');
-        modelTitleSpan.textContent = 'Model Usage Distribution';
+        modelTitleSpan.textContent = NativeUI.t('模型使用分布', 'Model Usage Distribution');
         modelTitle.appendChild(modelTitleSpan);
         modelContainer.appendChild(modelTitle);
 
@@ -282,7 +289,7 @@ export function openDashboard() {
         const wStr = weightedTotal % 1 === 0 ? String(weightedTotal) : weightedTotal.toFixed(1);
         const weightedRow = document.createElement('div');
         weightedRow.style.cssText = 'font-size: 11px; color: var(--text-sub); margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--divider, rgba(255,255,255,0.05));';
-        weightedRow.textContent = `Total Weighted: ${wStr} | Raw Messages: ${modelTotal}`;
+        weightedRow.textContent = NativeUI.t(`加权总量: ${wStr} | 原始消息: ${modelTotal}`, `Total Weighted: ${wStr} | Raw Messages: ${modelTotal}`);
         modelContainer.appendChild(weightedRow);
 
         content.appendChild(modelContainer);
@@ -291,6 +298,8 @@ export function openDashboard() {
     modal.appendChild(content);
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
+    releaseFocus = NativeUI.trapFocus(modal);
+    close.focus();
 
     setTimeout(() => { hmContainer.scrollLeft = hmContainer.scrollWidth; }, 0);
 }
