@@ -47,6 +47,8 @@ export const DefaultModelModule = {
 
         const modelBtn = NativeUI.getModelSwitch();
         if (!modelBtn) return;
+        const parent = modelBtn.parentElement;
+        if (!parent) return;
 
         const lock = document.createElement('span');
         lock.id = LOCK_ID;
@@ -54,7 +56,7 @@ export const DefaultModelModule = {
         lock.appendChild(createIcon('lock', 9));
         const modelLabel = this._preferredModel === 'flash' ? 'Fast' : this._preferredModel === 'thinking' ? 'Thinking' : 'Pro';
         lock.title = NativeUI.t('\u5DF2\u9501\u5B9A: ' + modelLabel, 'Locked: ' + modelLabel);
-        modelBtn.parentElement.appendChild(lock);
+        parent.appendChild(lock);
     },
 
     removeNativeUI() {
@@ -178,7 +180,7 @@ export const DefaultModelModule = {
         const row = document.createElement('div');
         row.className = 'settings-row';
         const label = document.createElement('span');
-        label.textContent = '\uD83E\uDD16 \u9996\u9009\u6A21\u578B';
+        label.textContent = NativeUI.t('\uD83E\uDD16 \u9996\u9009\u6A21\u578B', '\uD83E\uDD16 Preferred Model');
         const select = document.createElement('select');
         select.style.cssText = 'background:var(--input-bg,rgba(255,255,255,0.1));color:var(--text-main);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:13px;';
         const models = [

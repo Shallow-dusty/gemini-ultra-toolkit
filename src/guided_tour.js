@@ -33,14 +33,17 @@ export const GuidedTour = {
         this._onComplete = onComplete || null;
         this._current = 0;
 
-        // Overlay (spotlight hole via box-shadow)
+        // Overlay (spotlight hole via box-shadow). The class enables the
+        // prefers-reduced-motion override added in native_ui_styles.
         const ov = document.createElement('div');
+        ov.className = 'gc-tour-overlay';
         ov.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;z-index:2147483646;pointer-events:none;border-radius:8px;transition:top .3s,left .3s,width .3s,height .3s,box-shadow .3s;';
         document.body.appendChild(ov);
         this._overlay = ov;
 
         // Tooltip
         const tt = document.createElement('div');
+        tt.className = 'gc-tour-tooltip';
         tt.style.cssText = 'position:fixed;z-index:2147483647;background:#1a1a2e;color:#e0e0e0;border:1px solid rgba(138,180,248,0.3);border-radius:10px;padding:14px 16px;max-width:280px;font-size:13px;line-height:1.5;box-shadow:0 8px 32px rgba(0,0,0,0.4);';
         document.body.appendChild(tt);
         this._tooltip = tt;

@@ -24,7 +24,7 @@
   },
   "browser_specific_settings": {
     "gecko": {
-      "id": "primer-pp@example.com",
+      "id": "primer-pp@gemini.userscripts.local",
       "strict_min_version": "109.0"
     }
   }

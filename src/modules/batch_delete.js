@@ -32,6 +32,11 @@ export const BatchDeleteModule = {
     onUserChange() {
         this._selected.clear();
         this._batchMode = false;
+        // The already-injected toolbar still reflects the prior session's
+        // batch state ("N selected" / active toolbar) until forced to rebuild.
+        this.removeNativeUI();
+        NativeUI.markDirty(this.id);
+        NativeUI.tick();
     },
 
     // --- Native UI: Sidebar batch toolbar ---
@@ -296,7 +301,7 @@ export const BatchDeleteModule = {
         if (chats.length === 0) {
             const empty = document.createElement('div');
             empty.style.cssText = 'font-size:12px;color:var(--text-sub);text-align:center;padding:12px;';
-            empty.textContent = '\u4FA7\u680F\u4E2D\u672A\u53D1\u73B0\u5BF9\u8BDD\u9879';
+            empty.textContent = NativeUI.t('\u4FA7\u680F\u4E2D\u672A\u53D1\u73B0\u5BF9\u8BDD\u9879', 'No conversations found in sidebar');
             section.appendChild(empty);
         } else {
             const list = document.createElement('div');

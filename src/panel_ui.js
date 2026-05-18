@@ -537,6 +537,17 @@ export const PanelUI = {
     // --- 面板创建 ---
     create() {
         try {
+            const existing = document.getElementById(PANEL_ID);
+            if (existing) {
+                if (this._isPanelComplete(existing)) {
+                    this.update();
+                    return;
+                }
+                existing.remove();
+            }
+            this._prev = {};
+            this._prevTabIds = null;
+
             const container = document.createElement('div');
             container.id = PANEL_ID;
             container.className = 'notranslate';
@@ -621,12 +632,26 @@ export const PanelUI = {
             document.body.appendChild(container);
 
             this.makeDraggable(container, header);
-            this.renderDetailsPane();
+            if (CounterModule.state.isExpanded) {
+                details.classList.add('expanded');
+                this.renderDetailsPane();
+            }
             this.update();
 
         } catch (e) {
             console.error("Panel init error", e);
         }
+    },
+
+    _isPanelComplete(container) {
+        return !!(
+            container &&
+            container.querySelector('#g-user-capsule') &&
+            container.querySelector('#g-big-display') &&
+            container.querySelector('#g-model-badge') &&
+            container.querySelector('#g-action-btn') &&
+            container.querySelector('#g-details-pane')
+        );
     },
 
     // --- 详情面板渲染 (optimized: separate tab bar from content) ---
@@ -635,6 +660,7 @@ export const PanelUI = {
     renderDetailsPane() {
         const pane = document.getElementById('g-details-pane');
         if (!pane) return;
+        if (!CounterModule.state.isExpanded && !pane.classList.contains('expanded')) return;
 
         // Collect available tabs
         const tabs = [{ id: 'stats', iconName: 'chart' }];
@@ -699,14 +725,22 @@ export const PanelUI = {
             });
         }
 
-        // Render active tab content
-        if (this._activeTab === 'stats') {
-            this._renderStatsTab(content);
-        } else {
-            const mod = ModuleRegistry.modules[this._activeTab];
-            if (mod && typeof mod.renderToDetailsPane === 'function') {
-                mod.renderToDetailsPane(content);
+        try {
+            // Render active tab content
+            if (this._activeTab === 'stats') {
+                this._renderStatsTab(content);
+            } else {
+                const mod = ModuleRegistry.modules[this._activeTab];
+                if (mod && typeof mod.renderToDetailsPane === 'function') {
+                    mod.renderToDetailsPane(content);
+                }
             }
+        } catch (e) {
+            console.error('Details pane render error', e);
+            const fallback = document.createElement('div');
+            fallback.className = 'detail-row';
+            fallback.textContent = NativeUI.t('详情暂时无法渲染', 'Details unavailable');
+            content.appendChild(fallback);
         }
     },
 
@@ -878,7 +912,7 @@ export const PanelUI = {
         const modelBadge = document.getElementById('g-model-badge');
         const quotaFill = document.getElementById('g-quota-fill');
         const quotaLabel = document.getElementById('g-quota-label');
-        if (!bigDisplay) return;
+        if (!bigDisplay || !subInfo || !actionBtn || !capsule || !modelBadge) return;
 
         const p = this._prev;
 

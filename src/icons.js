@@ -130,14 +130,18 @@ export function createIcon(name, size = 16) {
   if (!paths) return document.createTextNode(name);
 
   const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("class", "gc-icon");
   svg.setAttribute("viewBox", "0 0 24 24");
   svg.setAttribute("width", String(size));
   svg.setAttribute("height", String(size));
   svg.setAttribute("fill", "none");
   svg.setAttribute("stroke", "currentColor");
-  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-width", "2.25");
   svg.setAttribute("stroke-linecap", "round");
   svg.setAttribute("stroke-linejoin", "round");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("focusable", "false");
+  svg.setAttribute("shape-rendering", "geometricPrecision");
   svg.style.verticalAlign = "middle";
   svg.style.flexShrink = "0";
 

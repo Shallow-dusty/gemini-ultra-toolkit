@@ -108,9 +108,14 @@ export const FoldersModule = {
 
     onUserChange(user) {
         this.loadData();
-        this.markSidebarChats();
         this._activeFilter = null;
+        // removeNativeUI() wipes the filter bar; without a follow-up re-inject
+        // the bar stays gone until Gemini next mutates the sidebar, which
+        // typically does not happen on profile switch (same DOM node persists).
         this.removeNativeUI();
+        this.markSidebarChats();
+        NativeUI.markDirty(this.id);
+        NativeUI.tick();
         // \u5237\u65B0\u8BE6\u60C5\u9762\u677F
         if (CounterModule.state.isExpanded) {
             PanelUI.renderDetailsPane();
@@ -1367,7 +1372,7 @@ export const FoldersModule = {
 
         const cancelBtn = document.createElement('button');
         cancelBtn.className = 'gf-modal-btn secondary';
-        cancelBtn.textContent = 'Cancel';
+        cancelBtn.textContent = NativeUI.t('取消', 'Cancel');
         cancelBtn.onclick = () => closeOverlay();
 
         const saveBtn = document.createElement('button');

@@ -88,7 +88,7 @@ export const PromptVaultModule = {
             const empty = document.createElement('div');
             empty.className = 'gc-dropdown-item';
             empty.style.cssText = 'color:#9aa0a6;font-size:12px;';
-            empty.textContent = '\u8FD8\u6CA1\u6709\u4FDD\u5B58\u7684\u63D0\u793A\u8BCD';
+            empty.textContent = NativeUI.t('\u8FD8\u6CA1\u6709\u4FDD\u5B58\u7684\u63D0\u793A\u8BCD', 'No saved prompts yet');
             menu.appendChild(empty);
         } else {
             // Sort by usage frequency (most used first), then group by category

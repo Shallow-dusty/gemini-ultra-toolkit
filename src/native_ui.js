@@ -1,6 +1,7 @@
 import { ModuleRegistry } from './module_registry.js';
 import { Core } from './core.js';
 import { getCurrentTheme } from './state.js';
+import { Logger } from './logger.js';
 
 export const NativeUI = {
     isZH: navigator.language.startsWith('zh'),
@@ -214,6 +215,7 @@ export const NativeUI = {
                     const count = (this._retryCount[id] || 0) + 1;
                     this._retryCount[id] = count;
                     if (count >= 5) {
+                        Logger.warn('Native UI injection failed after retries', { id, error: String(e) });
                         this._dirtyModules.delete(id);
                         delete this._retryCount[id];
                     } else {
