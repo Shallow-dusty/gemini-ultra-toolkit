@@ -563,6 +563,7 @@
       init_module_registry();
       init_core();
       init_state();
+      init_logger();
       NativeUI = {
         isZH: navigator.language.startsWith("zh"),
         t(zh, en) {
@@ -757,6 +758,7 @@
                 const count = (this._retryCount[id] || 0) + 1;
                 this._retryCount[id] = count;
                 if (count >= 5) {
+                  Logger.warn("Native UI injection failed after retries", { id, error: String(e) });
                   this._dirtyModules.delete(id);
                   delete this._retryCount[id];
                 } else {
@@ -813,14 +815,18 @@
     const paths = PATHS[name];
     if (!paths) return document.createTextNode(name);
     const svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("class", "gc-icon");
     svg.setAttribute("viewBox", "0 0 24 24");
     svg.setAttribute("width", String(size));
     svg.setAttribute("height", String(size));
     svg.setAttribute("fill", "none");
     svg.setAttribute("stroke", "currentColor");
-    svg.setAttribute("stroke-width", "2");
+    svg.setAttribute("stroke-width", "2.25");
     svg.setAttribute("stroke-linecap", "round");
     svg.setAttribute("stroke-linejoin", "round");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+    svg.setAttribute("shape-rendering", "geometricPrecision");
     svg.style.verticalAlign = "middle";
     svg.style.flexShrink = "0";
     for (const d of paths) {
@@ -1221,6 +1227,7 @@
               dailyCounts: this.state.dailyCounts
             });
           } catch (e) {
+            Logger.warn("Failed to persist counter data", { user: user.split("@")[0], error: String(e) });
           }
         },
         /** Debounced save — coalesces multiple rapid state changes into one GM_setValue */
@@ -1261,6 +1268,11 @@
         attemptIncrement() {
           const now = Date.now();
           if (now - this.lastCountTime < this.COOLDOWN) return;
+          const currentUser2 = Core.getCurrentUser();
+          if (Core.getInspectingUser() !== currentUser2) {
+            Core.setInspectingUser(currentUser2);
+            this.loadDataForUser(currentUser2);
+          }
           const today = this.ensureTodayEntry();
           this.state.total++;
           this.state.dailyCounts[today].messages++;
@@ -1430,10 +1442,12 @@
           this._onComplete = onComplete || null;
           this._current = 0;
           const ov = document.createElement("div");
+          ov.className = "gc-tour-overlay";
           ov.style.cssText = "position:fixed;top:0;left:0;width:0;height:0;z-index:2147483646;pointer-events:none;border-radius:8px;transition:top .3s,left .3s,width .3s,height .3s,box-shadow .3s;";
           document.body.appendChild(ov);
           this._overlay = ov;
           const tt = document.createElement("div");
+          tt.className = "gc-tour-tooltip";
           tt.style.cssText = "position:fixed;z-index:2147483647;background:#1a1a2e;color:#e0e0e0;border:1px solid rgba(138,180,248,0.3);border-radius:10px;padding:14px 16px;max-width:280px;font-size:13px;line-height:1.5;box-shadow:0 8px 32px rgba(0,0,0,0.4);";
           document.body.appendChild(tt);
           this._tooltip = tt;
@@ -3612,6 +3626,16 @@
         // --- 面板创建 ---
         create() {
           try {
+            const existing = document.getElementById(PANEL_ID);
+            if (existing) {
+              if (this._isPanelComplete(existing)) {
+                this.update();
+                return;
+              }
+              existing.remove();
+            }
+            this._prev = {};
+            this._prevTabIds = null;
             const container = document.createElement("div");
             container.id = PANEL_ID;
             container.className = "notranslate";
@@ -3682,17 +3706,24 @@
             container.appendChild(details);
             document.body.appendChild(container);
             this.makeDraggable(container, header);
-            this.renderDetailsPane();
+            if (CounterModule.state.isExpanded) {
+              details.classList.add("expanded");
+              this.renderDetailsPane();
+            }
             this.update();
           } catch (e) {
             console.error("Panel init error", e);
           }
+        },
+        _isPanelComplete(container) {
+          return !!(container && container.querySelector("#g-user-capsule") && container.querySelector("#g-big-display") && container.querySelector("#g-model-badge") && container.querySelector("#g-action-btn") && container.querySelector("#g-details-pane"));
         },
         // --- 详情面板渲染 (optimized: separate tab bar from content) ---
         _prevTabIds: null,
         renderDetailsPane() {
           const pane = document.getElementById("g-details-pane");
           if (!pane) return;
+          if (!CounterModule.state.isExpanded && !pane.classList.contains("expanded")) return;
           const tabs = [{ id: "stats", iconName: "chart" }];
           Object.keys(ModuleRegistry.modules).forEach((id) => {
             const mod = ModuleRegistry.modules[id];
@@ -3744,13 +3775,21 @@
               tab.classList.toggle("active", tab.dataset.tabId === this._activeTab);
             });
           }
-          if (this._activeTab === "stats") {
-            this._renderStatsTab(content);
-          } else {
-            const mod = ModuleRegistry.modules[this._activeTab];
-            if (mod && typeof mod.renderToDetailsPane === "function") {
-              mod.renderToDetailsPane(content);
+          try {
+            if (this._activeTab === "stats") {
+              this._renderStatsTab(content);
+            } else {
+              const mod = ModuleRegistry.modules[this._activeTab];
+              if (mod && typeof mod.renderToDetailsPane === "function") {
+                mod.renderToDetailsPane(content);
+              }
             }
+          } catch (e) {
+            console.error("Details pane render error", e);
+            const fallback = document.createElement("div");
+            fallback.className = "detail-row";
+            fallback.textContent = NativeUI.t("详情暂时无法渲染", "Details unavailable");
+            content.appendChild(fallback);
           }
         },
         // --- Stats tab content (original Statistics + Profiles + Themes + Actions) ---
@@ -3907,7 +3946,7 @@
           const modelBadge = document.getElementById("g-model-badge");
           const quotaFill = document.getElementById("g-quota-fill");
           const quotaLabel = document.getElementById("g-quota-label");
-          if (!bigDisplay) return;
+          if (!bigDisplay || !subInfo || !actionBtn || !capsule || !modelBadge) return;
           const p = this._prev;
           const isMe = inspecting === user;
           const displayName = inspecting === TEMP_USER ? "Guest" : inspecting.split("@")[0];
@@ -4386,9 +4425,11 @@
         },
         onUserChange(user) {
           this.loadData();
-          this.markSidebarChats();
           this._activeFilter = null;
           this.removeNativeUI();
+          this.markSidebarChats();
+          NativeUI.markDirty(this.id);
+          NativeUI.tick();
           if (CounterModule.state.isExpanded) {
             PanelUI.renderDetailsPane();
           }
@@ -5513,7 +5554,7 @@
           }
           const cancelBtn = document.createElement("button");
           cancelBtn.className = "gf-modal-btn secondary";
-          cancelBtn.textContent = "Cancel";
+          cancelBtn.textContent = NativeUI.t("取消", "Cancel");
           cancelBtn.onclick = () => closeOverlay();
           const saveBtn = document.createElement("button");
           saveBtn.className = "gf-modal-btn primary";
@@ -5638,7 +5679,7 @@
             const empty = document.createElement("div");
             empty.className = "gc-dropdown-item";
             empty.style.cssText = "color:#9aa0a6;font-size:12px;";
-            empty.textContent = "还没有保存的提示词";
+            empty.textContent = NativeUI.t("还没有保存的提示词", "No saved prompts yet");
             menu.appendChild(empty);
           } else {
             const sorted = [...this._prompts].sort((a, b) => (b.usedCount || 0) - (a.usedCount || 0));
@@ -6049,13 +6090,15 @@
           if (document.getElementById(LOCK_ID)) return;
           const modelBtn = NativeUI.getModelSwitch();
           if (!modelBtn) return;
+          const parent = modelBtn.parentElement;
+          if (!parent) return;
           const lock = document.createElement("span");
           lock.id = LOCK_ID;
           lock.className = "gc-model-lock";
           lock.appendChild(createIcon("lock", 9));
           const modelLabel = this._preferredModel === "flash" ? "Fast" : this._preferredModel === "thinking" ? "Thinking" : "Pro";
           lock.title = NativeUI.t("已锁定: " + modelLabel, "Locked: " + modelLabel);
-          modelBtn.parentElement.appendChild(lock);
+          parent.appendChild(lock);
         },
         removeNativeUI() {
           NativeUI.remove("gc-model-lock");
@@ -6174,7 +6217,7 @@
           const row = document.createElement("div");
           row.className = "settings-row";
           const label = document.createElement("span");
-          label.textContent = "🤖 首选模型";
+          label.textContent = NativeUI.t("🤖 首选模型", "🤖 Preferred Model");
           const select = document.createElement("select");
           select.style.cssText = "background:var(--input-bg,rgba(255,255,255,0.1));color:var(--text-main);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:13px;";
           const models = [
@@ -6233,6 +6276,9 @@
         onUserChange() {
           this._selected.clear();
           this._batchMode = false;
+          this.removeNativeUI();
+          NativeUI.markDirty(this.id);
+          NativeUI.tick();
         },
         // --- Native UI: Sidebar batch toolbar ---
         injectNativeUI() {
@@ -6455,7 +6501,7 @@
           if (chats.length === 0) {
             const empty = document.createElement("div");
             empty.style.cssText = "font-size:12px;color:var(--text-sub);text-align:center;padding:12px;";
-            empty.textContent = "侧栏中未发现对话项";
+            empty.textContent = NativeUI.t("侧栏中未发现对话项", "No conversations found in sidebar");
             section.appendChild(empty);
           } else {
             const list = document.createElement("div");
@@ -7224,7 +7270,9 @@
             .gc-tweaks-dot,
             .gc-header-btn,
             .gc-quote-fab,
-            .gc-toast {
+            .gc-toast,
+            .gc-tour-overlay,
+            .gc-tour-tooltip {
                 animation-duration: 0.01ms !important;
                 animation-iteration-count: 1 !important;
                 transition-duration: 0.01ms !important;
@@ -7291,7 +7339,8 @@
             if (getInspectingUser() === TEMP_USER || getInspectingUser() === getCurrentUser()) {
               setInspectingUser(getCurrentUser());
             }
-            if (guestState && (guestState.total > 0 || Object.keys(guestState.chats).length > 0)) {
+            ModuleRegistry.notifyUserChange(getInspectingUser());
+            if (guestState && (guestState.total > 0 || Object.keys(guestState.chats || {}).length > 0)) {
               const cm = CounterModule;
               cm.state.total += typeof guestState.total === "number" ? guestState.total : 0;
               cm.state.totalChatsCreated += typeof guestState.totalChatsCreated === "number" ? guestState.totalChatsCreated : 0;
@@ -7317,8 +7366,8 @@
               }
               Logger.info(`Merged ${guestState.total} messages from Guest session to ${getCurrentUser()}`);
               cm.saveData();
+              if (document.getElementById(PANEL_ID)) PanelUI.update();
             }
-            ModuleRegistry.notifyUserChange(getInspectingUser());
           }
           if (ModuleRegistry.isEnabled("counter")) {
             const cm = CounterModule;
@@ -7355,13 +7404,13 @@
         NativeUI.tick();
       }
       function onPanelRemoved() {
-        if (ModuleRegistry.isEnabled("counter") && !document.getElementById(PANEL_ID)) {
+        if (ModuleRegistry.isEnabled("counter")) {
           PanelUI.create();
         }
       }
       function onDOMStructureChange() {
         Core.invalidateSidebarCache();
-        if (ModuleRegistry.isEnabled("counter") && !document.getElementById(PANEL_ID)) {
+        if (ModuleRegistry.isEnabled("counter")) {
           PanelUI.create();
         }
         NativeUI.markAllDirty();
@@ -7445,7 +7494,7 @@
             if (timeout) clearTimeout(timeout);
           };
           check = setInterval(() => {
-            if (!document.querySelector(".gc-onboarding-overlay")) {
+            if (!document.querySelector("#gemini-onboarding-modal, .onboarding-overlay")) {
               cleanup();
               setTimeout(showNext, 500);
             }
@@ -7454,10 +7503,12 @@
         }
         setTimeout(showNext, 500);
       }
-      if (!GuidedTour.hasSeen()) {
-        setTimeout(() => GuidedTour.start(startOnboardingQueue), 2500);
-      } else {
-        startOnboardingQueue();
+      function startProgressiveDisclosure() {
+        if (!GuidedTour.hasSeen()) {
+          setTimeout(() => GuidedTour.start(startOnboardingQueue), 800);
+        } else {
+          startOnboardingQueue();
+        }
       }
       function waitForGeminiReady(cb, maxWait = 1e4) {
         const start = Date.now();
@@ -7469,7 +7520,10 @@
         })();
       }
       lazyDetect();
-      waitForGeminiReady(() => onDOMStructureChange());
+      waitForGeminiReady(() => {
+        onDOMStructureChange();
+        startProgressiveDisclosure();
+      });
       var pollTimer = setInterval(lazyDetect, TIMINGS.SLOW_POLL);
       document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "visible") {
