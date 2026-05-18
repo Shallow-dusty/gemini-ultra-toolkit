@@ -44,6 +44,63 @@ describe('app smoke checks', () => {
         assert.match(panelDashboard, /NativeUI\.trapFocus\(modal\)/);
     });
 
+    it('merges Guest data only after the new user storage has loaded', () => {
+        const main = read('src/main.js');
+
+        // The fix requires notifyUserChange() to run BEFORE the merge block,
+        // so the freshly-loaded user storage is the base, not the live cm.state
+        // (which still contains the soon-to-be-cloned Guest data).
+        const notifyIdx = main.indexOf('ModuleRegistry.notifyUserChange(getInspectingUser())');
+        const mergeIdx = main.indexOf('Merged ${guestState.total} messages from Guest session');
+        assert.ok(notifyIdx !== -1, 'notifyUserChange call missing');
+        assert.ok(mergeIdx !== -1, 'guest merge block missing');
+        assert.ok(notifyIdx < mergeIdx, 'notifyUserChange must precede guest merge to avoid double-counting');
+
+        // And it must run exactly once — a leftover trailing call would
+        // re-load cm.state and wipe the merge that was just persisted.
+        const matches = main.match(/ModuleRegistry\.notifyUserChange\(getInspectingUser\(\)\)/g) || [];
+        assert.equal(matches.length, 1, 'notifyUserChange must be called exactly once in lazyDetect');
+    });
+
+    it('guards counter.attemptIncrement against inspecting-mode storage corruption', () => {
+        const counter = read('src/modules/counter.js');
+
+        // attemptIncrement must snap inspectingUser back to currentUser before
+        // mutating cm.state — otherwise saveData() persists another profile's
+        // totals into the current user's storage key.
+        assert.match(counter, /attemptIncrement\(\)\s*\{[\s\S]*?Core\.getInspectingUser\(\)\s*!==\s*currentUser[\s\S]*?Core\.setInspectingUser\(currentUser\)[\s\S]*?this\.loadDataForUser\(currentUser\)/);
+    });
+
+    it('keeps startup rendering ordered and repairable', () => {
+        const main = read('src/main.js');
+        const panelUi = read('src/panel_ui.js');
+
+        assert.match(main, /function startProgressiveDisclosure\(\)/);
+        assert.match(main, /waitForGeminiReady\(\(\) => \{\s*onDOMStructureChange\(\);\s*startProgressiveDisclosure\(\);/);
+        assert.doesNotMatch(main, /gc-onboarding-overlay/);
+        assert.match(main, /#gemini-onboarding-modal, \.onboarding-overlay/);
+        assert.match(main, /if \(ModuleRegistry\.isEnabled\('counter'\)\) \{\s*PanelUI\.create\(\);/);
+
+        assert.match(panelUi, /_isPanelComplete\(container\)/);
+        assert.match(panelUi, /existing\.remove\(\);/);
+        assert.match(panelUi, /if \(CounterModule\.state\.isExpanded\)/);
+        assert.match(panelUi, /Details pane render error/);
+    });
+
+    it('keeps extension icons generated from a maintainable source asset', () => {
+        const source = read('src/platforms/extension/icons/source.svg');
+        const iconsDir = path.join(root, 'src/platforms/extension/icons');
+
+        assert.match(source, /viewBox="0 0 128 128"/);
+        assert.match(source, /linearGradient/);
+        for (const size of [16, 48, 128]) {
+            const iconPath = path.join(iconsDir, `icon-${size}.png`);
+            const icon = fs.readFileSync(iconPath);
+            assert.equal(icon.subarray(1, 4).toString('ascii'), 'PNG');
+            assert.ok(icon.length > 500);
+        }
+    });
+
     it('keeps npm audit fix pinned in the lockfile', () => {
         const lock = JSON.parse(read('package-lock.json'));
         const braceExpansion = lock.packages['node_modules/brace-expansion'];

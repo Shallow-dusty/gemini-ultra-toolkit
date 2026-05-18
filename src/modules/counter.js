@@ -182,7 +182,13 @@ export const CounterModule = {
                 chats: this.state.chats,
                 dailyCounts: this.state.dailyCounts
             });
-        } catch (e) { /* silent */ }
+        } catch (e) {
+            // Counter data is the core state — silent failure means lost
+            // messages that the user counted but were never persisted. Surface
+            // via the debug panel so storage-quota / extension-disabled errors
+            // become diagnosable.
+            Logger.warn('Failed to persist counter data', { user: user.split('@')[0], error: String(e) });
+        }
     },
 
     /** Debounced save — coalesces multiple rapid state changes into one GM_setValue */
@@ -229,6 +235,17 @@ export const CounterModule = {
     attemptIncrement() {
         const now = Date.now();
         if (now - this.lastCountTime < this.COOLDOWN) return;
+
+        // Guard: while user is viewing another profile (read-only mode), cm.state
+        // is loaded with that profile's data. Incrementing here would corrupt
+        // that profile in memory AND, on saveData(), overwrite the *current*
+        // user's storage with the foreign profile's totals. Snap the panel back
+        // to the current user before recording the message.
+        const currentUser = Core.getCurrentUser();
+        if (Core.getInspectingUser() !== currentUser) {
+            Core.setInspectingUser(currentUser);
+            this.loadDataForUser(currentUser);
+        }
 
         const today = this.ensureTodayEntry();
         this.state.total++;

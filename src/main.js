@@ -58,7 +58,9 @@ function lazyDetect() {
         lastDetectedUser = detected;
     }
     if (detected && detected !== getCurrentUser()) {
-        // Guest data merge strategy
+        // Snapshot Guest state before switching. Without this clone the merge
+        // below would read the live cm.state — which is about to be replaced
+        // by the new user's storage — and end up double-counting Guest data.
         let guestState = null;
         if (getCurrentUser() === TEMP_USER && ModuleRegistry.isEnabled('counter')) {
             try {
@@ -76,8 +78,16 @@ function lazyDetect() {
             setInspectingUser(getCurrentUser());
         }
 
-        // Merge Guest data BEFORE notifying modules (so they see complete state)
-        if (guestState && (guestState.total > 0 || Object.keys(guestState.chats).length > 0)) {
+        // Load the new user's existing storage FIRST. counter.onUserChange()
+        // calls loadDataForUser() which overwrites cm.state — so any merge
+        // attempted before this would be wiped out (and saving the
+        // pre-merge state here would clobber the user's real storage).
+        ModuleRegistry.notifyUserChange(getInspectingUser());
+
+        // Merge captured Guest data ON TOP of the freshly loaded user state,
+        // then persist. cm.state now reflects user's prior totals + Guest
+        // session — no double-counting, no storage clobber.
+        if (guestState && (guestState.total > 0 || Object.keys(guestState.chats || {}).length > 0)) {
             const cm = CounterModule;
             cm.state.total += (typeof guestState.total === 'number' ? guestState.total : 0);
             cm.state.totalChatsCreated += (typeof guestState.totalChatsCreated === 'number' ? guestState.totalChatsCreated : 0);
@@ -103,10 +113,8 @@ function lazyDetect() {
             }
             Logger.info(`Merged ${guestState.total} messages from Guest session to ${getCurrentUser()}`);
             cm.saveData();
+            if (document.getElementById(PANEL_ID)) PanelUI.update();
         }
-
-        // Notify all modules (after merge, so they see complete state)
-        ModuleRegistry.notifyUserChange(getInspectingUser());
     }
 
     // Also detect account type on lazy poll
@@ -152,7 +160,7 @@ function onHeaderChange() {
 }
 
 function onPanelRemoved() {
-    if (ModuleRegistry.isEnabled('counter') && !document.getElementById(PANEL_ID)) {
+    if (ModuleRegistry.isEnabled('counter')) {
         PanelUI.create();
     }
 }
@@ -160,7 +168,7 @@ function onPanelRemoved() {
 // Full re-injection (used only at initialization)
 function onDOMStructureChange() {
     Core.invalidateSidebarCache();
-    if (ModuleRegistry.isEnabled('counter') && !document.getElementById(PANEL_ID)) {
+    if (ModuleRegistry.isEnabled('counter')) {
         PanelUI.create();
     }
     NativeUI.markAllDirty();
@@ -250,7 +258,7 @@ function startOnboardingQueue() {
             if (timeout) clearTimeout(timeout);
         };
         check = setInterval(() => {
-            if (!document.querySelector('.gc-onboarding-overlay')) {
+            if (!document.querySelector('#gemini-onboarding-modal, .onboarding-overlay')) {
                 cleanup();
                 setTimeout(showNext, 500);
             }
@@ -260,11 +268,15 @@ function startOnboardingQueue() {
     setTimeout(showNext, 500);
 }
 
-// Guided Tour first, then onboarding queue (progressive disclosure)
-if (!GuidedTour.hasSeen()) {
-    setTimeout(() => GuidedTour.start(startOnboardingQueue), 2500);
-} else {
-    startOnboardingQueue();
+function startProgressiveDisclosure() {
+    // Guided Tour first, then onboarding queue. This must run after the panel is
+    // present; starting it during Gemini's own initial render can leave stacked
+    // overlays or a missing tour target.
+    if (!GuidedTour.hasSeen()) {
+        setTimeout(() => GuidedTour.start(startOnboardingQueue), 800);
+    } else {
+        startOnboardingQueue();
+    }
 }
 
 // Wait for Gemini's core UI to be present before first injection
@@ -283,7 +295,10 @@ function waitForGeminiReady(cb, maxWait = 10000) {
 
 // Initial calls
 lazyDetect();
-waitForGeminiReady(() => onDOMStructureChange());
+waitForGeminiReady(() => {
+    onDOMStructureChange();
+    startProgressiveDisclosure();
+});
 
 let pollTimer = setInterval(lazyDetect, TIMINGS.SLOW_POLL);
 
