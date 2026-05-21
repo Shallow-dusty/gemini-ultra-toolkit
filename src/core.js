@@ -5,6 +5,7 @@ import {
     getCurrentTheme, setCurrentTheme,
     getStorageListenerId, setStorageListenerId
 } from './state.js';
+import { GeminiAdapter } from './adapters/gemini.js';
 
 export const Core = {
     // --- User management ---
@@ -23,15 +24,7 @@ export const Core = {
     },
 
     detectUser() {
-        try {
-            const candidates = document.querySelectorAll('a[aria-label*="@"], button[aria-label*="@"], div[aria-label*="\u5E10\u53F7"], div[aria-label*="Account"], img[alt*="@"], img[aria-label*="@"]');
-            for (let el of candidates) {
-                const label = el.getAttribute('aria-label') || el.getAttribute('alt') || "";
-                const match = label.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/);
-                if (match && match[1]) return match[1];
-            }
-        } catch (e) { }
-        return null;
+        return GeminiAdapter.detectUserEmail();
     },
 
     getCurrentUser() { return getCurrentUser(); },
@@ -131,34 +124,23 @@ export const Core = {
 
     scanSidebarChats(forceRefresh = false) {
         const now = Date.now();
-        // Count live chat links up front — cheap query, reused for cache
-        // validation and for building the item list below. The count check
-        // catches the races the TTL alone cannot:
+        // Cheap probe up front: the live link count drives both cache
+        // validation and the rescan. The count check catches the races the
+        // TTL alone cannot:
         //   1. Initial load: cache was seeded with [] while Gemini was still
         //      wiring up the sidebar; chat links appear inside the TTL but
         //      the old length===0 cache path kept returning empty.
         //   2. Incremental load / virtual scroll: new chats are appended
         //      while the cached first element is still connected, so the
         //      previous `isConnected` probe missed the growth.
-        const links = document.querySelectorAll('a[href*="/app/"]');
+        const liveCount = GeminiAdapter.getChatLinkCount();
         if (!forceRefresh && this._sidebarCache &&
             now - this._sidebarCacheTime < 2000 &&
-            this._sidebarCache.length === links.length &&
+            this._sidebarCache.length === liveCount &&
             (this._sidebarCache.length === 0 || this._sidebarCache[0].element?.isConnected)) {
             return this._sidebarCache;
         }
-        const items = [];
-        links.forEach(el => {
-            const href = el.getAttribute('href') || '';
-            const match = href.match(/\/app\/([a-zA-Z0-9\-_]+)/);
-            if (match) {
-                let title = '';
-                const textEl = el.querySelector('span, div');
-                if (textEl) title = textEl.textContent.trim();
-                if (!title) title = 'Untitled';
-                items.push({ id: match[1], title, element: el, href });
-            }
-        });
+        const items = GeminiAdapter.scanSidebarChatLinks();
         this._sidebarCache = items;
         this._sidebarCacheTime = now;
         return items;
@@ -170,12 +152,7 @@ export const Core = {
     },
 
     // --- URL utilities ---
-    getChatId() {
-        try {
-            const match = window.location.pathname.match(/\/app\/([a-zA-Z0-9\-_]+)/);
-            return match ? match[1] : null;
-        } catch (e) { return null; }
-    },
+    getChatId() { return GeminiAdapter.getChatId(); },
 
     // --- Date utilities ---
     getDayKey(resetHour = 0) {
