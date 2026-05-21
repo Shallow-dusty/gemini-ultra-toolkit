@@ -1,0 +1,95 @@
+- main [ref=e13]:
+  - generic [ref=e14]:
+    - link "New chat" [ref=e15] [cursor=pointer]:
+      - /url: /
+      - img [ref=e17]
+      - generic [ref=e18]: Gemini
+    - text: side_nav_expand
+  - generic [ref=e23]:
+    - generic: play_arrow
+    - button "Temporary chat" [ref=e27] [cursor=pointer]:
+      - img [ref=e29]: gemini_chat_temp
+  - generic [ref=e33]:
+    - navigation "Side Navigation" [ref=e34]:
+      - generic [ref=e36]:
+        - button "Close sidebar" [ref=e37] [cursor=pointer]:
+          - img [ref=e39]: side_nav
+        - generic [ref=e42]:
+          - generic [ref=e43]:
+            - navigation "Main actions menu" [ref=e44]:
+              - link "New chat" [ref=e46] [cursor=pointer]:
+                - /url: /app
+                - img [ref=e49]: gemini_chat
+                - generic [ref=e53]: New chat
+              - link "Search chats" [ref=e55] [cursor=pointer]:
+                - /url: /search
+                - img [ref=e58]: search
+                - generic [ref=e62]: Search chats
+            - text: movie library
+          - generic [ref=e63]:
+            - navigation "Additional actions menu" [ref=e64]:
+              - link "Videos" [ref=e66] [cursor=pointer]:
+                - /url: /videos
+                - img [ref=e69]: movie
+                - generic [ref=e72]:
+                  - generic [ref=e73]: Videos
+                  - generic [ref=e74]: New
+              - link "Library" [ref=e76] [cursor=pointer]:
+                - /url: library
+                - img [ref=e79]: library
+                - generic [ref=e83]: Library
+            - generic [ref=e84]:
+              - button "Toggle Notebooks" [expanded] [ref=e85] [cursor=pointer]:
+                - generic [ref=e86]: Notebooks
+                - img [ref=e88]: keyboard_arrow_down
+              - navigation [ref=e92]:
+                - link "New notebook" [ref=e94] [cursor=pointer]:
+                  - /url: /notebooks/create
+                  - img [ref=e97]: add_2
+                  - generic [ref=e101]: New notebook
+            - generic [ref=e103]:
+              - button "Toggle Recents" [expanded] [ref=e104] [cursor=pointer]:
+                - generic [ref=e105]: Recents
+                - img [ref=e107]: keyboard_arrow_down
+              - navigation [ref=e113]:
+                - link "Gemini Avatar 功能解析" [ref=e115] [cursor=pointer]:
+                  - /url: /app/02e4200a67ed2ca0
+                  - generic [ref=e119]: Gemini Avatar 功能解析
+          - group [ref=e120]:
+            - generic [ref=e122]:
+              - 'link "Google Account: Briar Havoc (establishmentsk2957@gmail.com)" [ref=e123] [cursor=pointer]':
+                - /url: https://accounts.google.com/SignOutOptions?continue=https://gemini.google.com
+                - img [ref=e125]
+                - generic [ref=e126]:
+                  - generic [ref=e127]: Briar Havoc
+                  - generic [ref=e129]: Pro
+              - button "Settings" [ref=e131] [cursor=pointer]:
+                - img [ref=e133]: settings
+    - generic [ref=e141]:
+      - generic [ref=e142]:
+        - heading "Conversation with Gemini" [level=1] [ref=e143]
+        - heading "Hi Briar, what can we work on?" [level=1] [ref=e157]:
+          - generic [ref=e158]: Hi Briar, what can we work on?
+      - generic [ref=e160]:
+        - group [ref=e161]:
+          - generic [ref=e164]:
+            - textbox "Enter a prompt for Gemini" [active] [ref=e170]:
+              - text: Ask Gemini
+              - paragraph [ref=e171]
+            - button "Upload & tools" [ref=e177] [cursor=pointer]:
+              - img [ref=e179]: plus
+            - generic [ref=e182]:
+              - group [ref=e185]:
+                - button "Open mode picker" [ref=e186]:
+                  - generic [ref=e188]:
+                    - generic [ref=e189]: Flash
+                    - img [ref=e190]: keyboard_arrow_down
+              - generic [ref=e193]:
+                - button "Microphone" [ref=e198] [cursor=pointer]:
+                  - img [ref=e200]: mic
+                - generic:
+                  - generic:
+                    - button "Send message" [disabled]:
+                      - generic:
+                        - img: arrow_upward
+        - paragraph [ref=e205]

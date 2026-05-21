@@ -1,0 +1,117 @@
+- main [ref=e13]:
+  - generic [ref=e21]:
+    - link "New chat" [ref=e22] [cursor=pointer]:
+      - /url: /
+      - img [ref=e24]
+      - generic [ref=e25]: Gemini
+    - text: side_nav_expand
+  - generic [ref=e30]:
+    - generic: play_arrow
+    - button "Open menu for conversation actions." [ref=e33] [cursor=pointer]:
+      - img [ref=e35]: more_vert
+  - generic [ref=e15]:
+    - navigation "Side Navigation" [ref=e38]:
+      - generic [ref=e40]:
+        - button "Close sidebar" [ref=e41] [cursor=pointer]:
+          - img [ref=e43]: side_nav
+        - generic [ref=e46]:
+          - generic [ref=e47]:
+            - navigation "Main actions menu" [ref=e48]:
+              - link "New chat" [ref=e50] [cursor=pointer]:
+                - /url: /app
+                - img [ref=e53]: gemini_chat
+                - generic [ref=e57]: New chat
+              - link "Search chats" [ref=e59] [cursor=pointer]:
+                - /url: /search
+                - img [ref=e62]: search
+                - generic [ref=e66]: Search chats
+            - text: movie library
+          - generic [ref=e67]:
+            - navigation "Additional actions menu" [ref=e68]:
+              - link "Videos" [ref=e70] [cursor=pointer]:
+                - /url: /videos
+                - img [ref=e73]: movie
+                - generic [ref=e76]
+              - link "Library" [ref=e80] [cursor=pointer]:
+                - /url: library
+                - img [ref=e83]: library
+                - generic [ref=e87]: Library
+            - generic [ref=e88]:
+              - button "Toggle Notebooks" [expanded] [ref=e89] [cursor=pointer]:
+                - generic [ref=e90]: Notebooks
+                - img [ref=e92]: keyboard_arrow_down
+              - navigation [ref=e96]:
+                - link "New notebook" [ref=e98] [cursor=pointer]:
+                  - /url: /notebooks/create
+            - generic [ref=e107]:
+              - button "Toggle Recents" [expanded] [ref=e108] [cursor=pointer]:
+                - generic [ref=e109]: Recents
+                - img [ref=e111]: keyboard_arrow_down
+              - navigation [ref=e117]:
+                - link "Gemini Avatar 功能解析" [ref=e119] [cursor=pointer]:
+                  - /url: /app/02e4200a67ed2ca0
+          - group [ref=e124]:
+            - generic [ref=e126]:
+              - 'link "Google Account: Briar Havoc (establishmentsk2957@gmail.com)" [ref=e127] [cursor=pointer]':
+                - /url: https://accounts.google.com/SignOutOptions?continue=https://gemini.google.com
+                - img [ref=e129]
+                - generic [ref=e130]
+              - button "Settings" [ref=e135] [cursor=pointer]:
+                - img [ref=e137]: settings
+    - generic [ref=e141]:
+      - generic [ref=e142]:
+        - heading "Conversation with Gemini" [level=1] [ref=e143]
+        - generic [ref=e145]:
+          - generic [ref=e146]:
+            - generic [ref=e150]:
+              - button "Show the uploaded image in a lightbox" [ref=e157] [cursor=pointer]:
+                - img "Uploaded image preview" [ref=e158]
+              - heading "You said 这个Avatar是什么功能" [level=2] [ref=e162]:
+                - generic [ref=e163]: You said
+                - paragraph [ref=e164]: 这个Avatar是什么功能
+              - button "Copy prompt" [ref=e167] [cursor=pointer]:
+                - img [ref=e169]: copy
+            - generic [ref=e175]:
+              - generic [ref=e178]:
+                - heading "Gemini said" [level=2] [ref=e179]
+                - generic [ref=e183]
+              - generic [ref=e197]:
+                - button "Good response" [ref=e200] [cursor=pointer]
+                - button "Bad response" [ref=e207] [cursor=pointer]
+                - button "Copy" [ref=e214] [cursor=pointer]
+                - button "Show more options" [ref=e223] [cursor=pointer]
+          - generic [ref=e228]:
+            - generic [ref=e232]:
+              - button "Show the uploaded image in a lightbox" [ref=e239] [cursor=pointer]:
+                - img "Uploaded image preview" [ref=e240]
+              - heading "You said 我的字体看起来为什么有些奇怪，是因为是日文环境吗" [level=2] [ref=e244]:
+                - generic [ref=e245]: You said
+                - paragraph [ref=e246]: 我的字体看起来为什么有些奇怪，是因为是日文环境吗
+              - generic [ref=e247]:
+                - button "Copy prompt" [ref=e249] [cursor=pointer]
+                - button "Edit" [ref=e255] [cursor=pointer]
+            - generic [ref=e263]:
+              - generic [ref=e266]:
+                - heading "Gemini said" [level=2] [ref=e267]
+                - generic [ref=e271]
+              - generic [ref=e311]:
+                - button "Good response" [ref=e314] [cursor=pointer]
+                - button "Bad response" [ref=e321] [cursor=pointer]
+                - button "Redo" [ref=e329] [cursor=pointer]
+                - button "Copy" [ref=e336] [cursor=pointer]
+                - button "Show more options" [ref=e345] [cursor=pointer]
+      - generic [ref=e350]:
+        - group [ref=e351]:
+          - generic [ref=e354]:
+            - textbox "Enter a prompt for Gemini" [ref=e360]:
+              - text: Ask Gemini
+              - paragraph [ref=e361]
+            - button "Upload & tools" [ref=e367] [cursor=pointer]:
+              - img [ref=e369]: plus
+            - generic [ref=e372]:
+              - group [ref=e375]:
+                - button "Open mode picker" [ref=e376]
+              - generic [ref=e383]:
+                - button "Microphone" [ref=e388] [cursor=pointer]
+                - generic
+        - paragraph [ref=e395]: Gemini is AI and can make mistakes.
