@@ -1,8 +1,8 @@
 # Current Audit Status
 
-Updated: 2026-05-05
+Updated: 2026-05-21 — covers v12.0.
 
-This is the maintained audit summary for v11.0. It replaces the old v10.11 raw audit reports, whose detailed findings were useful historically but had become misleading after fixes landed.
+This is the maintained audit summary for v12.0. v12 inherits all v11 protections and adds a `src/adapters/gemini.js` abstraction layer for DOM coupling (see ROADMAP.md). Reviewed across 5 self-audit passes plus 3 independent agent reviews (architecture / generic code / userscript-specific). No `critical` findings; all `important` items addressed before release. v11.0 baseline below remains the audit reference for shared logic.
 
 ## Security
 
@@ -20,7 +20,7 @@ Implemented protections:
 
 Residual checks:
 
-- Run a real-browser smoke test before release.
+- ~~Run a real-browser smoke test before release.~~ — done for v12.0 (`docs/research/v12-dom-probe-2026-05-21-revised.md`). Repeat for every Google Gemini frontend shift.
 - Keep avoiding remote secrets; this is a front-end-only project and provider/API keys do not belong in the repo.
 
 ## Resilience

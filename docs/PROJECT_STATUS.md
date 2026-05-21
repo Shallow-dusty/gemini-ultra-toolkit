@@ -1,6 +1,6 @@
 # Project Status
 
-Updated: 2026-05-05
+Updated: 2026-05-21 — v12.0 release in progress.
 
 ## Summary
 
@@ -12,15 +12,16 @@ Updated: 2026-05-05
 - Testable pure logic: `lib/`
 - Node test suite: `tests/`
 
-The project is buildable and locally verified. The remaining release blocker is a real-browser smoke test on `https://gemini.google.com/` with an authenticated session.
+**v12.0 (2026-05-21)** — Google reshuffled the Gemini frontend on 2026-05-20, breaking several DOM selectors (`.conversation-title-container`, `button.send-button`, `.user-query-text`, `.bard-mode-list-button.is-selected`, `button.gds-pillbox-button`). v12 introduces `src/adapters/gemini.js` — a single DOM-coupling layer used by every module. Future Gemini rewrites should only touch this file.
 
 ## Verification Snapshot
 
-Last verified locally on 2026-05-05:
+Last verified locally on 2026-05-21:
 
-- `npm test` — 142 passing tests; `lib/` remains at 100% c8 coverage.
-- `npm run build` — userscript and extension builds complete.
+- `npm test` — 146 passing tests; `lib/` remains at 100% c8 coverage.
+- `npm run build` — userscript and extension builds complete (~329 kb userscript).
 - `npm audit --audit-level=moderate` — 0 vulnerabilities.
+- **Real-browser smoke test** — passed (`docs/research/v12-dom-probe-2026-05-21-revised.md`). All 8 modules inject correctly on the new Gemini frontend: panel + counter + export + folders + prompt-vault + default-model + batch-delete + quote-reply + ui-tweaks. Zero `pageerror` events.
 
 ## Repository Structure
 
@@ -63,9 +64,9 @@ npm audit --audit-level=moderate
 git status --short --branch
 ```
 
-## Manual Smoke Test Still Required
+## Manual Smoke Test (completed for v12.0)
 
-Load either the userscript or `dist/extension/` in a real browser, then verify on Gemini:
+Done automatically through Playwright MCP against the live Gemini app on 2026-05-21 (logged-in `establishmentsk2957@gmail.com`, Decodo JP exit). For each subsequent release, repeat this checklist on a real browser to catch regressions on Gemini's evolving UI:
 
 - panel mounts and expands
 - Settings, Analytics, Debug, and Calibration modals open and close with `Esc`

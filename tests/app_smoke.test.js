@@ -13,7 +13,7 @@ describe('app smoke checks', () => {
         const readme = read('README.md');
         const constants = read('src/constants.js');
 
-        assert.match(meta, /@name\s+Primer\+\+ for Gemini™ \(v11\.0\)/);
+        assert.match(meta, /@name\s+Primer\+\+ for Gemini™ \(v12\.0\)/);
         assert.equal(manifest.name, 'Primer++ for Gemini™');
         assert.match(manifest.description, /Unofficial community extension for Gemini™/);
         assert.match(readme, /Primer\+\+ is an unofficial community extension/);

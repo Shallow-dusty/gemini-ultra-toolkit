@@ -1,8 +1,15 @@
 # Roadmap
 
-Updated: 2026-05-05
+Updated: 2026-05-21 (v12.0 release).
 
 This is the maintained roadmap. It replaces the old full feature brainstorming document, which mixed implemented features, speculative ideas, and stale project naming.
+
+## v12.0 (2026-05-21) — released
+
+- **GeminiAdapter abstraction**: all DOM coupling consolidated into `src/adapters/gemini.js`. Future Gemini frontend rewrites should only require updating this single file.
+- **Live DOM compatibility**: selectors updated for the 2026-05-20 Gemini frontend overhaul (new mode-picker structure, `more options for <title>` row buttons, `data-test-id="delete-button"` confirmation flow, `Send message` aria-label).
+- **Real-browser smoke test verified** — first release with end-to-end verification on the live Gemini app.
+- **8 modules still operational** post-migration: counter, folders, export, prompt vault, default model, batch delete, quote reply, UI tweaks.
 
 ## Current Product Baseline
 
@@ -19,9 +26,7 @@ Implemented modules:
 
 ## Near-Term Priorities
 
-1. Real-browser release smoke test
-   - Validate userscript and extension on `gemini.google.com`.
-   - Check authenticated session behavior, keyboard navigation, modal focus loops, and console errors.
+1. ~~Real-browser release smoke test~~ — done for v12.0 via Playwright MCP. Repeat for every major release; Gemini's frontend changes more often than expected.
 
 2. Store-listing readiness
    - Keep `Primer++ for Gemini™` naming consistent.
