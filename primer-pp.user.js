@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Primer++ for Gemini™ (v11.0)
+// @name         Primer++ for Gemini™ (v12.0)
 // @namespace    http://tampermonkey.net/
-// @version      11.0
+// @version      12.0
 // @description  非官方 Gemini™ 助手平台：原生 UI 集成、计数器、热力图、配额追踪、对话文件夹等模块化增强
 // @author       Script Weaver
 // @match        https://gemini.google.com/*
@@ -167,7 +167,7 @@
         MODEL_MUTATION_DEBOUNCE: 500
       };
       QUOTA_COLORS = { safe: "#34a853", warn: "#fbbc04", danger: "#ea4335" };
-      VERSION = "11.0";
+      VERSION = "12.0";
       APP_NAME = "Primer++ for Gemini™";
       TRADEMARK_NOTICE = "Primer++ is an unofficial community extension. Gemini™ is a trademark of Google LLC.";
       PANEL_ID = "gemini-monitor-panel-v7";
@@ -358,12 +358,432 @@
     }
   });
 
+  // src/adapters/gemini.js
+  function firstMatch(root, list) {
+    const arr = Array.isArray(list) ? list : [list];
+    for (const sel of arr) {
+      const el = root.querySelector(sel);
+      if (el) return el;
+    }
+    return null;
+  }
+  function matchesAny(target, list) {
+    if (!target || !target.matches) return false;
+    const arr = Array.isArray(list) ? list : [list];
+    for (const sel of arr) {
+      try {
+        if (target.matches(sel)) return true;
+      } catch {
+      }
+    }
+    return false;
+  }
+  function closestAny(target, list) {
+    if (!target || !target.closest) return null;
+    const arr = Array.isArray(list) ? list : [list];
+    for (const sel of arr) {
+      try {
+        const el = target.closest(sel);
+        if (el) return el;
+      } catch {
+      }
+    }
+    return null;
+  }
+  function normalizeModelText(text) {
+    if (!text || typeof text !== "string") return null;
+    const t = text.toLowerCase().trim();
+    if (t.includes("thinking") || t.includes("思考") || t.includes("사고")) return "thinking";
+    if (/\bpro\b/.test(t) || t.includes("专业") || t.includes("プロ") || t.includes("프로")) return "pro";
+    if (t.includes("flash") || t.includes("fast") || t.includes("快速") || t.includes("高速") || t.includes("빠른")) return "flash";
+    return null;
+  }
+  var S, GeminiAdapter;
+  var init_gemini = __esm({
+    "src/adapters/gemini.js"() {
+      S = Object.freeze({
+        // Sidebar
+        SIDEBAR: [
+          'nav[aria-label="Side Navigation"]',
+          // v12 aria
+          "bard-sidenav",
+          // v11/v12 web component
+          ".sidenav-with-history-container",
+          // v11 fallback
+          'nav[role="navigation"]'
+          // last-ditch
+        ],
+        SIDEBAR_OVERFLOW: ".overflow-container",
+        SIDEBAR_CONVERSATIONS_LIST: 'conversations-list[data-test-id="all-conversations"]',
+        CHAT_LINK: 'a[href*="/app/"]',
+        CHAT_ROW_WRAPPER: 'gem-nav-list-item[data-test-id="conversation"]',
+        CHAT_ROW_MORE_BTN: 'button[aria-label^="More options for"]',
+        // Input area
+        INPUT_AREA: [
+          "input-area-v2",
+          // v11/v12 web component
+          ".input-area-container",
+          // v11/v12 fieldset
+          "input-container"
+          // v12 outer wrapper
+        ],
+        INPUT_EDITOR: 'div.ql-editor[contenteditable="true"]',
+        INPUT_EDITOR_BY_ARIA: '[role="textbox"][aria-label="Enter a prompt for Gemini"]',
+        INPUT_TRAILING_ACTIONS: ".trailing-actions-wrapper",
+        SEND_BUTTON: [
+          'button[aria-label="Send message"]',
+          // v12 primary
+          "button.send-button",
+          // v11 deprecated (kept for mixed-rollout)
+          'button[aria-label*="Send" i]'
+          // i18n fallback
+        ],
+        // Mode picker
+        MODE_BTN: [
+          'button[aria-label="Open mode picker"]',
+          // v12 aria
+          '[data-test-id="bard-mode-menu-button"]',
+          // v11/v12 data-test-id
+          "button.input-area-switch"
+          // v11/v12 class
+        ],
+        MODE_BTN_LABEL: ".picker-primary-text",
+        MODE_MENU: '[data-test-id="gem-mode-menu"][role="menu"]',
+        MODE_MENU_ITEM: '[role="menuitem"][data-test-id^="bard-mode-option-"], gem-menu-item[data-test-id^="bard-mode-option-"]',
+        MODE_MENU_ITEM_ANY: '[role="menuitem"]',
+        // Chat header (conversation actions menu button — v12 has no visible title)
+        CHAT_HEADER_MORE_BTN: [
+          'button[aria-label*="Open menu for conversation actions" i]'
+        ],
+        CHAT_HEADER_TITLE: [
+          ".conversation-title-container",
+          // v11 (gone in v12)
+          "h1.conversation-title",
+          // v11
+          '[data-test-id="conversation-title"]',
+          // v11
+          "h1.cdk-visually-hidden"
+          // v12 a11y-only fallback
+        ],
+        // User identification (account button bottom of sidebar / Google bar)
+        USER_AREAS: 'a[aria-label*="@"], button[aria-label*="@"], div[aria-label*="帐号"], div[aria-label*="Account"], img[alt*="@"], img[aria-label*="@"]',
+        // Conversation actions menu (after clicking row More button)
+        MENU_PANEL: '.cdk-overlay-pane [role="menu"], .cdk-overlay-container [role="menu"], .mat-mdc-menu-panel',
+        MENU_ITEM: '[role="menuitem"], mat-menu-item, button.mat-mdc-menu-item, .mat-menu-item',
+        DELETE_BUTTON: 'button[data-test-id="delete-button"]',
+        // Confirmation dialog
+        DIALOG: 'mat-dialog-container, .mdc-dialog, [role="dialog"], [role="alertdialog"]',
+        DIALOG_CONFIRM_BTNS: 'button.confirm-button, button[data-test-id*="confirm"], mat-dialog-actions button, .mdc-dialog__actions button, [role="dialog"] button, [role="alertdialog"] button',
+        // Messages (in chat detail)
+        USER_QUERY: "user-query",
+        MODEL_RESPONSE: "model-response",
+        MESSAGE_ACTIONS: "message-actions",
+        RESPONSE_CONTAINER: "response-container",
+        CONVERSATION_CONTAINER: ".conversation-container",
+        USER_QUERY_TEXT: ".query-text, .user-query-text",
+        // Mutation-watch closest() roots (DOMWatcher zone matches)
+        SIDEBAR_MUTATION_ROOT: 'nav[aria-label="Side Navigation"], bard-sidenav, bard-sidenav-container, .sidenav-with-history-container, nav[role="navigation"]',
+        INPUT_MUTATION_ROOT: "input-area-v2, .input-area-container, input-container",
+        HEADER_MUTATION_ROOT: "gem-icon-button, .conversation-title-container",
+        MODEL_MUTATION_TARGET_MATCH: 'button.input-area-switch, [data-test-id="bard-mode-menu-button"], button[aria-label="Open mode picker"], gem-menu-item'
+      });
+      GeminiAdapter = {
+        SELECTORS: S,
+        _normalizeModelText: normalizeModelText,
+        // ─── Probe ──────────────────────────────────────────────────────────
+        /** Is Gemini's core UI present? (sidebar OR input area visible) */
+        isReady() {
+          return !!(this.getSidebar() || this.getInputArea());
+        },
+        // ─── User detection ────────────────────────────────────────────────
+        /**
+         * Extract Gmail address from any visible Google account UI.
+         * Returns null when no email is found yet.
+         */
+        detectUserEmail() {
+          try {
+            const candidates = document.querySelectorAll(S.USER_AREAS);
+            for (const el of candidates) {
+              const label = el.getAttribute("aria-label") || el.getAttribute("alt") || "";
+              const match = label.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/);
+              if (match && match[1]) return match[1];
+            }
+          } catch {
+          }
+          return null;
+        },
+        /**
+         * Detect account tier ('free' | 'pro' | 'ultra').
+         * v12: the tier label sits inside the account block (sidebar bottom).
+         * v11: a separate pillbox button.
+         */
+        detectAccountTier() {
+          try {
+            const acctLink = document.querySelector('a[aria-label*="Google Account" i], a[aria-label*="@" i]');
+            if (acctLink) {
+              const text = (acctLink.textContent || "").toUpperCase();
+              if (text.includes("ULTRA")) return "ultra";
+              if (/\bPRO\b/.test(text)) return "pro";
+            }
+            const pillboxBtn = document.querySelector("button.gds-pillbox-button, button.pillbox-btn");
+            if (pillboxBtn) {
+              const text = (pillboxBtn.textContent || "").toUpperCase();
+              if (text.includes("ULTRA")) return "ultra";
+              if (text.includes("PRO")) return "pro";
+            }
+          } catch {
+          }
+          return "free";
+        },
+        // ─── URL / Chat ID ─────────────────────────────────────────────────
+        getChatId() {
+          try {
+            const m = window.location.pathname.match(/\/app\/([a-zA-Z0-9\-_]+)/);
+            return m ? m[1] : null;
+          } catch {
+            return null;
+          }
+        },
+        isNewChatUrl() {
+          const url = location.href;
+          return url.includes("/app") && !url.includes("/app/") || url.endsWith("/app") || url.match(/\/app\?[^/]*$/) !== null;
+        },
+        // ─── Sidebar ───────────────────────────────────────────────────────
+        getSidebar() {
+          return firstMatch(document, S.SIDEBAR);
+        },
+        /**
+         * The narrower container *inside* the sidebar that's safe to prepend
+         * native UI into (folder filter bar, batch-delete toolbar).
+         * Returns the sidebar itself when the overflow container is absent.
+         */
+        getSidebarOverflowContainer() {
+          const sidebar = this.getSidebar();
+          if (!sidebar) return null;
+          return sidebar.querySelector(S.SIDEBAR_OVERFLOW) || sidebar;
+        },
+        /**
+         * Scan every chat link in the sidebar.
+         * @returns {Array<{id: string, title: string, element: HTMLElement, href: string}>}
+         */
+        scanSidebarChatLinks() {
+          const items = [];
+          const links = document.querySelectorAll(S.CHAT_LINK);
+          for (const el of links) {
+            const href = el.getAttribute("href") || "";
+            const m = href.match(/\/app\/([a-zA-Z0-9\-_]+)/);
+            if (!m) continue;
+            let title = "";
+            const textEl = el.querySelector("span, div");
+            if (textEl) title = (textEl.textContent || "").trim();
+            if (!title) title = "Untitled";
+            items.push({ id: m[1], title, element: el, href });
+          }
+          return items;
+        },
+        /** Live chat-link count, for cache validation in Core.scanSidebarChats. */
+        getChatLinkCount() {
+          return document.querySelectorAll(S.CHAT_LINK).length;
+        },
+        /**
+         * v12: the row-level "More options for <title>" button is rendered in the
+         * DOM persistently (CSS-hidden until hover). Resolves to that button for
+         * a given chat link element. Falls back to v11 selectors.
+         */
+        getChatRowMoreButton(chatElement) {
+          if (!chatElement) return null;
+          const row = chatElement.closest(S.CHAT_ROW_WRAPPER) || chatElement.closest('mat-list-item, [role="listitem"]') || chatElement.parentElement;
+          if (!row) return null;
+          return row.querySelector(S.CHAT_ROW_MORE_BTN) || row.querySelector('button[data-test-id*="menu"], button[aria-label*="more" i], button[aria-label*="options" i], button[aria-label*="更多" i], button[aria-label*="その他" i], button[aria-label*="더보기" i]');
+        },
+        // ─── Input area ────────────────────────────────────────────────────
+        getInputArea() {
+          return firstMatch(document, S.INPUT_AREA);
+        },
+        getInputEditor() {
+          return document.querySelector(S.INPUT_EDITOR) || document.querySelector(S.INPUT_EDITOR_BY_ARIA);
+        },
+        /** prompt_vault inject point — wrapper that holds the trailing action buttons. */
+        getInputTrailingActions() {
+          return document.querySelector(S.INPUT_TRAILING_ACTIONS);
+        },
+        getSendButton() {
+          return firstMatch(document, S.SEND_BUTTON);
+        },
+        // ─── Chat header ───────────────────────────────────────────────────
+        /**
+         * Anchor element next to which export's 📤 button can be injected.
+         * v12: the conversation actions menu button (top-right more_vert).
+         * v11: the conversation title container.
+         */
+        getChatHeader() {
+          const moreBtn = firstMatch(document, S.CHAT_HEADER_MORE_BTN);
+          if (moreBtn) return moreBtn.parentElement || moreBtn;
+          return firstMatch(document, S.CHAT_HEADER_TITLE);
+        },
+        /** The conversation title text used by ui_tweaks for tab title sync. */
+        getChatTitleText() {
+          const visible = document.querySelector('h1.conversation-title, [data-test-id="conversation-title"], span.conversation-title');
+          if (visible && visible.textContent.trim()) return visible.textContent.trim();
+          const a11y = document.querySelector("h1.cdk-visually-hidden");
+          if (a11y && a11y.textContent.trim()) {
+            const txt = a11y.textContent.trim();
+            if (!/^Conversation with Gemini|^与\s*Gemini|Gemini\s*との|Gemini\s*와의/i.test(txt)) {
+              return txt;
+            }
+          }
+          const firstMsg = document.querySelector(S.USER_QUERY_TEXT);
+          if (firstMsg && firstMsg.textContent.trim()) {
+            return firstMsg.textContent.trim().substring(0, 50);
+          }
+          return "";
+        },
+        // ─── Mode picker ───────────────────────────────────────────────────
+        getModelSwitch() {
+          return firstMatch(document, S.MODE_BTN);
+        },
+        /**
+         * The displayed model name on the pill (e.g. "Flash", "Pro").
+         * Prefers the dedicated .picker-primary-text node so we don't include
+         * trailing "keyboard_arrow_down" text from the icon font.
+         */
+        getModelSwitchLabel() {
+          const btn = this.getModelSwitch();
+          if (!btn) return "";
+          const labelEl = btn.querySelector(S.MODE_BTN_LABEL);
+          return (labelEl ? labelEl.textContent : btn.textContent || "").trim();
+        },
+        /**
+         * Detect current model as internal key ('flash' | 'thinking' | 'pro').
+         * Returns null when undetermined (caller keeps previous value).
+         */
+        detectModelKey() {
+          try {
+            const label = this.getModelSwitchLabel();
+            if (label) {
+              const key = normalizeModelText(label);
+              if (key) return key;
+            }
+            const active = document.querySelector('gem-menu-item[data-active="true"], .bard-mode-list-button.is-selected');
+            if (active) {
+              const key = normalizeModelText(active.textContent || "");
+              if (key) return key;
+            }
+          } catch {
+          }
+          return null;
+        },
+        /**
+         * After clicking the mode button, scrape menu items into a structured list.
+         * `label` is the full textContent — sufficient for keyword-based model
+         * detection in `normalizeModelText`. We don't try to split title vs subtitle
+         * because the DOM structure (nested generic divs) is fragile and the
+         * normalizer doesn't need that precision.
+         * @returns {Array<{ key: string|null, label: string, dataModeId: string|null, active: boolean, element: HTMLElement }>}
+         */
+        getModelMenuOptions() {
+          const items = document.querySelectorAll(S.MODE_MENU_ITEM);
+          const result = [];
+          items.forEach((it) => {
+            const label = (it.textContent || "").trim();
+            result.push({
+              key: normalizeModelText(label),
+              label,
+              dataModeId: it.getAttribute("data-mode-id"),
+              active: it.getAttribute("data-active") === "true" || it.classList.contains("selected"),
+              element: it
+            });
+          });
+          return result;
+        },
+        /**
+         * Find a menu item whose label matches the given internal key.
+         * Used by default_model.js to pick the right option after opening the menu.
+         */
+        findModelMenuItem(internalKey) {
+          const opts = this.getModelMenuOptions();
+          if (internalKey === "flash") {
+            const exact = opts.find((o) => o.key === "flash" && !/lite/i.test(o.label));
+            if (exact) return exact.element;
+          }
+          const match = opts.find((o) => o.key === internalKey);
+          return match ? match.element : null;
+        },
+        // ─── Conversation actions menu (after row More click) ──────────────
+        getMenuPanel() {
+          return document.querySelector(S.MENU_PANEL);
+        },
+        /** Find the Delete menu item — prefers data-test-id, falls back to text. */
+        getDeleteMenuItem() {
+          const panel = this.getMenuPanel() || document;
+          const byTestId = panel.querySelector(S.DELETE_BUTTON);
+          if (byTestId) return byTestId;
+          const items = panel.querySelectorAll(S.MENU_ITEM);
+          for (const item of items) {
+            const t = (item.textContent || "").trim().toLowerCase();
+            if (t.includes("delete") || t.includes("删除") || t.includes("削除") || t.includes("삭제")) {
+              return item;
+            }
+          }
+          return null;
+        },
+        // ─── Confirmation dialog ───────────────────────────────────────────
+        getConfirmDialog() {
+          return document.querySelector(S.DIALOG);
+        },
+        /** Pick the affirmative button (Delete / Confirm) inside a dialog. */
+        getDialogConfirmButton(dialog) {
+          const root = dialog || this.getConfirmDialog();
+          if (!root) return null;
+          const btns = root.querySelectorAll(S.DIALOG_CONFIRM_BTNS);
+          for (const btn of btns) {
+            const t = (btn.textContent || "").trim().toLowerCase();
+            if (t.includes("delete") || t.includes("删除") || t.includes("削除") || t.includes("삭제") || t.includes("confirm") || t.includes("确认") || t.includes("確認") || t.includes("확인")) {
+              return btn;
+            }
+          }
+          return null;
+        },
+        // ─── MutationObserver zone matchers ────────────────────────────────
+        matchesSidebarMutation(m) {
+          return m && m.type === "childList" && !!closestAny(m.target, S.SIDEBAR_MUTATION_ROOT.split(", "));
+        },
+        matchesInputAreaMutation(m) {
+          return m && m.type === "childList" && !!closestAny(m.target, S.INPUT_MUTATION_ROOT.split(", "));
+        },
+        matchesHeaderMutation(m) {
+          return m && m.type === "childList" && !!closestAny(m.target, S.HEADER_MUTATION_ROOT.split(", "));
+        },
+        matchesModelMutation(m) {
+          if (!m) return false;
+          if (m.type === "attributes") {
+            return matchesAny(m.target, S.MODEL_MUTATION_TARGET_MATCH.split(", "));
+          }
+          if (m.type === "childList") {
+            return !!closestAny(m.target, S.INPUT_MUTATION_ROOT.split(", "));
+          }
+          return false;
+        },
+        matchesFoldersSidebarMutation(m) {
+          if (!m || !m.target) return false;
+          return !!closestAny(m.target, [
+            "bard-sidenav-container",
+            'nav[aria-label="Side Navigation"]',
+            "bard-sidenav",
+            'nav[role="navigation"]'
+          ]);
+        }
+      };
+    }
+  });
+
   // src/core.js
   var Core;
   var init_core = __esm({
     "src/core.js"() {
       init_constants();
       init_state();
+      init_gemini();
       Core = {
         // --- User management ---
         registerUser(userId) {
@@ -390,16 +810,7 @@
           }
         },
         detectUser() {
-          try {
-            const candidates = document.querySelectorAll('a[aria-label*="@"], button[aria-label*="@"], div[aria-label*="帐号"], div[aria-label*="Account"], img[alt*="@"], img[aria-label*="@"]');
-            for (let el of candidates) {
-              const label = el.getAttribute("aria-label") || el.getAttribute("alt") || "";
-              const match = label.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/);
-              if (match && match[1]) return match[1];
-            }
-          } catch (e) {
-          }
-          return null;
+          return GeminiAdapter.detectUserEmail();
         },
         getCurrentUser() {
           return getCurrentUser();
@@ -508,22 +919,11 @@
         _sidebarCacheTime: 0,
         scanSidebarChats(forceRefresh = false) {
           const now = Date.now();
-          const links = document.querySelectorAll('a[href*="/app/"]');
-          if (!forceRefresh && this._sidebarCache && now - this._sidebarCacheTime < 2e3 && this._sidebarCache.length === links.length && (this._sidebarCache.length === 0 || this._sidebarCache[0].element?.isConnected)) {
+          const liveCount = GeminiAdapter.getChatLinkCount();
+          if (!forceRefresh && this._sidebarCache && now - this._sidebarCacheTime < 2e3 && this._sidebarCache.length === liveCount && (this._sidebarCache.length === 0 || this._sidebarCache[0].element?.isConnected)) {
             return this._sidebarCache;
           }
-          const items = [];
-          links.forEach((el) => {
-            const href = el.getAttribute("href") || "";
-            const match = href.match(/\/app\/([a-zA-Z0-9\-_]+)/);
-            if (match) {
-              let title = "";
-              const textEl = el.querySelector("span, div");
-              if (textEl) title = textEl.textContent.trim();
-              if (!title) title = "Untitled";
-              items.push({ id: match[1], title, element: el, href });
-            }
-          });
+          const items = GeminiAdapter.scanSidebarChatLinks();
           this._sidebarCache = items;
           this._sidebarCacheTime = now;
           return items;
@@ -534,12 +934,7 @@
         },
         // --- URL utilities ---
         getChatId() {
-          try {
-            const match = window.location.pathname.match(/\/app\/([a-zA-Z0-9\-_]+)/);
-            return match ? match[1] : null;
-          } catch (e) {
-            return null;
-          }
+          return GeminiAdapter.getChatId();
         },
         // --- Date utilities ---
         getDayKey(resetHour = 0) {
@@ -564,6 +959,7 @@
       init_core();
       init_state();
       init_logger();
+      init_gemini();
       NativeUI = {
         isZH: navigator.language.startsWith("zh"),
         t(zh, en) {
@@ -603,13 +999,6 @@
             toast.classList.remove("visible");
             setTimeout(() => toast.remove(), 200);
           }, duration);
-        },
-        _findFirst(selectors) {
-          for (const sel of selectors) {
-            const el = document.querySelector(sel);
-            if (el) return el;
-          }
-          return null;
         },
         // Dirty tracking: only re-inject modules when DOM structure changes
         _dirtyModules: /* @__PURE__ */ new Set(),
@@ -655,32 +1044,16 @@
           if (el) el.remove();
         },
         getSidebar() {
-          return this._findFirst([
-            ".sidenav-with-history-container",
-            "bard-sidenav",
-            'nav[role="navigation"]'
-          ]);
+          return GeminiAdapter.getSidebar();
         },
         getInputArea() {
-          return this._findFirst([
-            "input-area-v2",
-            ".input-area-container",
-            ".bottom-container"
-          ]);
+          return GeminiAdapter.getInputArea();
         },
         getChatHeader() {
-          return this._findFirst([
-            ".conversation-title-container",
-            "span.conversation-title",
-            "h1.conversation-title",
-            '[data-test-id="conversation-title"]'
-          ]);
+          return GeminiAdapter.getChatHeader();
         },
         getModelSwitch() {
-          return this._findFirst([
-            "button.input-area-switch",
-            '[data-test-id="bard-mode-menu-button"]'
-          ]);
+          return GeminiAdapter.getModelSwitch();
         },
         /**
          * Show a themed confirmation dialog (replaces native confirm()).
@@ -1046,6 +1419,7 @@
       init_module_registry();
       init_panel_ui();
       init_native_ui();
+      init_gemini();
       import_counter_calc = __toESM(require_counter_calc());
       CounterModule = {
         id: "counter",
@@ -1060,23 +1434,10 @@
           thinking: { label: "3 Flash Thinking", multiplier: 0.33, color: "#fbbc04" },
           pro: { label: "3 Pro", multiplier: 1, color: "#ea4335" }
         },
-        MODEL_DETECT_MAP: {
-          "Fast": "flash",
-          "Flash": "flash",
-          "flash": "flash",
-          "Thinking": "thinking",
-          "thinking": "thinking",
-          "Pro": "pro",
-          "pro": "pro",
-          "快速": "flash",
-          "思考": "thinking",
-          "专业": "pro",
-          "高速": "flash",
-          "プロ": "pro",
-          "빠른": "flash",
-          "사고": "thinking",
-          "프로": "pro"
-        },
+        // Model detection moved to GeminiAdapter.detectModelKey (v12). The previous
+        // MODEL_DETECT_MAP lived here; lib/model_config.js still ships an identical
+        // map alongside MODEL_CONFIG so the sync test can verify the multiplier
+        // contract \u2014 see lib/model_config.js for the authoritative source.
         // --- Module private state ---
         resetHour: 0,
         quotaLimit: 50,
@@ -1166,7 +1527,7 @@
                 return;
               }
               const label = btn.getAttribute("aria-label") || "";
-              if (label.includes("Send") || label.includes("发送")) {
+              if (label === "Send message" || label === "Send" || label.startsWith("Send ") || label.includes("发送")) {
                 this.attemptIncrement();
               }
             }
@@ -1322,41 +1683,11 @@
         },
         // --- Model detection ---
         detectModel() {
-          try {
-            const modeBtn = document.querySelector("button.input-area-switch");
-            if (modeBtn) {
-              const text = modeBtn.textContent.trim();
-              const key = this.MODEL_DETECT_MAP[text];
-              if (key) return key;
-            }
-            const pillLabel = document.querySelector('[data-test-id="bard-mode-menu-button"]');
-            if (pillLabel) {
-              const full = pillLabel.textContent.trim();
-              const key = this.MODEL_DETECT_MAP[full] || this.MODEL_DETECT_MAP[full.split(/\s/)[0]];
-              if (key) return key;
-            }
-            const selected = document.querySelector(".bard-mode-list-button.is-selected");
-            if (selected) {
-              const full = selected.textContent.trim();
-              const key = this.MODEL_DETECT_MAP[full] || this.MODEL_DETECT_MAP[full.split(/\s/)[0]];
-              if (key) return key;
-            }
-          } catch (e) {
-          }
-          return this.currentModel;
+          const key = GeminiAdapter.detectModelKey();
+          return key || this.currentModel;
         },
         detectAccountType() {
-          try {
-            const pillboxBtn = document.querySelector("button.gds-pillbox-button, button.pillbox-btn");
-            if (pillboxBtn) {
-              const text = pillboxBtn.textContent.trim().toUpperCase();
-              if (text === "ULTRA" || text.includes("ULTRA")) return "ultra";
-              if (text === "PRO" || text.includes("PRO")) return "pro";
-            }
-            return "free";
-          } catch (e) {
-          }
-          return this.accountType;
+          return GeminiAdapter.detectAccountTier();
         },
         // --- Statistics (delegating to lib pure functions) ---
         calculateStreaks() {
@@ -4350,6 +4681,7 @@
       init_dom_watcher();
       init_panel_ui();
       init_counter();
+      init_gemini();
       init_icons();
       FoldersModule = {
         id: "folders",
@@ -4445,7 +4777,7 @@
           filterBar.className = "gc-filter-bar";
           this._renderFilterTabs(filterBar);
           if (!sidebar) return;
-          const overflowC = sidebar.querySelector(".overflow-container") || sidebar;
+          const overflowC = GeminiAdapter.getSidebarOverflowContainer() || sidebar;
           overflowC.prepend(filterBar);
         },
         removeNativeUI() {
@@ -4729,11 +5061,7 @@
           if (this._initTimeout) clearTimeout(this._initTimeout);
           this._initTimeout = setTimeout(() => this.markSidebarChats(), TIMINGS.POLL_INTERVAL);
           DOMWatcher.register("folders-sidebar", {
-            match: (m) => {
-              const target = m.target;
-              if (!target || !target.closest) return false;
-              return !!target.closest('bard-sidenav-container, nav, [role="navigation"]');
-            },
+            match: (m) => GeminiAdapter.matchesFoldersSidebarMutation(m),
             callback: () => this.markSidebarChats(),
             debounce: TIMINGS.OBSERVER_DEBOUNCE
           });
@@ -5598,6 +5926,7 @@
       init_state();
       init_icons();
       init_counter();
+      init_gemini();
       import_date_utils3 = __toESM(require_date_utils());
       PromptVaultModule = {
         id: "prompt-vault",
@@ -5640,7 +5969,7 @@
         injectNativeUI() {
           const NATIVE_ID = "gc-vault-native";
           if (document.getElementById(NATIVE_ID)) return;
-          const trailing = document.querySelector(".trailing-actions-wrapper");
+          const trailing = GeminiAdapter.getInputTrailingActions();
           if (!trailing) return;
           const btn = document.createElement("button");
           btn.id = NATIVE_ID;
@@ -5771,7 +6100,7 @@
           this._save();
         },
         insertPrompt(content) {
-          const editor = document.querySelector('div.ql-editor[contenteditable="true"]');
+          const editor = GeminiAdapter.getInputEditor();
           if (!editor) return;
           editor.focus();
           const sel = window.getSelection();
@@ -6048,8 +6377,8 @@
       init_logger();
       init_core();
       init_native_ui();
+      init_gemini();
       init_icons();
-      init_counter();
       DefaultModelModule = {
         id: "default-model",
         name: NativeUI.t("默认模型", "Default Model"),
@@ -6114,8 +6443,7 @@
           Logger.info("Default model set", { model });
         },
         _isNewChat() {
-          const url = location.href;
-          return url.includes("/app") && !url.includes("/app/") || url.endsWith("/app") || url.match(/\/app\?[^/]*$/) !== null;
+          return GeminiAdapter.isNewChatUrl();
         },
         _startUrlWatcher() {
           if (this._pollTimer) return;
@@ -6134,61 +6462,52 @@
           if (this._switching) return;
           this._switching = true;
           try {
-            await this._waitForElement('button.input-area-switch, [data-test-id="bard-mode-menu-button"]', 5e3);
+            await this._waitFor(() => GeminiAdapter.getModelSwitch(), 5e3);
             const currentModel = this._detectCurrentModel();
             if (currentModel === this._preferredModel) {
               Logger.info("Already on preferred model", { model: currentModel });
               return;
             }
-            const modeBtn = document.querySelector("button.input-area-switch") || document.querySelector('[data-test-id="bard-mode-menu-button"]');
+            const modeBtn = GeminiAdapter.getModelSwitch();
             if (!modeBtn) return;
             modeBtn.click();
-            await this._waitForElement('[data-test-id^="bard-mode-option-"]', TIMINGS.MODEL_MENU_TIMEOUT);
-            const modelMap = { flash: "fast", thinking: "thinking", pro: "pro" };
-            const testId = "bard-mode-option-" + (modelMap[this._preferredModel] || this._preferredModel);
-            const option = document.querySelector('[data-test-id="' + testId + '"]');
+            await this._waitFor(
+              () => GeminiAdapter.getModelMenuOptions().length > 0,
+              TIMINGS.MODEL_MENU_TIMEOUT
+            );
+            const option = GeminiAdapter.findModelMenuItem(this._preferredModel);
             if (option) {
               option.click();
               Logger.info("Model switched", { from: currentModel, to: this._preferredModel });
             } else {
               document.body.click();
-              Logger.warn("Model option not found", { testId });
+              Logger.warn("Model option not found", { preferred: this._preferredModel });
             }
           } catch (e) {
             Logger.warn("Model switch failed", { error: e.message });
+            try {
+              document.body.click();
+            } catch {
+            }
           } finally {
             this._switching = false;
           }
         },
         _detectCurrentModel() {
-          const map = CounterModule.MODEL_DETECT_MAP;
-          const modeBtn = document.querySelector("button.input-area-switch");
-          if (modeBtn) {
-            const text = modeBtn.textContent.trim();
-            if (map[text]) return map[text];
-          }
-          const pill = document.querySelector('[data-test-id="bard-mode-menu-button"]');
-          if (pill) {
-            const full = pill.textContent.trim();
-            const key = map[full] || map[full.split(/\s/)[0]];
-            if (key) return key;
-          }
-          return "flash";
+          return GeminiAdapter.detectModelKey() || "flash";
         },
-        _waitForElement(selector, timeout) {
+        _waitFor(predicate, timeout) {
           return new Promise((resolve, reject) => {
-            const el = document.querySelector(selector);
-            if (el) return resolve(el);
+            if (predicate()) return resolve(true);
             const start = Date.now();
             let check = null;
             const cleanup = () => {
               if (check) clearInterval(check);
             };
             check = setInterval(() => {
-              const found = document.querySelector(selector);
-              if (found) {
+              if (predicate()) {
                 cleanup();
-                resolve(found);
+                resolve(true);
               } else if (Date.now() - start > timeout) {
                 cleanup();
                 reject(new Error("timeout"));
@@ -6251,6 +6570,7 @@
       init_core();
       init_native_ui();
       init_panel_ui();
+      init_gemini();
       BatchDeleteModule = {
         id: "batch-delete",
         name: NativeUI.t("批量删除", "Batch Delete"),
@@ -6302,7 +6622,7 @@
             toolbar.appendChild(enterBtn);
           }
           if (!sidebar) return;
-          const overflowC = sidebar.querySelector(".overflow-container") || sidebar;
+          const overflowC = GeminiAdapter.getSidebarOverflowContainer() || sidebar;
           const folderFilter = document.getElementById("gc-folder-filter");
           if (folderFilter && folderFilter.parentElement === overflowC) {
             overflowC.insertBefore(toolbar, folderFilter.nextSibling);
@@ -6388,50 +6708,19 @@
           try {
             chatElement.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }));
             await this._sleep(300);
-            const menuBtn = chatElement.querySelector(
-              'button[data-test-id*="menu"], mat-icon[data-mat-icon-name="more_vert"], button[aria-label*="more" i], button[aria-label*="options" i], button[aria-label*="更多" i], button[aria-label*="その他" i], button[aria-label*="더보기" i]'
-            );
-            if (!menuBtn) {
-              const parent = chatElement.closest('mat-list-item, [role="listitem"]') || chatElement.parentElement;
-              const altBtn = parent?.querySelector('button[data-test-id*="menu"], button[aria-label*="more" i], button[aria-label*="更多" i]');
-              if (altBtn) {
-                altBtn.click();
-              } else {
-                throw new Error("Menu button not found");
-              }
-            } else {
-              const clickTarget = menuBtn.closest("button") || menuBtn;
-              clickTarget.click();
-            }
+            const menuBtn = GeminiAdapter.getChatRowMoreButton(chatElement);
+            if (!menuBtn) throw new Error("Menu button not found");
+            (menuBtn.closest("button") || menuBtn).click();
             await this._sleep(400);
-            const menuPanel = document.querySelector('.cdk-overlay-pane [role="menu"], .cdk-overlay-container [role="menu"], .mat-mdc-menu-panel');
-            const menuScope = menuPanel || document;
-            const menuItems = menuScope.querySelectorAll('[role="menuitem"], mat-menu-item, button.mat-mdc-menu-item');
-            let deleteBtn = null;
-            menuItems.forEach((item) => {
-              const text = item.textContent.trim().toLowerCase();
-              if (text.includes("delete") || text.includes("删除") || text.includes("削除") || text.includes("삭제")) {
-                deleteBtn = item;
-              }
-            });
+            const deleteBtn = GeminiAdapter.getDeleteMenuItem();
             if (!deleteBtn) throw new Error("Delete option not found");
             deleteBtn.click();
             await this._sleep(400);
-            const dialog = document.querySelector('mat-dialog-container, .mdc-dialog, [role="dialog"], [role="alertdialog"]');
+            const dialog = GeminiAdapter.getConfirmDialog();
             if (!dialog) throw new Error("Dialog not found");
-            const confirmBtns = dialog.querySelectorAll('button.confirm-button, button[data-test-id*="confirm"], mat-dialog-actions button, .mdc-dialog__actions button, [role="dialog"] button, [role="alertdialog"] button');
-            let confirmed = false;
-            for (const btn of confirmBtns) {
-              const text = btn.textContent.trim().toLowerCase();
-              if (text.includes("delete") || text.includes("删除") || text.includes("削除") || text.includes("삭제") || text.includes("confirm") || text.includes("确认") || text.includes("確認") || text.includes("확인")) {
-                btn.click();
-                confirmed = true;
-                break;
-              }
-            }
-            if (!confirmed) {
-              throw new Error("Confirm button not found");
-            }
+            const confirmBtn = GeminiAdapter.getDialogConfirmButton(dialog);
+            if (!confirmBtn) throw new Error("Confirm button not found");
+            confirmBtn.click();
             await this._sleep(300);
             return true;
           } catch (e) {
@@ -6584,6 +6873,7 @@
       init_constants();
       init_logger();
       init_native_ui();
+      init_gemini();
       QuoteReplyModule = {
         id: "quote-reply",
         name: NativeUI.t("引用回复", "Quote Reply"),
@@ -6664,7 +6954,7 @@
           }
         },
         _insertQuote(text) {
-          const editor = document.querySelector('div.ql-editor[contenteditable="true"]');
+          const editor = GeminiAdapter.getInputEditor();
           if (!editor) {
             Logger.warn("QuoteReply: editor not found");
             return;
@@ -6709,6 +6999,7 @@
       init_core();
       init_dom_watcher();
       init_native_ui();
+      init_gemini();
       UITweaksModule = {
         id: "ui-tweaks",
         name: NativeUI.t("UI 自定义", "UI Tweaks"),
@@ -6814,7 +7105,7 @@
           }
           if (this.features.sidebarWidth.enabled) {
             const w = clampPx(this.features.sidebarWidth.value, 280, 160, 800);
-            rules.push("bard-sidenav { width: " + w + "px !important; min-width: " + w + "px !important; }");
+            rules.push('bard-sidenav, nav[aria-label="Side Navigation"] { width: ' + w + "px !important; min-width: " + w + "px !important; }");
           }
           if (this.features.hideGems.enabled) {
             rules.push('a[href*="/gems/"] { display: none !important; }');
@@ -6834,21 +7125,10 @@
           }
           if (!this.features.tabTitle.enabled) return;
           const updateTitle = () => {
-            const heading = document.querySelector('h1.conversation-title, [data-test-id="conversation-title"]');
-            if (heading && heading.textContent.trim()) {
-              const text = heading.textContent.trim();
-              const isDefault = /^Conversation with Gemini|^与\s*Gemini|Gemini\s*との|Gemini\s*와의/i.test(text);
-              if (!isDefault && text !== document.title) {
-                document.title = text + " - Gemini";
-              }
-            } else {
-              const firstMsg = document.querySelector(".user-query-text, .query-text");
-              if (firstMsg && firstMsg.textContent.trim()) {
-                const t = firstMsg.textContent.trim().substring(0, 50);
-                if (document.title === "Google Gemini") {
-                  document.title = t + "... - Gemini";
-                }
-              }
+            const text = GeminiAdapter.getChatTitleText();
+            if (text) {
+              const desired = text + (text.length === 50 ? "... - Gemini" : " - Gemini");
+              if (document.title !== desired) document.title = desired;
             }
           };
           updateTitle();
@@ -6884,7 +7164,7 @@
               e.preventDefault();
               e.stopPropagation();
               e.stopImmediatePropagation();
-              const sendBtn = document.querySelector('button.send-button, button[aria-label*="Send"]');
+              const sendBtn = GeminiAdapter.getSendButton();
               if (sendBtn && !sendBtn.disabled) {
                 sendBtn.click();
               }
@@ -7298,6 +7578,7 @@
       init_dom_watcher();
       init_panel_ui();
       init_guided_tour();
+      init_gemini();
       init_debug_utils();
       init_counter();
       init_export();
@@ -7422,32 +7703,22 @@
       DOMWatcher.init();
       Core._updateAutoListener(Core.getTheme());
       DOMWatcher.register("model-mutation", {
-        match: (m) => {
-          if (m.type === "attributes") {
-            const target = m.target;
-            if (!target || !target.matches) return false;
-            return target.matches('button.input-area-switch, [data-test-id="bard-mode-menu-button"], .bard-mode-list-button');
-          }
-          if (m.type === "childList" && m.target?.closest) {
-            return !!m.target.closest("input-area-v2, .input-area-container, .bottom-container");
-          }
-          return false;
-        },
+        match: (m) => GeminiAdapter.matchesModelMutation(m),
         callback: onModelMutation,
         debounce: TIMINGS.MODEL_MUTATION_DEBOUNCE
       });
       DOMWatcher.register("sidebar-structure", {
-        match: (m) => m.type === "childList" && !!m.target?.closest?.('.sidenav-with-history-container, bard-sidenav, nav[role="navigation"]'),
+        match: (m) => GeminiAdapter.matchesSidebarMutation(m),
         callback: onSidebarChange,
         debounce: TIMINGS.NATIVEUI_DEBOUNCE
       });
       DOMWatcher.register("input-structure", {
-        match: (m) => m.type === "childList" && !!m.target?.closest?.("input-area-v2, .input-area-container, .bottom-container"),
+        match: (m) => GeminiAdapter.matchesInputAreaMutation(m),
         callback: onInputAreaChange,
         debounce: TIMINGS.NATIVEUI_DEBOUNCE
       });
       DOMWatcher.register("header-structure", {
-        match: (m) => m.type === "childList" && !!m.target?.closest?.(".conversation-title-container"),
+        match: (m) => GeminiAdapter.matchesHeaderMutation(m),
         callback: onHeaderChange,
         debounce: TIMINGS.NATIVEUI_DEBOUNCE
       });
@@ -7513,8 +7784,7 @@
       function waitForGeminiReady(cb, maxWait = 1e4) {
         const start = Date.now();
         (function check() {
-          const ready = !!(document.querySelector('.sidenav-with-history-container, bard-sidenav, nav[role="navigation"]') || document.querySelector("input-area-v2, .input-area-container, .bottom-container"));
-          if (ready) cb();
+          if (GeminiAdapter.isReady()) cb();
           else if (Date.now() - start < maxWait) requestAnimationFrame(check);
           else cb();
         })();
