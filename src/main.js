@@ -1,5 +1,5 @@
 // ╔══════════════════════════════════════════════════════════════════════════╗
-// ║              Primer++ for Gemini v11.0 — Entry Point                         ║
+// ║              Primer++ for Gemini v12.0 — Entry Point                         ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
 
 import { TIMINGS, GLOBAL_KEYS, PANEL_ID, DEFAULT_POS, TEMP_USER } from './constants.js';
@@ -14,6 +14,7 @@ import { NativeUI } from './native_ui.js';
 import { DOMWatcher } from './dom_watcher.js';
 import { PanelUI } from './panel_ui.js';
 import { GuidedTour } from './guided_tour.js';
+import { GeminiAdapter } from './adapters/gemini.js';
 import {
     debugShowDetectedUser,
     debugDumpStorageKeys,
@@ -191,34 +192,24 @@ Core._updateAutoListener(Core.getTheme());
 
 // Register DOMWatcher reactive handlers
 DOMWatcher.register('model-mutation', {
-    match: (m) => {
-        if (m.type === 'attributes') {
-            const target = m.target;
-            if (!target || !target.matches) return false;
-            return target.matches('button.input-area-switch, [data-test-id="bard-mode-menu-button"], .bard-mode-list-button');
-        }
-        if (m.type === 'childList' && m.target?.closest) {
-            return !!m.target.closest('input-area-v2, .input-area-container, .bottom-container');
-        }
-        return false;
-    },
+    match: (m) => GeminiAdapter.matchesModelMutation(m),
     callback: onModelMutation,
     debounce: TIMINGS.MODEL_MUTATION_DEBOUNCE
 });
 
 // Zone-based structure watchers (replaces single broad dom-structure handler)
 DOMWatcher.register('sidebar-structure', {
-    match: (m) => m.type === 'childList' && !!m.target?.closest?.('.sidenav-with-history-container, bard-sidenav, nav[role="navigation"]'),
+    match: (m) => GeminiAdapter.matchesSidebarMutation(m),
     callback: onSidebarChange,
     debounce: TIMINGS.NATIVEUI_DEBOUNCE
 });
 DOMWatcher.register('input-structure', {
-    match: (m) => m.type === 'childList' && !!m.target?.closest?.('input-area-v2, .input-area-container, .bottom-container'),
+    match: (m) => GeminiAdapter.matchesInputAreaMutation(m),
     callback: onInputAreaChange,
     debounce: TIMINGS.NATIVEUI_DEBOUNCE
 });
 DOMWatcher.register('header-structure', {
-    match: (m) => m.type === 'childList' && !!m.target?.closest?.('.conversation-title-container'),
+    match: (m) => GeminiAdapter.matchesHeaderMutation(m),
     callback: onHeaderChange,
     debounce: TIMINGS.NATIVEUI_DEBOUNCE
 });
@@ -283,11 +274,7 @@ function startProgressiveDisclosure() {
 function waitForGeminiReady(cb, maxWait = 10000) {
     const start = Date.now();
     (function check() {
-        const ready = !!(
-            document.querySelector('.sidenav-with-history-container, bard-sidenav, nav[role="navigation"]') ||
-            document.querySelector('input-area-v2, .input-area-container, .bottom-container')
-        );
-        if (ready) cb();
+        if (GeminiAdapter.isReady()) cb();
         else if (Date.now() - start < maxWait) requestAnimationFrame(check);
         else cb();
     })();

@@ -2,6 +2,7 @@ import { ModuleRegistry } from './module_registry.js';
 import { Core } from './core.js';
 import { getCurrentTheme } from './state.js';
 import { Logger } from './logger.js';
+import { GeminiAdapter } from './adapters/gemini.js';
 
 export const NativeUI = {
     isZH: navigator.language.startsWith('zh'),
@@ -43,14 +44,6 @@ export const NativeUI = {
             toast.classList.remove('visible');
             setTimeout(() => toast.remove(), 200);
         }, duration);
-    },
-
-    _findFirst(selectors) {
-        for (const sel of selectors) {
-            const el = document.querySelector(sel);
-            if (el) return el;
-        }
-        return null;
     },
 
     // Dirty tracking: only re-inject modules when DOM structure changes
@@ -103,37 +96,10 @@ export const NativeUI = {
         if (el) el.remove();
     },
 
-    getSidebar() {
-        return this._findFirst([
-            '.sidenav-with-history-container',
-            'bard-sidenav',
-            'nav[role="navigation"]'
-        ]);
-    },
-
-    getInputArea() {
-        return this._findFirst([
-            'input-area-v2',
-            '.input-area-container',
-            '.bottom-container'
-        ]);
-    },
-
-    getChatHeader() {
-        return this._findFirst([
-            '.conversation-title-container',
-            'span.conversation-title',
-            'h1.conversation-title',
-            '[data-test-id="conversation-title"]'
-        ]);
-    },
-
-    getModelSwitch() {
-        return this._findFirst([
-            'button.input-area-switch',
-            '[data-test-id="bard-mode-menu-button"]'
-        ]);
-    },
+    getSidebar() { return GeminiAdapter.getSidebar(); },
+    getInputArea() { return GeminiAdapter.getInputArea(); },
+    getChatHeader() { return GeminiAdapter.getChatHeader(); },
+    getModelSwitch() { return GeminiAdapter.getModelSwitch(); },
 
     /**
      * Show a themed confirmation dialog (replaces native confirm()).
