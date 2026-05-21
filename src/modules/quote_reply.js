@@ -1,6 +1,7 @@
 import { TIMINGS, PANEL_ID } from '../constants.js';
 import { Logger } from '../logger.js';
 import { NativeUI } from '../native_ui.js';
+import { GeminiAdapter } from '../adapters/gemini.js';
 
 export const QuoteReplyModule = {
     id: 'quote-reply',
@@ -107,7 +108,7 @@ export const QuoteReplyModule = {
     },
 
     _insertQuote(text) {
-        const editor = document.querySelector('div.ql-editor[contenteditable="true"]');
+        const editor = GeminiAdapter.getInputEditor();
         if (!editor) {
             Logger.warn('QuoteReply: editor not found');
             return;

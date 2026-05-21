@@ -5,6 +5,7 @@ import { NativeUI } from '../native_ui.js';
 import { DOMWatcher } from '../dom_watcher.js';
 import { PanelUI } from '../panel_ui.js';
 import { CounterModule } from './counter.js';
+import { GeminiAdapter } from '../adapters/gemini.js';
 import { createIcon } from '../icons.js';
 
 // Helper: validate href is safe (relative URL, not javascript: or data:)
@@ -136,7 +137,7 @@ export const FoldersModule = {
 
         this._renderFilterTabs(filterBar);
         if (!sidebar) return;
-        const overflowC = sidebar.querySelector('.overflow-container') || sidebar;
+        const overflowC = GeminiAdapter.getSidebarOverflowContainer() || sidebar;
         overflowC.prepend(filterBar);
     },
 
@@ -461,11 +462,7 @@ export const FoldersModule = {
 
         // 通过 DOMWatcher 监听侧边栏 DOM 变化
         DOMWatcher.register('folders-sidebar', {
-            match: (m) => {
-                const target = m.target;
-                if (!target || !target.closest) return false;
-                return !!target.closest('bard-sidenav-container, nav, [role="navigation"]');
-            },
+            match: (m) => GeminiAdapter.matchesFoldersSidebarMutation(m),
             callback: () => this.markSidebarChats(),
             debounce: TIMINGS.OBSERVER_DEBOUNCE
         });

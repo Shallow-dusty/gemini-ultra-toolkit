@@ -2,6 +2,7 @@ import { Logger } from '../logger.js';
 import { Core } from '../core.js';
 import { NativeUI } from '../native_ui.js';
 import { PanelUI } from '../panel_ui.js';
+import { GeminiAdapter } from '../adapters/gemini.js';
 
 export const BatchDeleteModule = {
     id: 'batch-delete',
@@ -66,7 +67,7 @@ export const BatchDeleteModule = {
 
         // Insert into overflow-container (avoid CSS Grid issues on parent)
         if (!sidebar) return;
-        const overflowC = sidebar.querySelector('.overflow-container') || sidebar;
+        const overflowC = GeminiAdapter.getSidebarOverflowContainer() || sidebar;
         const folderFilter = document.getElementById('gc-folder-filter');
         if (folderFilter && folderFilter.parentElement === overflowC) {
             overflowC.insertBefore(toolbar, folderFilter.nextSibling);
@@ -162,64 +163,30 @@ export const BatchDeleteModule = {
 
     async _deleteChat(chatElement) {
         try {
-            // Step 1: Hover to reveal three-dot menu
+            // Step 1: Hover to reveal the row's More button (v11 path).
+            // v12 keeps the button in DOM at all times, but hovering is still
+            // free of side effects.
             chatElement.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
             await this._sleep(300);
 
-            // Step 2: Find the three-dot/more button (appears on hover)
-            const menuBtn = chatElement.querySelector(
-                'button[data-test-id*="menu"], mat-icon[data-mat-icon-name="more_vert"], ' +
-                'button[aria-label*="more" i], button[aria-label*="options" i], ' +
-                'button[aria-label*="更多" i], button[aria-label*="その他" i], button[aria-label*="더보기" i]'
-            );
-            if (!menuBtn) {
-                // Try parent-level search
-                const parent = chatElement.closest('mat-list-item, [role="listitem"]') || chatElement.parentElement;
-                const altBtn = parent?.querySelector('button[data-test-id*="menu"], button[aria-label*="more" i], button[aria-label*="更多" i]');
-                if (altBtn) {
-                    altBtn.click();
-                } else {
-                    throw new Error('Menu button not found');
-                }
-            } else {
-                const clickTarget = menuBtn.closest('button') || menuBtn;
-                clickTarget.click();
-            }
+            // Step 2: Find the row's More button via adapter
+            const menuBtn = GeminiAdapter.getChatRowMoreButton(chatElement);
+            if (!menuBtn) throw new Error('Menu button not found');
+            (menuBtn.closest('button') || menuBtn).click();
             await this._sleep(400);
 
-            // Step 3: Find "Delete" option in the opened menu (scoped to overlay)
-            const menuPanel = document.querySelector('.cdk-overlay-pane [role="menu"], .cdk-overlay-container [role="menu"], .mat-mdc-menu-panel');
-            const menuScope = menuPanel || document;
-            const menuItems = menuScope.querySelectorAll('[role="menuitem"], mat-menu-item, button.mat-mdc-menu-item');
-            let deleteBtn = null;
-            menuItems.forEach(item => {
-                const text = item.textContent.trim().toLowerCase();
-                if (text.includes('delete') || text.includes('删除') || text.includes('削除') || text.includes('삭제')) {
-                    deleteBtn = item;
-                }
-            });
-
+            // Step 3: Find "Delete" option (prefers data-test-id, falls back to text)
+            const deleteBtn = GeminiAdapter.getDeleteMenuItem();
             if (!deleteBtn) throw new Error('Delete option not found');
             deleteBtn.click();
             await this._sleep(400);
 
-            // Step 4: Confirm in dialog — scope search to visible dialog first
-            const dialog = document.querySelector('mat-dialog-container, .mdc-dialog, [role="dialog"], [role="alertdialog"]');
+            // Step 4: Confirm in dialog
+            const dialog = GeminiAdapter.getConfirmDialog();
             if (!dialog) throw new Error('Dialog not found');
-            const confirmBtns = dialog.querySelectorAll('button.confirm-button, button[data-test-id*="confirm"], mat-dialog-actions button, .mdc-dialog__actions button, [role="dialog"] button, [role="alertdialog"] button');
-            let confirmed = false;
-            for (const btn of confirmBtns) {
-                const text = btn.textContent.trim().toLowerCase();
-                if (text.includes('delete') || text.includes('删除') || text.includes('削除') || text.includes('삭제') ||
-                    text.includes('confirm') || text.includes('确认') || text.includes('確認') || text.includes('확인')) {
-                    btn.click();
-                    confirmed = true;
-                    break;
-                }
-            }
-            if (!confirmed) {
-                throw new Error('Confirm button not found');
-            }
+            const confirmBtn = GeminiAdapter.getDialogConfirmButton(dialog);
+            if (!confirmBtn) throw new Error('Confirm button not found');
+            confirmBtn.click();
             await this._sleep(300);
             return true;
         } catch (e) {

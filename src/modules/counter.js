@@ -4,6 +4,7 @@ import { Core } from '../core.js';
 import { ModuleRegistry } from '../module_registry.js';
 import { PanelUI } from '../panel_ui.js';
 import { NativeUI } from '../native_ui.js';
+import { GeminiAdapter } from '../adapters/gemini.js';
 import { calculateStreaks, getLast7DaysData, ensureTodayEntry } from '../../lib/counter_calc.js';
 
 export const CounterModule = {
@@ -20,14 +21,10 @@ export const CounterModule = {
         thinking: { label: '3 Flash Thinking', multiplier: 0.33, color: '#fbbc04' },
         pro: { label: '3 Pro', multiplier: 1, color: '#ea4335' }
     },
-    MODEL_DETECT_MAP: {
-        'Fast': 'flash', 'Flash': 'flash', 'flash': 'flash',
-        'Thinking': 'thinking', 'thinking': 'thinking',
-        'Pro': 'pro', 'pro': 'pro',
-        '\u5FEB\u901F': 'flash', '\u601D\u8003': 'thinking', '\u4E13\u4E1A': 'pro',
-        '\u9AD8\u901F': 'flash', '\u30D7\u30ED': 'pro',
-        '\uBE60\uB978': 'flash', '\uC0AC\uACE0': 'thinking', '\uD504\uB85C': 'pro'
-    },
+    // Model detection moved to GeminiAdapter.detectModelKey (v12). The previous
+    // MODEL_DETECT_MAP lived here; lib/model_config.js still ships an identical
+    // map alongside MODEL_CONFIG so the sync test can verify the multiplier
+    // contract \u2014 see lib/model_config.js for the authoritative source.
 
     // --- Module private state ---
     resetHour: 0,
@@ -113,12 +110,21 @@ export const CounterModule = {
             if (!ModuleRegistry.isEnabled('counter')) return;
             const btn = e.target?.closest ? e.target.closest('button') : null;
             if (btn && !btn.disabled) {
+                // v11 had `button.send-button`; v12 only exposes the aria-label,
+                // so the aria-label branch is now load-bearing. Keep the class
+                // check to handle mixed rollouts (some users still see v11).
                 if (btn.classList.contains('send-button')) {
                     this.attemptIncrement();
                     return;
                 }
                 const label = btn.getAttribute('aria-label') || '';
-                if (label.includes('Send') || label.includes('\u53D1\u9001')) {
+                // Exact 'Send message' first (v12); fall through to looser i18n
+                // match. The looser match is intentional \u2014 Gemini ships many
+                // locales \u2014 but exact wins to avoid hypothetical "Send feedback".
+                if (label === 'Send message' ||
+                    label === 'Send' ||
+                    label.startsWith('Send ') ||
+                    label.includes('\u53D1\u9001')) {
                     this.attemptIncrement();
                 }
             }
@@ -299,40 +305,13 @@ export const CounterModule = {
 
     // --- Model detection ---
     detectModel() {
-        try {
-            const modeBtn = document.querySelector('button.input-area-switch');
-            if (modeBtn) {
-                const text = modeBtn.textContent.trim();
-                const key = this.MODEL_DETECT_MAP[text];
-                if (key) return key;
-            }
-            const pillLabel = document.querySelector('[data-test-id="bard-mode-menu-button"]');
-            if (pillLabel) {
-                const full = pillLabel.textContent.trim();
-                const key = this.MODEL_DETECT_MAP[full] || this.MODEL_DETECT_MAP[full.split(/\s/)[0]];
-                if (key) return key;
-            }
-            const selected = document.querySelector('.bard-mode-list-button.is-selected');
-            if (selected) {
-                const full = selected.textContent.trim();
-                const key = this.MODEL_DETECT_MAP[full] || this.MODEL_DETECT_MAP[full.split(/\s/)[0]];
-                if (key) return key;
-            }
-        } catch (e) { }
-        return this.currentModel;
+        // adapter returns a normalized internal key, or null if undetermined
+        const key = GeminiAdapter.detectModelKey();
+        return key || this.currentModel;
     },
 
     detectAccountType() {
-        try {
-            const pillboxBtn = document.querySelector('button.gds-pillbox-button, button.pillbox-btn');
-            if (pillboxBtn) {
-                const text = pillboxBtn.textContent.trim().toUpperCase();
-                if (text === 'ULTRA' || text.includes('ULTRA')) return 'ultra';
-                if (text === 'PRO' || text.includes('PRO')) return 'pro';
-            }
-            return 'free';
-        } catch (e) { }
-        return this.accountType;
+        return GeminiAdapter.detectAccountTier();
     },
 
     // --- Statistics (delegating to lib pure functions) ---

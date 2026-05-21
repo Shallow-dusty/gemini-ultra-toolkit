@@ -2,8 +2,8 @@ import { TIMINGS } from '../constants.js';
 import { Logger } from '../logger.js';
 import { Core } from '../core.js';
 import { NativeUI } from '../native_ui.js';
+import { GeminiAdapter } from '../adapters/gemini.js';
 import { createIcon } from '../icons.js';
-import { CounterModule } from './counter.js';
 
 export const DefaultModelModule = {
     id: 'default-model',
@@ -73,10 +73,7 @@ export const DefaultModelModule = {
     },
 
     _isNewChat() {
-        const url = location.href;
-        return (url.includes('/app') && !url.includes('/app/')) ||
-               url.endsWith('/app') ||
-               (url.match(/\/app\?[^/]*$/) !== null);
+        return GeminiAdapter.isNewChatUrl();
     },
 
     _startUrlWatcher() {
@@ -97,61 +94,53 @@ export const DefaultModelModule = {
         if (this._switching) return;
         this._switching = true;
         try {
-            await this._waitForElement('button.input-area-switch, [data-test-id="bard-mode-menu-button"]', 5000);
+            // Wait for the mode picker button — keep the wait gating logic on
+            // the model switch button rather than a brittle selector string.
+            await this._waitFor(() => GeminiAdapter.getModelSwitch(), 5000);
             const currentModel = this._detectCurrentModel();
             if (currentModel === this._preferredModel) {
                 Logger.info('Already on preferred model', { model: currentModel });
                 return;
             }
-            const modeBtn = document.querySelector('button.input-area-switch') ||
-                            document.querySelector('[data-test-id="bard-mode-menu-button"]');
+            const modeBtn = GeminiAdapter.getModelSwitch();
             if (!modeBtn) return;
             modeBtn.click();
-            await this._waitForElement('[data-test-id^="bard-mode-option-"]', TIMINGS.MODEL_MENU_TIMEOUT);
+            // Wait for menu items to render
+            await this._waitFor(
+                () => GeminiAdapter.getModelMenuOptions().length > 0,
+                TIMINGS.MODEL_MENU_TIMEOUT
+            );
 
-            const modelMap = { flash: 'fast', thinking: 'thinking', pro: 'pro' };
-            const testId = 'bard-mode-option-' + (modelMap[this._preferredModel] || this._preferredModel);
-            const option = document.querySelector('[data-test-id="' + testId + '"]');
+            const option = GeminiAdapter.findModelMenuItem(this._preferredModel);
             if (option) {
                 option.click();
                 Logger.info('Model switched', { from: currentModel, to: this._preferredModel });
             } else {
                 document.body.click();
-                Logger.warn('Model option not found', { testId });
+                Logger.warn('Model option not found', { preferred: this._preferredModel });
             }
         } catch (e) {
             Logger.warn('Model switch failed', { error: e.message });
+            // Make sure the mode picker isn't left open if we threw after
+            // clicking the trigger but before finding/clicking an option.
+            try { document.body.click(); } catch { /* swallow */ }
         } finally {
             this._switching = false;
         }
     },
 
     _detectCurrentModel() {
-        const map = CounterModule.MODEL_DETECT_MAP;
-        const modeBtn = document.querySelector('button.input-area-switch');
-        if (modeBtn) {
-            const text = modeBtn.textContent.trim();
-            if (map[text]) return map[text];
-        }
-        const pill = document.querySelector('[data-test-id="bard-mode-menu-button"]');
-        if (pill) {
-            const full = pill.textContent.trim();
-            const key = map[full] || map[full.split(/\s/)[0]];
-            if (key) return key;
-        }
-        return 'flash';
+        return GeminiAdapter.detectModelKey() || 'flash';
     },
 
-    _waitForElement(selector, timeout) {
+    _waitFor(predicate, timeout) {
         return new Promise((resolve, reject) => {
-            const el = document.querySelector(selector);
-            if (el) return resolve(el);
+            if (predicate()) return resolve(true);
             const start = Date.now();
             let check = null;
             const cleanup = () => { if (check) clearInterval(check); };
             check = setInterval(() => {
-                const found = document.querySelector(selector);
-                if (found) { cleanup(); resolve(found); }
+                if (predicate()) { cleanup(); resolve(true); }
                 else if (Date.now() - start > timeout) { cleanup(); reject(new Error('timeout')); }
             }, 200);
         });

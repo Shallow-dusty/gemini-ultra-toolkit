@@ -5,6 +5,7 @@ import { PanelUI } from '../panel_ui.js';
 import { getCurrentTheme } from '../state.js';
 import { createIcon } from '../icons.js';
 import { CounterModule } from './counter.js';
+import { GeminiAdapter } from '../adapters/gemini.js';
 import { formatLocalDate } from '../../lib/date_utils.js';
 
 export const PromptVaultModule = {
@@ -47,7 +48,7 @@ export const PromptVaultModule = {
         const NATIVE_ID = 'gc-vault-native';
         if (document.getElementById(NATIVE_ID)) return;
 
-        const trailing = document.querySelector('.trailing-actions-wrapper');
+        const trailing = GeminiAdapter.getInputTrailingActions();
         if (!trailing) return;
 
         const btn = document.createElement('button');
@@ -188,7 +189,7 @@ export const PromptVaultModule = {
     },
 
     insertPrompt(content) {
-        const editor = document.querySelector('div.ql-editor[contenteditable="true"]');
+        const editor = GeminiAdapter.getInputEditor();
         if (!editor) return;
         editor.focus();
         // Place cursor at end

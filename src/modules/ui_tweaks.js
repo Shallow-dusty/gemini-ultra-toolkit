@@ -3,6 +3,7 @@ import { Logger } from '../logger.js';
 import { Core } from '../core.js';
 import { DOMWatcher } from '../dom_watcher.js';
 import { NativeUI } from '../native_ui.js';
+import { GeminiAdapter } from '../adapters/gemini.js';
 
 export const UITweaksModule = {
     id: 'ui-tweaks',
@@ -119,7 +120,9 @@ export const UITweaksModule = {
         }
         if (this.features.sidebarWidth.enabled) {
             const w = clampPx(this.features.sidebarWidth.value, 280, 160, 800);
-            rules.push('bard-sidenav { width: ' + w + 'px !important; min-width: ' + w + 'px !important; }');
+            // bard-sidenav still present in v12. Add nav[aria-label="Side Navigation"]
+            // as a forward-compatible alternate selector for safety.
+            rules.push('bard-sidenav, nav[aria-label="Side Navigation"] { width: ' + w + 'px !important; min-width: ' + w + 'px !important; }');
         }
         if (this.features.hideGems.enabled) {
             rules.push('a[href*="/gems/"] { display: none !important; }');
@@ -139,22 +142,11 @@ export const UITweaksModule = {
         if (!this.features.tabTitle.enabled) return;
 
         const updateTitle = () => {
-            const heading = document.querySelector('h1.conversation-title, [data-test-id="conversation-title"]');
-            if (heading && heading.textContent.trim()) {
-                const text = heading.textContent.trim();
-                const isDefault = /^Conversation with Gemini|^与\s*Gemini|Gemini\s*との|Gemini\s*와의/i.test(text);
-                if (!isDefault && text !== document.title) {
-                    document.title = text + ' - Gemini';
-                }
-            } else {
-                // Try extracting from first user message
-                const firstMsg = document.querySelector('.user-query-text, .query-text');
-                if (firstMsg && firstMsg.textContent.trim()) {
-                    const t = firstMsg.textContent.trim().substring(0, 50);
-                    if (document.title === 'Google Gemini') {
-                        document.title = t + '... - Gemini';
-                    }
-                }
+            // adapter handles v11/v12 differences AND defaults to first user message.
+            const text = GeminiAdapter.getChatTitleText();
+            if (text) {
+                const desired = text + (text.length === 50 ? '... - Gemini' : ' - Gemini');
+                if (document.title !== desired) document.title = desired;
             }
         };
 
@@ -201,7 +193,7 @@ export const UITweaksModule = {
                 e.preventDefault();
                 e.stopPropagation();
                 e.stopImmediatePropagation();
-                const sendBtn = document.querySelector('button.send-button, button[aria-label*="Send"]');
+                const sendBtn = GeminiAdapter.getSendButton();
                 if (sendBtn && !sendBtn.disabled) {
                     sendBtn.click();
                 }
