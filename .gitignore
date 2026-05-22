@@ -10,3 +10,8 @@ nul
 # not source). The listing copy under store-assets/listing/ IS tracked.
 store-assets/dist-zips/
 store-assets/screenshots/
+
+# Python bytecode (the capture scripts under store-assets/scripts/ are
+# pure Python helpers; nothing else in this repo is Python).
+__pycache__/
+*.pyc
