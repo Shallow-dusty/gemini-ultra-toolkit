@@ -5,3 +5,8 @@ tmp/
 .playwright-mcp/
 nul
 *.log
+
+# Generated store-distribution artifacts (zips + screenshots are byproducts,
+# not source). The listing copy under store-assets/listing/ IS tracked.
+store-assets/dist-zips/
+store-assets/screenshots/
