@@ -21,16 +21,31 @@ All modules can be individually enabled/disabled from the settings panel.
 
 ## Install
 
+Latest release: **[v12.0](https://github.com/Shallow-dusty/primer-pp/releases/latest)** · [CHANGELOG / release notes](https://github.com/Shallow-dusty/primer-pp/releases)
+
 ### Userscript (Tampermonkey / Violentmonkey)
 
-1. Install [Tampermonkey](https://www.tampermonkey.net/) or [Violentmonkey](https://violentmonkey.github.io/)
-2. Open `primer-pp.user.js` and click "Install"
+1. Install [Tampermonkey](https://www.tampermonkey.net/) or [Violentmonkey](https://violentmonkey.github.io/).
+2. Click **[Install Primer++](https://github.com/Shallow-dusty/primer-pp/releases/latest/download/primer-pp.user.js)** — your userscript manager will detect the `.user.js` URL and open the install prompt.
+3. Auto-updates from then on track `main` via the header's `@updateURL`.
+
+Mirror: Greasyfork listing — _pending publication_.
 
 ### Browser Extension
 
-1. Build with `npm run build:extension` (or download `dist/extension/`)
-2. **Chrome/Edge**: Go to `chrome://extensions/` → Enable Developer Mode → Load Unpacked → select `dist/extension/`
-3. **Firefox**: Go to `about:debugging` → This Firefox → Load Temporary Add-on → select `dist/extension/manifest.json`
+Store listings — _pending review_:
+
+- Chrome Web Store
+- Microsoft Edge Add-ons
+- Mozilla Add-ons (AMO)
+
+Until the listings are live, install manually from the latest release:
+
+1. Download [`primer-pp-extension-v12.0.zip`](https://github.com/Shallow-dusty/primer-pp/releases/latest) from the Releases page and unzip it.
+2. **Chrome / Edge**: open `chrome://extensions/` (or `edge://extensions/`), enable **Developer mode**, click **Load Unpacked**, choose the unzipped folder.
+3. **Firefox**: open `about:debugging` → **This Firefox** → **Load Temporary Add-on**, select the unzipped folder's `manifest.json`.
+
+Privacy: see [PRIVACY.md](PRIVACY.md). Everything stays in `chrome.storage.local`; nothing is uploaded.
 
 ## Development
 
