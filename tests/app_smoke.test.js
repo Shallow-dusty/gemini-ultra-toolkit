@@ -185,4 +185,14 @@ describe('app smoke checks', () => {
         assert.ok(appendIdx !== -1, 'empty Prompt Vault branch must render import/export controls');
         assert.ok(appendIdx < returnIdx, 'Prompt Vault import/export controls must render before empty-state return');
     });
+
+    it('keeps Chat Notes pinned packets explicit and local', () => {
+        const chatNotes = read('src/modules/chat_notes.js');
+
+        assert.match(chatNotes, /formatContextPacket/);
+        assert.match(chatNotes, /_insertPinnedContextPacket/);
+        assert.match(chatNotes, /Pinned Gemini context packet/);
+        assert.match(chatNotes, /notes\.slice\(0, 8\)/);
+        assert.doesNotMatch(chatNotes, /getCurrentConversationMessages/);
+    });
 });

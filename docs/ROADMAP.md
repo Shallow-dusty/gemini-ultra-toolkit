@@ -1,6 +1,6 @@
 # Roadmap
 
-Updated: 2026-06-08 (post-v12 planning refresh + local data portability + local context references + quota window framing + prompt-chain queueing + HTML transcript export + adapter probe export).
+Updated: 2026-06-08 (post-v12 planning refresh + local data portability + local context references + pinned context packets + quota window framing + prompt-chain queueing + HTML transcript export + adapter probe export).
 
 This is the maintained roadmap. It replaces the old full feature brainstorming document, which mixed implemented features, speculative ideas, and stale project naming.
 
@@ -42,7 +42,7 @@ Implemented modules:
 - UI Tweaks: title sync, Ctrl+Enter behavior, width controls, Gems hiding.
 - Chat Notes: local per-chat notes and pins in the details pane, versioned JSON
   import/export, and explicit local context-reference insertion for titles,
-  links, chat IDs, and saved notes.
+  links, chat IDs, saved notes, and visible pinned-note context packets.
 
 ## Near-Term Priorities
 
@@ -107,7 +107,8 @@ Prioritize local-first workflow parity with direct Gemini competitors:
   Message Queue items. This is local queue preparation; sending still requires
   the Message Queue start action and tool-mode safety checks.
 - ~~Per-chat local notes and pins.~~ Done after the market/UI planning snapshot;
-  Chat Notes can also insert explicit local reference packets into the composer.
+  Chat Notes can also insert explicit local reference packets and visible
+  pinned-note context packets into the composer.
 - ~~Bulk export for selected chats in JSON/Markdown/TXT/HTML first.~~ Implemented
   as a selected-sidebar workflow that navigates each selected chat and captures
   visible transcript text; live Gemini smoke coverage is still due before
@@ -119,8 +120,9 @@ Prioritize local-first workflow parity with direct Gemini competitors:
   local JSON export/import. This is browser-local migration, not cloud sync or
   Gemini memory mirroring.
 - Local context references: Chat Notes can format saved local titles, links,
-  chat IDs, and notes into the composer on explicit user action. This is not a
-  hidden transcript read and does not mirror Gemini memories.
+  chat IDs, notes, and visible pinned-note packets into the composer on explicit
+  user action. This is not a hidden transcript read and does not mirror Gemini
+  memories.
 - Tool-mode awareness for Canvas, Deep Research, Image, Video, Audio Overview,
   Spark, or equivalent Gemini modes so automations can disable themselves
   safely. Canonical label/state matching is covered by unit tests; visible

@@ -4,6 +4,7 @@
 
 ### Unreleased
 
+- **Pinned context packets**: Chat Notes can insert the visible pinned-note list as one explicit local context packet, using saved title/link/chat ID/note data only.
 - **Adapter probe export**: Debug Panel and CDP helper can export a privacy-conservative runtime adapter probe report with selector, model, sidebar, input, header, and tool-mode health.
 - **HTML transcript export**: current-chat and selected-chat transcript exports now include an escaped standalone HTML format alongside JSON, Markdown, and TXT.
 - **Prompt chain queueing**: Prompt Vault can add a prompt chain to Message Queue as separate local queue items, so each step remains pause/cancel/reorder controlled before sending.

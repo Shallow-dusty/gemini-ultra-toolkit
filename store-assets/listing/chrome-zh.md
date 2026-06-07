@@ -47,7 +47,7 @@ Primer++ for Gemini™ 是一款非官方、开源的 Google Gemini 网页版增
 
 • 引用回复 Quote Reply — 把任意对话里的选中文字带引用插入到下一条 prompt。
 
-• 对话笔记 Chat Notes — 为重要对话保存本地笔记和置顶标记，换浏览器时可用 JSON 导入 / 导出，也可手动插入包含标题、链接、对话 ID 和本地笔记的引用包。
+• 对话笔记 Chat Notes — 为重要对话保存本地笔记和置顶标记，换浏览器时可用 JSON 导入 / 导出，也可手动插入包含标题、链接、对话 ID 和本地笔记的单条引用包或置顶笔记包。
 
 • 界面微调 UI Tweaks — 标签页标题与对话标题同步、自定义 Ctrl+Enter 行为、调整对话宽度、隐藏未使用的 Gems。
 
@@ -59,7 +59,7 @@ Primer++ for Gemini™ 是一款非官方、开源的 Google Gemini 网页版增
 
 • 所有数据存放在你设备本地的 chrome.storage.local 中。
 • 任何数据都不会上传 — 不传给开发者，不传给任何分析服务，不传给任何地方。
-• 只有当你明确保存到 Prompt Vault 或加入 Message Queue 时，prompt 文本才会被读取并保存在本地。只有当你明确导出当前对话或选中对话记录时，可见的 Gemini 对话文本才会被读取。Chat Notes 的引用插入只使用本地保存的标题 / 链接 / ID / 笔记。
+• 只有当你明确保存到 Prompt Vault 或加入 Message Queue 时，prompt 文本才会被读取并保存在本地。只有当你明确导出当前对话或选中对话记录时，可见的 Gemini 对话文本才会被读取。Chat Notes 的上下文插入只使用本地保存的标题 / 链接 / ID / 笔记。
 • 唯一申请的 host 权限：https://gemini.google.com/*。
 • 完整隐私政策：https://github.com/Shallow-dusty/primer-pp/blob/main/PRIVACY.md
 

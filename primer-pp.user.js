@@ -9760,7 +9760,7 @@ ${part}`).join("\n\n---\n\n");
         }
         return lines.join("\n");
       }
-      function formatContextPacket(items, opts = {}) {
+      function formatContextPacket2(items, opts = {}) {
         const refs = (Array.isArray(items) ? items : [items]).map(normalizeContextReference).filter(Boolean);
         if (refs.length === 0) return "";
         if (refs.length === 1) return formatContextReference2(refs[0], opts);
@@ -9774,7 +9774,7 @@ ${part}`).join("\n\n---\n\n");
         return [`[${label}]`, ...sections].join("\n\n");
       }
       module.exports = {
-        formatContextPacket,
+        formatContextPacket: formatContextPacket2,
         formatContextReference: formatContextReference2,
         normalizeContextReference
       };
@@ -10016,6 +10016,15 @@ ${part}`).join("\n\n---\n\n");
             NativeUI.showToast(NativeUI.t("上下文引用已插入", "Context reference inserted"));
           }
         },
+        _insertPinnedContextPacket(notes) {
+          const text = (0, import_context_packet_tools.formatContextPacket)(notes.slice(0, 8), {
+            label: "Pinned Gemini context packet"
+          });
+          if (!text) return;
+          if (this._insertTextIntoEditor(text)) {
+            NativeUI.showToast(NativeUI.t("置顶上下文包已插入", "Pinned context packet inserted"));
+          }
+        },
         _makeContextInsertButton(note) {
           const btn = document.createElement("button");
           btn.type = "button";
@@ -10155,7 +10164,10 @@ ${part}`).join("\n\n---\n\n");
           const pinned = (0, import_chat_notes_store.getPinnedNotes)(this.data);
           const title = document.createElement("div");
           title.className = "section-title";
-          title.textContent = NativeUI.t("置顶对话", "Pinned Chats");
+          title.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:6px;";
+          const titleLabel = document.createElement("span");
+          titleLabel.textContent = NativeUI.t("置顶对话", "Pinned Chats");
+          title.appendChild(titleLabel);
           container.appendChild(title);
           if (pinned.length === 0) {
             const empty = document.createElement("div");
@@ -10164,6 +10176,18 @@ ${part}`).join("\n\n---\n\n");
             container.appendChild(empty);
             return;
           }
+          const packetBtn = document.createElement("button");
+          packetBtn.type = "button";
+          packetBtn.style.cssText = "display:inline-flex;align-items:center;gap:4px;padding:2px 6px;border-radius:5px;border:1px solid var(--divider,rgba(255,255,255,0.1));background:var(--btn-bg,rgba(255,255,255,0.05));color:var(--text-sub,#9aa0a6);font-size:10px;cursor:pointer;";
+          packetBtn.title = NativeUI.t("插入置顶上下文包", "Insert pinned context packet");
+          packetBtn.setAttribute("aria-label", NativeUI.t("插入置顶上下文包", "Insert pinned context packet"));
+          packetBtn.appendChild(createIcon("copy", 11));
+          packetBtn.appendChild(document.createTextNode(NativeUI.t("包", "Packet")));
+          packetBtn.onclick = (e) => {
+            e.stopPropagation();
+            this._insertPinnedContextPacket(pinned);
+          };
+          title.appendChild(packetBtn);
           pinned.slice(0, 8).forEach((note) => {
             const row = document.createElement("div");
             row.className = "detail-row";
@@ -10219,13 +10243,13 @@ ${part}`).join("\n\n---\n\n");
           return {
             zh: {
               rant: "Gemini 的对话列表只有标题和时间。你想记住“这段架构结论以后要复用”，只能靠脑子或外部笔记。",
-              features: "为每个 Gemini 对话保存本地笔记和置顶标记，并可手动把本地标题、链接、ID 与笔记作为上下文引用插入输入框。数据只写入浏览器本地存储，不同步到远端。",
-              guide: "打开一个对话，在面板的 Chat Notes 标签里写笔记或置顶。点击复制图标可把本地引用包插入当前输入框，置顶列表可快速回到重要对话。"
+              features: "为每个 Gemini 对话保存本地笔记和置顶标记，并可手动把本地标题、链接、ID 与笔记作为单条引用或置顶上下文包插入输入框。数据只写入浏览器本地存储，不同步到远端。",
+              guide: "打开一个对话，在面板的 Chat Notes 标签里写笔记或置顶。点击复制图标可把本地引用包插入当前输入框，也可把置顶列表打包插入；置顶列表可快速回到重要对话。"
             },
             en: {
               rant: "Gemini gives you titles and timestamps, but not a durable place to mark why a chat matters.",
-              features: "Adds local per-chat notes and pins, plus explicit context-reference insertion for local titles, links, IDs, and notes. Data stays in browser storage and is not synced to a backend.",
-              guide: "Open a chat, use the Chat Notes tab to save a note or pin it. Click the copy icon to insert a local reference packet into the current composer, or use the pinned list to return to important chats."
+              features: "Adds local per-chat notes and pins, plus explicit context-reference insertion for local titles, links, IDs, and notes as single references or pinned context packets. Data stays in browser storage and is not synced to a backend.",
+              guide: "Open a chat, use the Chat Notes tab to save a note or pin it. Click the copy icon to insert a local reference packet into the current composer, or package the pinned list before returning to important chats."
             }
           };
         }

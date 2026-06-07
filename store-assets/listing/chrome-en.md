@@ -49,7 +49,7 @@ WHAT IT ADDS
 
 • Quote Reply — quote selected text from any chat into your next prompt, with attribution.
 
-• Chat Notes — save local notes and pins for important conversations, export/import notes as JSON, and insert explicit local reference packets with title, link, chat ID, and your saved note.
+• Chat Notes — save local notes and pins for important conversations, export/import notes as JSON, and insert explicit local reference packets or pinned-note packets with title, link, chat ID, and your saved note.
 
 • UI Tweaks — sync the tab title with the chat title, customize Ctrl+Enter behavior, adjust chat width, hide unused Gems.
 
@@ -61,7 +61,7 @@ PRIVACY & DATA
 
 • All data is stored in chrome.storage.local on your device.
 • Nothing is uploaded — not to the developer, not to any analytics service, not anywhere.
-• Prompt text is read or stored only when you explicitly save it to Prompt Vault or add it to Message Queue. Visible Gemini conversation text is read only when you explicitly export the current chat or selected chats. Chat Notes reference insertion uses saved local title/link/ID/note data only.
+• Prompt text is read or stored only when you explicitly save it to Prompt Vault or add it to Message Queue. Visible Gemini conversation text is read only when you explicitly export the current chat or selected chats. Chat Notes context insertion uses saved local title/link/ID/note data only.
 • Only host permission requested: https://gemini.google.com/*.
 • Full privacy policy: https://github.com/Shallow-dusty/primer-pp/blob/main/PRIVACY.md
 
