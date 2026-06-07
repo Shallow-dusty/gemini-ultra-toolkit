@@ -31,7 +31,7 @@ Primer++ for Gemini™ is an unofficial, open-source companion extension for Goo
 WHAT IT ADDS
 ═══════════════════════════════════════
 
-• Counter — daily message tally per model (Flash / Pro / Thinking), streak tracking, weekly trend, and a model-weighted quota bar so you can see how close you are to your self-set ceiling.
+• Counter — daily message tally per model (Flash / Pro / Thinking), configured reset-window framing, streak tracking, weekly trend, and a model-weighted quota bar so you can see how close you are to your self-set ceiling.
 
 • Heatmap dashboard — GitHub-style year heatmap of your Gemini usage, plus per-model breakdown and per-day drill-down.
 

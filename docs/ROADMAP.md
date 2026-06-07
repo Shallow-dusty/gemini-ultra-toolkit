@@ -1,6 +1,6 @@
 # Roadmap
 
-Updated: 2026-06-08 (post-v12 planning refresh + local data portability + local context references).
+Updated: 2026-06-08 (post-v12 planning refresh + local data portability + local context references + quota window framing).
 
 This is the maintained roadmap. It replaces the old full feature brainstorming document, which mixed implemented features, speculative ideas, and stale project naming.
 
@@ -21,7 +21,8 @@ extension market both change quickly.
 
 Implemented modules:
 
-- Counter: daily usage, streaks, quota weighting, model breakdown, heatmap/dashboard.
+- Counter: daily usage, reset-window framing, streaks, quota weighting, model
+  breakdown, heatmap/dashboard.
 - Folders: sidebar markers, panel management, search, pinning, drag reorder,
   batch move, auto-classify rules, and one-step local undo for folder
   moves/deletes, plus versioned JSON import/export.
@@ -117,6 +118,9 @@ Prioritize local-first workflow parity with direct Gemini competitors:
   Spark, or equivalent Gemini modes so automations can disable themselves
   safely. Canonical label/state matching is covered by unit tests; visible
   Gemini entry-point probes still need live-browser smoke coverage.
+- Quota reset-window framing is implemented for the configured 24-hour daily
+  bucket. Do not claim 5-hour or weekly rolling quota tracking until message
+  timestamps exist at that granularity.
 
 ## Deferred Ideas
 

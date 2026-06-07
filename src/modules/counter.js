@@ -6,6 +6,7 @@ import { PanelUI } from '../panel_ui.js';
 import { NativeUI } from '../native_ui.js';
 import { GeminiAdapter } from '../adapters/gemini.js';
 import { calculateStreaks, getLast7DaysData, ensureTodayEntry } from '../../lib/counter_calc.js';
+import { getQuotaWindowState } from '../../lib/quota_calc.js';
 
 export const CounterModule = {
     id: 'counter',
@@ -220,6 +221,10 @@ export const CounterModule = {
             const mult = this.MODEL_CONFIG[key]?.multiplier ?? 1;
             return sum + (bm[key] * mult);
         }, 0);
+    },
+
+    getQuotaWindowState(now) {
+        return getQuotaWindowState(this.resetHour, now);
     },
 
     attemptIncrement() {

@@ -1614,8 +1614,125 @@
     }
   });
 
+  // lib/model_config.js
+  var require_model_config = __commonJS({
+    "lib/model_config.js"(exports, module) {
+      "use strict";
+      var MODEL_CONFIG = {
+        flash: { label: "3 Flash", multiplier: 0, color: "#34a853" },
+        thinking: { label: "3 Flash Thinking", multiplier: 0.33, color: "#fbbc04" },
+        pro: { label: "3 Pro", multiplier: 1, color: "#ea4335" }
+      };
+      var MODEL_DETECT_MAP = {
+        // EN
+        "Fast": "flash",
+        "Flash": "flash",
+        "flash": "flash",
+        "Thinking": "thinking",
+        "thinking": "thinking",
+        "Pro": "pro",
+        "pro": "pro",
+        // ZH
+        "快速": "flash",
+        "思考": "thinking",
+        "专业": "pro",
+        // JA
+        "高速": "flash",
+        "プロ": "pro",
+        // KO
+        "빠른": "flash",
+        "사고": "thinking",
+        "프로": "pro"
+      };
+      module.exports = { MODEL_CONFIG, MODEL_DETECT_MAP };
+    }
+  });
+
+  // lib/quota_calc.js
+  var require_quota_calc = __commonJS({
+    "lib/quota_calc.js"(exports, module) {
+      var { MODEL_CONFIG } = require_model_config();
+      var { getDayKey, parseLocalDate } = require_date_utils();
+      function getWeightedQuota(byModel, config = MODEL_CONFIG) {
+        if (!byModel || typeof byModel !== "object") return 0;
+        return Object.keys(byModel).reduce((sum, key) => {
+          const mult = config[key]?.multiplier ?? 1;
+          return sum + (byModel[key] || 0) * mult;
+        }, 0);
+      }
+      function ensureByModel(entry) {
+        if (!entry) return { messages: 0, chats: 0, byModel: { flash: 0, thinking: 0, pro: 0 } };
+        if (!entry.byModel) {
+          entry.byModel = { flash: 0, thinking: 0, pro: 0 };
+        }
+        return entry;
+      }
+      function formatQuotaLabel(rawCount, weighted, limit) {
+        const weightedStr = weighted % 1 === 0 ? String(weighted) : weighted.toFixed(1);
+        return `${rawCount} msgs (${weightedStr} weighted) / ${limit}`;
+      }
+      function getQuotaBarState(weighted, limit) {
+        const pct = limit > 0 ? Math.min(weighted / limit * 100, 100) : 0;
+        let color;
+        if (pct < 60) color = "#34a853";
+        else if (pct < 85) color = "#fbbc04";
+        else color = "#ea4335";
+        return { pct, color };
+      }
+      function normalizeResetHour(value) {
+        const hour = Number(value);
+        if (!Number.isFinite(hour)) return 0;
+        return Math.max(0, Math.min(23, Math.floor(hour)));
+      }
+      function formatResetHour(hour) {
+        return `${String(normalizeResetHour(hour)).padStart(2, "0")}:00`;
+      }
+      function formatQuotaWindowRemaining(minutes) {
+        const total = Math.max(0, Math.ceil(Number(minutes) || 0));
+        if (total === 0) return "now";
+        const hours = Math.floor(total / 60);
+        const mins = total % 60;
+        if (hours && mins) return `${hours}h ${mins}m`;
+        if (hours) return `${hours}h`;
+        return `${mins}m`;
+      }
+      function getQuotaWindowState2(resetHour = 0, now) {
+        const hour = normalizeResetHour(resetHour);
+        let ref = now instanceof Date ? new Date(now.getTime()) : new Date(now || Date.now());
+        if (Number.isNaN(ref.getTime())) ref = /* @__PURE__ */ new Date();
+        const dayKey = getDayKey(hour, ref);
+        const windowStart = parseLocalDate(dayKey);
+        windowStart.setHours(hour, 0, 0, 0);
+        const windowEnd = new Date(windowStart.getTime());
+        windowEnd.setDate(windowEnd.getDate() + 1);
+        const remainingMinutes = Math.max(0, Math.ceil((windowEnd.getTime() - ref.getTime()) / 6e4));
+        const resetLabel = formatResetHour(hour);
+        return {
+          resetHour: hour,
+          dayKey,
+          windowStart,
+          windowEnd,
+          resetLabel,
+          windowLabel: `${resetLabel}-${resetLabel}`,
+          remainingMinutes,
+          remainingLabel: formatQuotaWindowRemaining(remainingMinutes)
+        };
+      }
+      module.exports = {
+        getWeightedQuota,
+        ensureByModel,
+        formatQuotaLabel,
+        getQuotaBarState,
+        normalizeResetHour,
+        formatResetHour,
+        formatQuotaWindowRemaining,
+        getQuotaWindowState: getQuotaWindowState2
+      };
+    }
+  });
+
   // src/modules/counter.js
-  var import_counter_calc, CounterModule;
+  var import_counter_calc, import_quota_calc, CounterModule;
   var init_counter = __esm({
     "src/modules/counter.js"() {
       init_constants();
@@ -1626,6 +1743,7 @@
       init_native_ui();
       init_gemini();
       import_counter_calc = __toESM(require_counter_calc());
+      import_quota_calc = __toESM(require_quota_calc());
       CounterModule = {
         id: "counter",
         name: NativeUI.t("消息计数器", "Message Counter"),
@@ -1823,6 +1941,9 @@
             const mult = this.MODEL_CONFIG[key]?.multiplier ?? 1;
             return sum + bm[key] * mult;
           }, 0);
+        },
+        getQuotaWindowState(now) {
+          return (0, import_quota_calc.getQuotaWindowState)(this.resetHour, now);
         },
         attemptIncrement() {
           const now = Date.now();
@@ -2093,74 +2214,6 @@
           tt.style.left = left + "px";
         }
       };
-    }
-  });
-
-  // lib/model_config.js
-  var require_model_config = __commonJS({
-    "lib/model_config.js"(exports, module) {
-      "use strict";
-      var MODEL_CONFIG = {
-        flash: { label: "3 Flash", multiplier: 0, color: "#34a853" },
-        thinking: { label: "3 Flash Thinking", multiplier: 0.33, color: "#fbbc04" },
-        pro: { label: "3 Pro", multiplier: 1, color: "#ea4335" }
-      };
-      var MODEL_DETECT_MAP = {
-        // EN
-        "Fast": "flash",
-        "Flash": "flash",
-        "flash": "flash",
-        "Thinking": "thinking",
-        "thinking": "thinking",
-        "Pro": "pro",
-        "pro": "pro",
-        // ZH
-        "快速": "flash",
-        "思考": "thinking",
-        "专业": "pro",
-        // JA
-        "高速": "flash",
-        "プロ": "pro",
-        // KO
-        "빠른": "flash",
-        "사고": "thinking",
-        "프로": "pro"
-      };
-      module.exports = { MODEL_CONFIG, MODEL_DETECT_MAP };
-    }
-  });
-
-  // lib/quota_calc.js
-  var require_quota_calc = __commonJS({
-    "lib/quota_calc.js"(exports, module) {
-      var { MODEL_CONFIG } = require_model_config();
-      function getWeightedQuota(byModel, config = MODEL_CONFIG) {
-        if (!byModel || typeof byModel !== "object") return 0;
-        return Object.keys(byModel).reduce((sum, key) => {
-          const mult = config[key]?.multiplier ?? 1;
-          return sum + (byModel[key] || 0) * mult;
-        }, 0);
-      }
-      function ensureByModel(entry) {
-        if (!entry) return { messages: 0, chats: 0, byModel: { flash: 0, thinking: 0, pro: 0 } };
-        if (!entry.byModel) {
-          entry.byModel = { flash: 0, thinking: 0, pro: 0 };
-        }
-        return entry;
-      }
-      function formatQuotaLabel(rawCount, weighted, limit) {
-        const weightedStr = weighted % 1 === 0 ? String(weighted) : weighted.toFixed(1);
-        return `${rawCount} msgs (${weightedStr} weighted) / ${limit}`;
-      }
-      function getQuotaBarState(weighted, limit) {
-        const pct = limit > 0 ? Math.min(weighted / limit * 100, 100) : 0;
-        let color;
-        if (pct < 60) color = "#34a853";
-        else if (pct < 85) color = "#fbbc04";
-        else color = "#ea4335";
-        return { pct, color };
-      }
-      module.exports = { getWeightedQuota, ensureByModel, formatQuotaLabel, getQuotaBarState };
     }
   });
 
@@ -4935,6 +4988,10 @@
           pane.appendChild(this.createSectionTitle("Statistics"));
           const cid = Core.getChatId();
           pane.appendChild(this.createRow("Today", "today", cm.getTodayMessages()));
+          pane.appendChild(this.createPassiveRow(
+            NativeUI.t("配额窗口", "Quota Window"),
+            this._formatQuotaWindowText(cm.getQuotaWindowState())
+          ));
           pane.appendChild(this.createRow("Current Chat", "chat", cid ? cm.state.chats[cid] || 0 : 0));
           pane.appendChild(this.createRow("Chats Created", "chatsCreated", cm.state.totalChatsCreated));
           pane.appendChild(this.createRow("Lifetime", "total", cm.state.total));
@@ -5042,6 +5099,24 @@
           div.textContent = text;
           return div;
         },
+        _formatQuotaWindowText(windowState) {
+          if (!windowState) return "";
+          const resetText = windowState.remainingLabel === "now" ? NativeUI.t("现在重置", "reset now") : NativeUI.t(`${windowState.remainingLabel} 后重置`, `resets in ${windowState.remainingLabel}`);
+          return `${windowState.windowLabel} · ${resetText}`;
+        },
+        createPassiveRow(label, val) {
+          const row = document.createElement("div");
+          row.className = "detail-row";
+          row.style.cursor = "default";
+          const labelSpan = document.createElement("span");
+          labelSpan.textContent = label;
+          const valSpan = document.createElement("span");
+          valSpan.className = "detail-val";
+          valSpan.textContent = val;
+          row.appendChild(labelSpan);
+          row.appendChild(valSpan);
+          return row;
+        },
         createRow(label, mode, val) {
           const cm = CounterModule;
           const user = Core.getCurrentUser();
@@ -5087,11 +5162,12 @@
           const displayName = inspecting === TEMP_USER ? "Guest" : inspecting.split("@")[0];
           const accountType = cm.accountType || "free";
           const modelKey = cm.currentModel;
+          const quotaWindowText = this._formatQuotaWindowText(cm.getQuotaWindowState());
           let val = 0, sub = "", btn = NativeUI.t("重置", "Reset");
           let disableBtn = !isMe;
           if (cm.state.viewMode === "today") {
             val = cm.getTodayMessages();
-            sub = NativeUI.t(`今天（${cm.resetHour}:00 重置）`, `Today (Reset @${cm.resetHour}:00)`);
+            sub = NativeUI.t(`今天 ${quotaWindowText}`, `Today ${quotaWindowText}`);
             btn = NativeUI.t("重置今天", "Reset Today");
             if (!isMe) {
               sub = NativeUI.t(`今天（${inspecting.split("@")[0]}）`, `Today (${inspecting.split("@")[0]})`);
@@ -5169,6 +5245,7 @@
           }
           if (p.sub !== sub) {
             subInfo.textContent = sub;
+            subInfo.title = sub;
             p.sub = sub;
           }
           if (quotaFill && quotaLabel) {

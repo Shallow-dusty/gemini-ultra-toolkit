@@ -1,7 +1,16 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const { MODEL_CONFIG } = require('../lib/model_config.js');
-const { getWeightedQuota, ensureByModel, formatQuotaLabel, getQuotaBarState } = require('../lib/quota_calc.js');
+const {
+    getWeightedQuota,
+    ensureByModel,
+    formatQuotaLabel,
+    getQuotaBarState,
+    normalizeResetHour,
+    formatResetHour,
+    formatQuotaWindowRemaining,
+    getQuotaWindowState
+} = require('../lib/quota_calc.js');
 
 describe('quota_calc', () => {
 
@@ -149,6 +158,79 @@ describe('quota_calc', () => {
             const { pct, color } = getQuotaBarState(42.5, 50);
             assert.equal(pct, 85);
             assert.equal(color, '#ea4335');
+        });
+    });
+
+    describe('quota reset-window framing', () => {
+        it('normalizes reset hours for settings and fallback values', () => {
+            assert.equal(normalizeResetHour(4.9), 4);
+            assert.equal(normalizeResetHour(-1), 0);
+            assert.equal(normalizeResetHour(99), 23);
+            assert.equal(normalizeResetHour('bad'), 0);
+            assert.equal(formatResetHour(4), '04:00');
+            assert.equal(formatResetHour(23), '23:00');
+        });
+
+        it('formats remaining reset-window time compactly', () => {
+            assert.equal(formatQuotaWindowRemaining(0), 'now');
+            assert.equal(formatQuotaWindowRemaining(-5), 'now');
+            assert.equal(formatQuotaWindowRemaining(7.2), '8m');
+            assert.equal(formatQuotaWindowRemaining(60), '1h');
+            assert.equal(formatQuotaWindowRemaining(125), '2h 5m');
+            assert.equal(formatQuotaWindowRemaining('bad'), 'now');
+        });
+
+        it('describes a same-day quota window with remaining time', () => {
+            const state = getQuotaWindowState(4, new Date(2026, 1, 10, 10, 30, 0));
+
+            assert.equal(state.resetHour, 4);
+            assert.equal(state.dayKey, '2026-02-10');
+            assert.equal(state.resetLabel, '04:00');
+            assert.equal(state.windowLabel, '04:00-04:00');
+            assert.equal(state.remainingMinutes, 1050);
+            assert.equal(state.remainingLabel, '17h 30m');
+            assert.equal(state.windowStart.getFullYear(), 2026);
+            assert.equal(state.windowStart.getMonth(), 1);
+            assert.equal(state.windowStart.getDate(), 10);
+            assert.equal(state.windowStart.getHours(), 4);
+            assert.equal(state.windowEnd.getDate(), 11);
+            assert.equal(state.windowEnd.getHours(), 4);
+        });
+
+        it('uses the previous day key before the configured reset hour', () => {
+            const state = getQuotaWindowState(4, new Date(2026, 1, 10, 2, 15, 0));
+
+            assert.equal(state.dayKey, '2026-02-09');
+            assert.equal(state.remainingMinutes, 105);
+            assert.equal(state.remainingLabel, '1h 45m');
+            assert.equal(state.windowStart.getDate(), 9);
+            assert.equal(state.windowEnd.getDate(), 10);
+        });
+
+        it('starts a fresh full window exactly at the reset hour', () => {
+            const state = getQuotaWindowState(0, new Date(2026, 1, 10, 0, 0, 0));
+
+            assert.equal(state.dayKey, '2026-02-10');
+            assert.equal(state.windowLabel, '00:00-00:00');
+            assert.equal(state.remainingMinutes, 1440);
+            assert.equal(state.remainingLabel, '24h');
+        });
+
+        it('falls back to the current clock for invalid now values', () => {
+            const state = getQuotaWindowState(4, 'not-a-date');
+
+            assert.equal(state.resetHour, 4);
+            assert.match(state.dayKey, /^\d{4}-\d{2}-\d{2}$/);
+            assert.ok(state.remainingMinutes >= 0);
+        });
+
+        it('defaults to the current clock when now is omitted', () => {
+            const state = getQuotaWindowState(4);
+
+            assert.equal(state.resetHour, 4);
+            assert.match(state.dayKey, /^\d{4}-\d{2}-\d{2}$/);
+            assert.ok(state.windowStart instanceof Date);
+            assert.ok(state.windowEnd instanceof Date);
         });
     });
 });

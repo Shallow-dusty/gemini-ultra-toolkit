@@ -9,7 +9,7 @@ mutable, so refresh this file before any major release or store submission.
 - Local git state is mutable; run `git status --short --branch` before release,
   push, or store submission instead of treating this snapshot as live git truth.
 - Local verification on 2026-06-08:
-  - `npm test` passed: 227 tests, `lib/` at 100% c8 coverage.
+  - `npm test` passed: 234 tests, `lib/` at 100% c8 coverage.
   - `npm run build` passed for userscript and extension outputs.
 - 2026-06-08 follow-up: `brace-expansion` was updated from `5.0.5` to
   `5.0.6`; `npm audit --audit-level=moderate` now reports 0 vulnerabilities.
@@ -115,11 +115,14 @@ Codex CLI/TUI.
   - Plan: folders and first-pass notes/references are parity now; keep live
     compatibility checks current before expanding context packets.
 - Quota visibility
-  - Primer++ v12: daily counter, model weighting, heatmap, streaks.
+  - Primer++ v12 plus post-planning implementation: daily counter, model
+    weighting, heatmap, streaks, and configured daily reset-window framing.
   - Market signal: SPG frames 5-hour and weekly usage; TFG is more word-count
     oriented.
   - Gemini signal: Gemini exposes tiers but not detailed personal accounting.
-  - Plan: keep quota as a core differentiator and add reset-window framing.
+  - Plan: keep quota as a core differentiator; daily reset-window framing is
+    done, while true 5-hour/weekly rolling windows require per-message
+    timestamps before they can be implemented honestly.
 - Export
   - Primer++ v12 plus post-planning implementation: usage export in
     JSON/CSV/Markdown and current visible conversation transcript export in

@@ -756,6 +756,10 @@ export const PanelUI = {
         pane.appendChild(this.createSectionTitle('Statistics'));
         const cid = Core.getChatId();
         pane.appendChild(this.createRow('Today', 'today', cm.getTodayMessages()));
+        pane.appendChild(this.createPassiveRow(
+            NativeUI.t('配额窗口', 'Quota Window'),
+            this._formatQuotaWindowText(cm.getQuotaWindowState())
+        ));
         pane.appendChild(this.createRow('Current Chat', 'chat', cid ? (cm.state.chats[cid] || 0) : 0));
         pane.appendChild(this.createRow('Chats Created', 'chatsCreated', cm.state.totalChatsCreated));
         pane.appendChild(this.createRow('Lifetime', 'total', cm.state.total));
@@ -871,6 +875,28 @@ export const PanelUI = {
         return div;
     },
 
+    _formatQuotaWindowText(windowState) {
+        if (!windowState) return '';
+        const resetText = windowState.remainingLabel === 'now'
+            ? NativeUI.t('现在重置', 'reset now')
+            : NativeUI.t(`${windowState.remainingLabel} 后重置`, `resets in ${windowState.remainingLabel}`);
+        return `${windowState.windowLabel} · ${resetText}`;
+    },
+
+    createPassiveRow(label, val) {
+        const row = document.createElement('div');
+        row.className = 'detail-row';
+        row.style.cursor = 'default';
+        const labelSpan = document.createElement('span');
+        labelSpan.textContent = label;
+        const valSpan = document.createElement('span');
+        valSpan.className = 'detail-val';
+        valSpan.textContent = val;
+        row.appendChild(labelSpan);
+        row.appendChild(valSpan);
+        return row;
+    },
+
     createRow(label, mode, val) {
         const cm = CounterModule;
         const user = Core.getCurrentUser();
@@ -923,13 +949,14 @@ export const PanelUI = {
         const displayName = inspecting === TEMP_USER ? 'Guest' : inspecting.split('@')[0];
         const accountType = cm.accountType || 'free';
         const modelKey = cm.currentModel;
+        const quotaWindowText = this._formatQuotaWindowText(cm.getQuotaWindowState());
 
         let val = 0, sub = "", btn = NativeUI.t('重置', 'Reset');
         let disableBtn = !isMe;
 
         if (cm.state.viewMode === 'today') {
             val = cm.getTodayMessages();
-            sub = NativeUI.t(`今天（${cm.resetHour}:00 重置）`, `Today (Reset @${cm.resetHour}:00)`);
+            sub = NativeUI.t(`今天 ${quotaWindowText}`, `Today ${quotaWindowText}`);
             btn = NativeUI.t('重置今天', 'Reset Today');
             if (!isMe) { sub = NativeUI.t(`今天（${inspecting.split('@')[0]}）`, `Today (${inspecting.split('@')[0]})`); }
         } else if (cm.state.viewMode === 'chat') {
@@ -1019,6 +1046,7 @@ export const PanelUI = {
         }
         if (p.sub !== sub) {
             subInfo.textContent = sub;
+            subInfo.title = sub;
             p.sub = sub;
         }
 
