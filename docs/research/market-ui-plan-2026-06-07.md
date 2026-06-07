@@ -9,7 +9,7 @@ mutable, so refresh this file before any major release or store submission.
 - Local git state is mutable; run `git status --short --branch` before release,
   push, or store submission instead of treating this snapshot as live git truth.
 - Local verification on 2026-06-08:
-  - `npm test` passed: 185 tests, `lib/` at 100% c8 coverage.
+  - `npm test` passed: 189 tests, `lib/` at 100% c8 coverage.
   - `npm run build` passed for userscript and extension outputs.
 - 2026-06-08 follow-up: `brace-expansion` was updated from `5.0.5` to
   `5.0.6`; `npm audit --audit-level=moderate` now reports 0 vulnerabilities.
@@ -295,9 +295,11 @@ Goal: differentiate from generic folder/export extensions.
    - support local export/import of Primer++ prompt vault, folders, and notes;
    - do not try to mirror Gemini's own "memories" feature.
 4. Tool-mode awareness:
-   - detect when Gemini is in Canvas, Deep Research, Image, Video, Audio
-     Overview, Spark, or similar modes;
-   - disable incompatible automations and explain status in the debug panel.
+   - canonical matching for Canvas, Deep Research, Image, Video, Audio Overview,
+     Spark, and localized labels is now covered by pure unit tests;
+   - disable incompatible automations and explain status in the debug panel;
+   - live visible-entry probes are still required before claiming current
+     Gemini DOM coverage.
 
 Exit gate: context features never read or transmit chat body content without a
 user action, and tool-mode detection prevents unsafe auto-send/export behavior.

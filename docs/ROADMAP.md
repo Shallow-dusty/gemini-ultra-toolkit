@@ -29,7 +29,8 @@ Implemented modules:
   ranking, slash shortcuts, template variables, local prompt chains, and
   versioned metadata import/export.
 - Message Queue: local prompt queue with start/pause, cancel, reorder, and a
-  conservative active-tool-mode pause guard.
+  conservative active-tool-mode pause guard backed by tested tool-label
+  matching.
 - Default Model: preferred model selection on new chats.
 - Batch Delete: multi-select deletion workflow.
 - Quote Reply: selected-text quote insertion.
@@ -98,8 +99,10 @@ Prioritize local-first workflow parity with direct Gemini competitors:
   chat transcript export is done, but cross-chat selected export still needs a
   navigation/smoke-tested workflow. PDF/DOCX only after dependency and
   bundle-size review.
-- Tool-mode awareness for Canvas, Deep Research, Image, Video, Audio Overview, Spark, or
-  equivalent Gemini modes so automations can disable themselves safely.
+- Tool-mode awareness for Canvas, Deep Research, Image, Video, Audio Overview,
+  Spark, or equivalent Gemini modes so automations can disable themselves
+  safely. Canonical label/state matching is covered by unit tests; visible
+  Gemini entry-point probes still need live-browser smoke coverage.
 
 ## Deferred Ideas
 

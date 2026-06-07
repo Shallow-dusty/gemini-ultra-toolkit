@@ -358,6 +358,53 @@
     }
   });
 
+  // lib/tool_mode_tools.js
+  var require_tool_mode_tools = __commonJS({
+    "lib/tool_mode_tools.js"(exports, module) {
+      function toText(value) {
+        if (value === null || value === void 0) return "";
+        return String(value);
+      }
+      function normalizeText(value) {
+        return toText(value).toLowerCase().replace(/\s+/g, " ").trim();
+      }
+      function detectToolModeLabel(text) {
+        const value = normalizeText(text);
+        if (!value) return "";
+        if (/\bdeep research\b/.test(value) || value.includes("深度研究") || value.includes("深入研究")) return "Deep Research";
+        if (/\bcanvas\b/.test(value) || value.includes("画布")) return "Canvas";
+        if (/\bspark\b/.test(value)) return "Spark";
+        if (/\baudio overview\b/.test(value) || value.includes("音频概览") || value.includes("音訊總覽")) return "Audio Overview";
+        if (/\bimage\b/.test(value) || /\bimagen\b/.test(value) || value.includes("图片") || value.includes("圖像") || value.includes("画像")) return "Image";
+        if (/\bvideo\b/.test(value) || /\bveo\b/.test(value) || value.includes("视频") || value.includes("影片")) return "Video";
+        return "";
+      }
+      function classTextFromState(state = {}) {
+        if (Array.isArray(state.classList)) return state.classList.join(" ");
+        return toText(state.className);
+      }
+      function isActiveToolModeState(state = {}) {
+        const source = state && typeof state === "object" ? state : {};
+        if (source.ariaPressed === "true") return true;
+        if (source.ariaCurrent === "true") return true;
+        if (source.dataActive === "true") return true;
+        return /\b(active|selected|checked)\b/.test(classTextFromState(source));
+      }
+      function getToolModeState2(candidate = {}) {
+        const label = detectToolModeLabel(`${toText(candidate.text)} ${toText(candidate.ariaLabel)}`);
+        return {
+          active: !!label && isActiveToolModeState(candidate),
+          label
+        };
+      }
+      module.exports = {
+        detectToolModeLabel,
+        getToolModeState: getToolModeState2,
+        isActiveToolModeState
+      };
+    }
+  });
+
   // src/adapters/gemini.js
   function firstMatch(root, list) {
     const arr = Array.isArray(list) ? list : [list];
@@ -398,25 +445,13 @@
     if (t.includes("flash") || t.includes("fast") || t.includes("快速") || t.includes("高速") || t.includes("빠른")) return "flash";
     return null;
   }
-  function matchToolModeLabel(text) {
-    const t = (text || "").toLowerCase();
-    if (t.includes("deep research")) return "Deep Research";
-    if (t.includes("canvas")) return "Canvas";
-    if (t.includes("spark")) return "Spark";
-    if (t.includes("audio overview")) return "Audio Overview";
-    if (/\bimage\b|imagen/.test(t)) return "Image";
-    if (/\bvideo\b|veo/.test(t)) return "Video";
-    return "";
-  }
-  function isActiveModeCandidate(el) {
-    return el.getAttribute("aria-pressed") === "true" || el.getAttribute("aria-current") === "true" || el.getAttribute("data-active") === "true" || el.classList?.contains("active") || el.classList?.contains("selected");
-  }
   function cleanVisibleText(el) {
     return (el?.textContent || "").replace(/\s+\n/g, "\n").replace(/\n\s+/g, "\n").trim();
   }
-  var S, GeminiAdapter;
+  var import_tool_mode_tools, S, GeminiAdapter;
   var init_gemini = __esm({
     "src/adapters/gemini.js"() {
+      import_tool_mode_tools = __toESM(require_tool_mode_tools());
       S = Object.freeze({
         // Sidebar
         SIDEBAR: [
@@ -642,9 +677,15 @@
           if (!area) return { active: false, label: "" };
           const candidates = area.querySelectorAll(S.TOOL_MODE_CANDIDATE);
           for (const el of candidates) {
-            if (!isActiveModeCandidate(el)) continue;
-            const label = matchToolModeLabel(`${el.textContent || ""} ${el.getAttribute("aria-label") || ""}`);
-            if (label) return { active: true, label };
+            const state = (0, import_tool_mode_tools.getToolModeState)({
+              text: el.textContent || "",
+              ariaLabel: el.getAttribute("aria-label") || "",
+              ariaPressed: el.getAttribute("aria-pressed") || "",
+              ariaCurrent: el.getAttribute("aria-current") || "",
+              dataActive: el.getAttribute("data-active") || "",
+              classList: Array.from(el.classList || [])
+            });
+            if (state.active) return state;
           }
           return { active: false, label: "" };
         },

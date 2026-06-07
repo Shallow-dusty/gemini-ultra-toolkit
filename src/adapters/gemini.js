@@ -1,3 +1,5 @@
+import { getToolModeState } from '../../lib/tool_mode_tools.js';
+
 /**
  * GeminiAdapter — centralizes Gemini web-app DOM coupling.
  *
@@ -156,25 +158,6 @@ function normalizeModelText(text) {
     return null;
 }
 
-function matchToolModeLabel(text) {
-    const t = (text || '').toLowerCase();
-    if (t.includes('deep research')) return 'Deep Research';
-    if (t.includes('canvas')) return 'Canvas';
-    if (t.includes('spark')) return 'Spark';
-    if (t.includes('audio overview')) return 'Audio Overview';
-    if (/\bimage\b|imagen/.test(t)) return 'Image';
-    if (/\bvideo\b|veo/.test(t)) return 'Video';
-    return '';
-}
-
-function isActiveModeCandidate(el) {
-    return el.getAttribute('aria-pressed') === 'true' ||
-           el.getAttribute('aria-current') === 'true' ||
-           el.getAttribute('data-active') === 'true' ||
-           el.classList?.contains('active') ||
-           el.classList?.contains('selected');
-}
-
 function cleanVisibleText(el) {
     return (el?.textContent || '').replace(/\s+\n/g, '\n').replace(/\n\s+/g, '\n').trim();
 }
@@ -331,9 +314,15 @@ export const GeminiAdapter = {
         if (!area) return { active: false, label: '' };
         const candidates = area.querySelectorAll(S.TOOL_MODE_CANDIDATE);
         for (const el of candidates) {
-            if (!isActiveModeCandidate(el)) continue;
-            const label = matchToolModeLabel(`${el.textContent || ''} ${el.getAttribute('aria-label') || ''}`);
-            if (label) return { active: true, label };
+            const state = getToolModeState({
+                text: el.textContent || '',
+                ariaLabel: el.getAttribute('aria-label') || '',
+                ariaPressed: el.getAttribute('aria-pressed') || '',
+                ariaCurrent: el.getAttribute('aria-current') || '',
+                dataActive: el.getAttribute('data-active') || '',
+                classList: Array.from(el.classList || [])
+            });
+            if (state.active) return state;
         }
         return { active: false, label: '' };
     },
