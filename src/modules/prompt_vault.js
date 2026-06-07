@@ -13,9 +13,11 @@ import {
     findPromptByShortcut,
     getQuickMenuSections,
     markPromptUsed,
+    mergePromptImport,
     normalizePrompt,
     normalizePromptList,
     renderPromptTemplate,
+    serializePromptExport,
     sortPromptsForDisplay
 } from '../../lib/prompt_vault_tools.js';
 
@@ -427,7 +429,7 @@ export const PromptVaultModule = {
     },
 
     _exportPrompts() {
-        const data = JSON.stringify(this._prompts, null, 2);
+        const data = serializePromptExport(this._prompts, { nowIso: new Date().toISOString() });
         const blob = new Blob([data], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -449,27 +451,17 @@ export const PromptVaultModule = {
             reader.onload = (ev) => {
                 try {
                     const imported = JSON.parse(ev.target.result);
-                    if (!Array.isArray(imported)) throw new Error('Invalid format');
-                    let added = 0;
-                    normalizePromptList(imported, { nowIso: new Date().toISOString() }).forEach(p => {
-                        this._prompts.push(normalizePrompt({
-                                id: 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-                                name: p.name,
-                                content: p.content,
-                                category: p.category || 'General',
-                                shortcut: p.shortcut,
-                                favorite: p.favorite,
-                                chainSteps: p.chainSteps,
-                                createdAt: p.createdAt,
-                                updatedAt: p.updatedAt,
-                                usedCount: p.usedCount || 0,
-                                lastUsedAt: p.lastUsedAt
-                            }, this._prompts.length));
-                        added++;
+                    const result = mergePromptImport(this._prompts, imported, {
+                        nowIso: new Date().toISOString(),
+                        idFactory: (_prompt, index) => {
+                            return 'p_' + Date.now() + '_' + index + '_' + Math.random().toString(36).slice(2, 6);
+                        }
                     });
+                    if (result.imported === 0) throw new Error('Invalid format');
+                    this._prompts = result.prompts;
                     this._save();
                     PanelUI.renderDetailsPane();
-                    NativeUI.showToast(NativeUI.t(`已导入 ${added} 条提示词`, `Imported ${added} prompts`));
+                    NativeUI.showToast(NativeUI.t(`已导入 ${result.imported} 条提示词`, `Imported ${result.imported} prompts`));
                 } catch (err) {
                     NativeUI.showToast(NativeUI.t('导入失败: 格式无效', 'Import failed: invalid format'));
                 }

@@ -9,7 +9,7 @@ mutable, so refresh this file before any major release or store submission.
 - Local git state is mutable; run `git status --short --branch` before release,
   push, or store submission instead of treating this snapshot as live git truth.
 - Local verification on 2026-06-08:
-  - `npm test` passed: 181 tests, `lib/` at 100% c8 coverage.
+  - `npm test` passed: 185 tests, `lib/` at 100% c8 coverage.
   - `npm run build` passed for userscript and extension outputs.
 - 2026-06-08 follow-up: `brace-expansion` was updated from `5.0.5` to
   `5.0.6`; `npm audit --audit-level=moderate` now reports 0 vulnerabilities.
@@ -127,8 +127,9 @@ Codex CLI/TUI.
   - Plan: build selected-chat bulk export on top of the transcript formatter
     before PDF/DOCX.
 - Prompt workflow
-  - Primer++ v12: Prompt Vault, quick insert, import/export, favorites, recent
-    ranking, slash shortcuts, template variables, and local prompt chains.
+  - Primer++ v12 plus post-planning implementation: Prompt Vault, quick insert,
+    versioned metadata import/export, favorites, recent ranking, slash
+    shortcuts, template variables, and local prompt chains.
   - Market signal: SPG has library, chains, slash commands; TFG has library and
     prompt enhancer.
   - Adjacent signal: mature ChatGPT extensions treat prompt management as a
@@ -261,7 +262,8 @@ boundary.
    - ~~prompt chains;~~ done after this planning snapshot;
    - ~~variable placeholders;~~ done after this planning snapshot;
    - ~~recent prompts and favorites;~~ done after this planning snapshot;
-   - compatible import/export for prompt metadata.
+   - ~~compatible import/export for prompt metadata.~~ done after this planning
+     snapshot.
 3. Per-chat notes and pins:
    - store local notes keyed by chat ID;
    - pin important messages/sections locally without modifying Gemini data;

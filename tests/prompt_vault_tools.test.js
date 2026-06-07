@@ -3,14 +3,18 @@ const assert = require('node:assert/strict');
 const {
     buildPromptVariables,
     composePromptContent,
+    createPromptExport,
     findPromptByShortcut,
     getQuickMenuSections,
     markPromptUsed,
+    mergePromptImport,
     normalizeChainSteps,
     normalizePrompt,
     normalizePromptList,
     normalizeShortcut,
+    parsePromptImport,
     renderPromptTemplate,
+    serializePromptExport,
     sortPromptsForDisplay
 } = require('../lib/prompt_vault_tools.js');
 
@@ -191,5 +195,78 @@ describe('prompt_vault_tools', () => {
 
         const defaultTime = markPromptUsed([{ id: 'x', name: 'X', content: 'x' }], 'x')[0];
         assert.match(defaultTime.lastUsedAt, /^\d{4}-\d{2}-\d{2}T/);
+    });
+
+    it('creates a versioned prompt export envelope with metadata intact', () => {
+        const payload = createPromptExport(sample, { nowIso });
+
+        assert.equal(payload.schema, 'primer-pp.prompt-vault');
+        assert.equal(payload.version, 1);
+        assert.equal(payload.exportedAt, nowIso);
+        assert.equal(payload.app, 'Primer++ for Gemini');
+        assert.deepEqual(payload.prompts.map(prompt => prompt.id), ['recent', 'fav', 'top']);
+        assert.equal(payload.prompts[1].favorite, true);
+        assert.equal(payload.prompts[0].usedCount, 3);
+    });
+
+    it('serializes prompt exports as formatted JSON', () => {
+        const serialized = serializePromptExport([{ id: 'x', name: 'X', content: 'body' }]);
+        const parsed = JSON.parse(serialized);
+
+        assert.equal(parsed.schema, 'primer-pp.prompt-vault');
+        assert.match(parsed.exportedAt, /^\d{4}-\d{2}-\d{2}T/);
+        assert.equal(parsed.prompts[0].shortcut, 'x');
+        assert.ok(serialized.includes('\n  "schema"'));
+    });
+
+    it('parses legacy arrays and versioned prompt import envelopes', () => {
+        const legacy = parsePromptImport([{ id: 'legacy', name: 'Legacy', content: 'body', shortcut: '/legacy' }], { nowIso });
+        assert.equal(legacy[0].id, 'legacy');
+        assert.equal(legacy[0].shortcut, 'legacy');
+
+        const envelope = parsePromptImport({
+            schema: 'primer-pp.prompt-vault',
+            version: 1,
+            prompts: [{ id: 'env', name: 'Envelope', content: 'body', favorite: true }]
+        }, { nowIso });
+        assert.equal(envelope[0].id, 'env');
+        assert.equal(envelope[0].favorite, true);
+
+        assert.deepEqual(parsePromptImport({ prompts: {} }), []);
+        assert.deepEqual(parsePromptImport(null), []);
+    });
+
+    it('merges imported prompts while assigning fresh ids and preserving metadata', () => {
+        const merged = mergePromptImport(
+            [{ id: 'existing', name: 'Existing', content: 'keep' }],
+            {
+                prompts: [{
+                    id: 'old',
+                    name: 'Imported',
+                    content: 'body',
+                    category: 'Research',
+                    shortcut: '/imported',
+                    favorite: true,
+                    chainSteps: ['step'],
+                    usedCount: 4,
+                    lastUsedAt: '2026-06-07T00:00:00.000Z'
+                }]
+            },
+            {
+                nowIso,
+                idFactory: (prompt, index) => `new_${index}_${prompt.id}`
+            }
+        );
+
+        assert.equal(merged.imported, 1);
+        assert.deepEqual(merged.prompts.map(prompt => prompt.id), ['existing', 'new_0_old']);
+        assert.equal(merged.prompts[1].category, 'Research');
+        assert.equal(merged.prompts[1].favorite, true);
+        assert.deepEqual(merged.prompts[1].chainSteps, ['step']);
+        assert.equal(merged.prompts[1].usedCount, 4);
+        assert.equal(merged.prompts[1].lastUsedAt, '2026-06-07T00:00:00.000Z');
+
+        const defaultId = mergePromptImport([], [{ name: 'Generated', content: 'body' }]).prompts[0].id;
+        assert.match(defaultId, /^p_\d+_0$/);
     });
 });

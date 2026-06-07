@@ -6201,6 +6201,8 @@
       var MAX_CATEGORY_LENGTH = 40;
       var MAX_SHORTCUT_LENGTH = 32;
       var MAX_CHAIN_STEPS = 12;
+      var PROMPT_EXPORT_SCHEMA = "primer-pp.prompt-vault";
+      var PROMPT_EXPORT_VERSION = 1;
       function toText(value) {
         if (value === null || value === void 0) return "";
         return String(value);
@@ -6324,17 +6326,62 @@ ${part}`).join("\n\n---\n\n");
           };
         });
       }
+      function getNowIso(opts = {}) {
+        return opts.nowIso || (/* @__PURE__ */ new Date()).toISOString();
+      }
+      function createPromptExport(prompts, opts = {}) {
+        return {
+          schema: PROMPT_EXPORT_SCHEMA,
+          version: PROMPT_EXPORT_VERSION,
+          exportedAt: getNowIso(opts),
+          app: "Primer++ for Gemini",
+          prompts: normalizePromptList2(prompts, opts)
+        };
+      }
+      function serializePromptExport2(prompts, opts = {}) {
+        return JSON.stringify(createPromptExport(prompts, opts), null, 2);
+      }
+      function getImportPromptArray(raw) {
+        if (Array.isArray(raw)) return raw;
+        if (raw && typeof raw === "object" && Array.isArray(raw.prompts)) return raw.prompts;
+        return [];
+      }
+      function parsePromptImport(raw, opts = {}) {
+        return normalizePromptList2(getImportPromptArray(raw), opts);
+      }
+      function defaultImportedPromptId(prompt, index) {
+        return `p_${Date.now()}_${index}`;
+      }
+      function mergePromptImport2(existing, rawImport, opts = {}) {
+        const prompts = normalizePromptList2(existing, opts);
+        const imported = parsePromptImport(rawImport, opts);
+        const idFactory = typeof opts.idFactory === "function" ? opts.idFactory : defaultImportedPromptId;
+        imported.forEach((prompt, index) => {
+          prompts.push(normalizePrompt2({
+            ...prompt,
+            id: idFactory(prompt, index)
+          }, prompts.length, opts));
+        });
+        return {
+          prompts,
+          imported: imported.length
+        };
+      }
       module.exports = {
         buildPromptVariables: buildPromptVariables2,
         composePromptContent: composePromptContent2,
+        createPromptExport,
         findPromptByShortcut: findPromptByShortcut2,
         getQuickMenuSections: getQuickMenuSections2,
         markPromptUsed: markPromptUsed2,
+        mergePromptImport: mergePromptImport2,
         normalizePrompt: normalizePrompt2,
         normalizeChainSteps,
         normalizePromptList: normalizePromptList2,
         normalizeShortcut,
+        parsePromptImport,
         renderPromptTemplate: renderPromptTemplate2,
+        serializePromptExport: serializePromptExport2,
         sortPromptsForDisplay: sortPromptsForDisplay2
       };
     }
@@ -6747,7 +6794,7 @@ ${part}`).join("\n\n---\n\n");
           container.appendChild(ioRow);
         },
         _exportPrompts() {
-          const data = JSON.stringify(this._prompts, null, 2);
+          const data = (0, import_prompt_vault_tools.serializePromptExport)(this._prompts, { nowIso: (/* @__PURE__ */ new Date()).toISOString() });
           const blob = new Blob([data], { type: "application/json" });
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a");
@@ -6768,27 +6815,17 @@ ${part}`).join("\n\n---\n\n");
             reader.onload = (ev) => {
               try {
                 const imported = JSON.parse(ev.target.result);
-                if (!Array.isArray(imported)) throw new Error("Invalid format");
-                let added = 0;
-                (0, import_prompt_vault_tools.normalizePromptList)(imported, { nowIso: (/* @__PURE__ */ new Date()).toISOString() }).forEach((p) => {
-                  this._prompts.push((0, import_prompt_vault_tools.normalizePrompt)({
-                    id: "p_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
-                    name: p.name,
-                    content: p.content,
-                    category: p.category || "General",
-                    shortcut: p.shortcut,
-                    favorite: p.favorite,
-                    chainSteps: p.chainSteps,
-                    createdAt: p.createdAt,
-                    updatedAt: p.updatedAt,
-                    usedCount: p.usedCount || 0,
-                    lastUsedAt: p.lastUsedAt
-                  }, this._prompts.length));
-                  added++;
+                const result = (0, import_prompt_vault_tools.mergePromptImport)(this._prompts, imported, {
+                  nowIso: (/* @__PURE__ */ new Date()).toISOString(),
+                  idFactory: (_prompt, index) => {
+                    return "p_" + Date.now() + "_" + index + "_" + Math.random().toString(36).slice(2, 6);
+                  }
                 });
+                if (result.imported === 0) throw new Error("Invalid format");
+                this._prompts = result.prompts;
                 this._save();
                 PanelUI.renderDetailsPane();
-                NativeUI.showToast(NativeUI.t(`已导入 ${added} 条提示词`, `Imported ${added} prompts`));
+                NativeUI.showToast(NativeUI.t(`已导入 ${result.imported} 条提示词`, `Imported ${result.imported} prompts`));
               } catch (err) {
                 NativeUI.showToast(NativeUI.t("导入失败: 格式无效", "Import failed: invalid format"));
               }

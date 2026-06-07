@@ -26,7 +26,8 @@ Implemented modules:
 - Export: JSON/CSV/Markdown usage export plus current visible conversation
   transcript export in JSON/Markdown/TXT.
 - Prompt Vault: saved prompts, quick insert, import/export, favorites, recent
-  ranking, slash shortcuts, template variables, and local prompt chains.
+  ranking, slash shortcuts, template variables, local prompt chains, and
+  versioned metadata import/export.
 - Message Queue: local prompt queue with start/pause, cancel, reorder, and a
   conservative active-tool-mode pause guard.
 - Default Model: preferred model selection on new chats.
@@ -90,7 +91,8 @@ Prioritize local-first workflow parity with direct Gemini competitors:
   - ~~prompt chains~~ done after the market/UI planning snapshot;
   - ~~variable placeholders~~ done after the market/UI planning snapshot;
   - ~~recents and favorites~~ done after the market/UI planning snapshot;
-  - compatible import/export for prompt metadata.
+  - ~~compatible import/export for prompt metadata~~ done after the market/UI
+    planning snapshot.
 - ~~Per-chat local notes and pins.~~ Done after the market/UI planning snapshot.
 - Bulk export for selected chats in JSON/Markdown/TXT first; current visible
   chat transcript export is done, but cross-chat selected export still needs a

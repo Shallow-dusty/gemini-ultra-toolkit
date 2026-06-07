@@ -18,8 +18,8 @@ Updated: 2026-06-08 — v12.0 released; Phase 0 release hygiene mostly repaired.
 
 Last verified locally on 2026-06-08:
 
-- `npm test` — 181 passing tests; `lib/` remains at 100% c8 coverage.
-- `npm run build` — userscript and extension builds complete (~391 kb userscript).
+- `npm test` — 185 passing tests; `lib/` remains at 100% c8 coverage.
+- `npm run build` — userscript and extension builds complete (~392 kb userscript).
 - `npm audit --audit-level=moderate` — 0 vulnerabilities after updating
   `brace-expansion` from `5.0.5` to `5.0.6`.
 - **Real-browser smoke test** — last passed on 2026-05-21
