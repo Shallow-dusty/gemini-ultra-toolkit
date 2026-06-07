@@ -1,12 +1,15 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const {
+    createNotesExport,
     deleteChatNote,
     getNotesStats,
     getPinnedNotes,
+    mergeNotesImport,
     normalizeChatRef,
     normalizeNote,
     normalizeNotesData,
+    serializeNotesExport,
     toggleChatPin,
     upsertChatNote
 } = require('../lib/chat_notes_store.js');
@@ -136,5 +139,51 @@ describe('chat_notes_store', () => {
         };
 
         assert.deepEqual(getNotesStats(data), { total: 3, pinned: 2, withNote: 2 });
+    });
+
+    it('creates and serializes versioned notes exports', () => {
+        const data = upsertChatNote({}, { id: 'c1', title: 'First', href: '/app/c1' }, { note: 'note', pinned: true }, { nowIso });
+        const payload = createNotesExport(data, { nowIso });
+        const serialized = serializeNotesExport(data, { nowIso });
+        const parsed = JSON.parse(serialized);
+
+        assert.equal(payload.schema, 'primer-pp.chat-notes');
+        assert.equal(payload.version, 1);
+        assert.equal(payload.exportedAt, nowIso);
+        assert.equal(payload.app, 'Primer++ for Gemini');
+        assert.equal(payload.notes.c1.note, 'note');
+        assert.equal(parsed.notes.c1.pinned, true);
+        assert.ok(serialized.includes('\n  "notes"'));
+
+        const generated = createNotesExport(data);
+        assert.match(generated.exportedAt, /^\d{4}-\d{2}-\d{2}T/);
+    });
+
+    it('merges notes imports and overwrites same-chat notes with imported data', () => {
+        const existing = upsertChatNote({}, { id: 'c1', title: 'Old' }, { note: 'old' }, { nowIso });
+        const result = mergeNotesImport(existing, {
+            schema: 'primer-pp.chat-notes',
+            version: 1,
+            notes: {
+                c1: { title: 'Imported', note: 'new', pinned: true, href: '/app/c1' },
+                c2: { title: 'Second', note: 'two', pinned: false, href: 'data:text/plain,bad' },
+                '': { title: 'Bad', note: 'bad' }
+            }
+        }, { nowIso: laterIso });
+
+        assert.equal(result.importedNotes, 2);
+        assert.equal(result.data.notes.c1.title, 'Imported');
+        assert.equal(result.data.notes.c1.note, 'new');
+        assert.equal(result.data.notes.c1.pinned, true);
+        assert.equal(result.data.notes.c2.href, '');
+        assert.equal(result.data.notes.c2.updatedAt, laterIso);
+    });
+
+    it('ignores invalid notes imports', () => {
+        const existing = upsertChatNote({}, { id: 'c1' }, { note: 'old' }, { nowIso });
+        const result = mergeNotesImport(existing, null, { nowIso: laterIso });
+
+        assert.equal(result.importedNotes, 0);
+        assert.deepEqual(result.data.notes, existing.notes);
     });
 });

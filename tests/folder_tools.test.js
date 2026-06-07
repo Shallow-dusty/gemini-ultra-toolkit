@@ -3,10 +3,14 @@ const assert = require('node:assert/strict');
 
 const {
     cloneFolderData,
+    createFolderExport,
     deleteFolderForUndo,
+    mergeFolderImport,
     moveChatsToFolderForUndo,
+    normalizeFolderData,
     restoreDeletedFolder,
-    restoreFolderMove
+    restoreFolderMove,
+    serializeFolderExport
 } = require('../lib/folder_tools.js');
 
 const nowIso = '2026-06-08T10:00:00.000Z';
@@ -49,6 +53,48 @@ describe('folder_tools', () => {
             chatToFolder: {},
             folderOrder: ['a', 'broken']
         });
+    });
+
+    it('normalizes folder exports with safe colors, rules, order, and assignments', () => {
+        const normalized = normalizeFolderData({
+            folders: {
+                work: {
+                    name: '  Work  ',
+                    color: 'javascript:red',
+                    collapsed: true,
+                    pinned: true,
+                    rules: [
+                        { type: 'regex', value: 'K8s.*' },
+                        { type: 'bad', value: '  docs  ' },
+                        { type: 'keyword', value: '' },
+                        'bad'
+                    ]
+                },
+                '': { name: 'Missing ID' },
+                extra: { name: '', color: '#abc' },
+                raw: 'bad'
+            },
+            chatToFolder: {
+                c1: 'work',
+                c2: 'missing',
+                '': 'work'
+            },
+            folderOrder: ['missing', 'work', 'work']
+        });
+
+        assert.deepEqual(normalized.folderOrder, ['work', 'extra', 'raw']);
+        assert.equal(normalized.folders.work.name, 'Work');
+        assert.equal(normalized.folders.work.color, '#8ab4f8');
+        assert.equal(normalized.folders.work.collapsed, true);
+        assert.equal(normalized.folders.work.pinned, true);
+        assert.deepEqual(normalized.folders.work.rules, [
+            { type: 'regex', value: 'K8s.*' },
+            { type: 'keyword', value: 'docs' }
+        ]);
+        assert.equal(normalized.folders.extra.name, 'Folder 3');
+        assert.equal(normalized.folders.extra.color, '#abc');
+        assert.equal(normalized.folders.raw.name, 'Folder 4');
+        assert.deepEqual(normalized.chatToFolder, { c1: 'work' });
     });
 
     it('moves one or many chats and records undo metadata', () => {
@@ -210,5 +256,97 @@ describe('folder_tools', () => {
         assert.equal(wrongType.restored, false);
         assert.equal(duplicate.restored, false);
         assert.deepEqual(duplicate.data.folderOrder, ['work', 'personal']);
+    });
+
+    it('creates and serializes versioned folder exports', () => {
+        const payload = createFolderExport(sampleData(), { nowIso });
+        const serialized = serializeFolderExport(sampleData(), { nowIso });
+        const parsed = JSON.parse(serialized);
+
+        assert.equal(payload.schema, 'primer-pp.folders');
+        assert.equal(payload.version, 1);
+        assert.equal(payload.exportedAt, nowIso);
+        assert.equal(payload.app, 'Primer++ for Gemini');
+        assert.deepEqual(payload.folderOrder, ['work', 'personal']);
+        assert.equal(payload.chatToFolder.stale, undefined);
+        assert.equal(parsed.schema, 'primer-pp.folders');
+        assert.ok(serialized.includes('\n  "folders"'));
+
+        const generated = createFolderExport({ folders: { a: { name: 'A' } } });
+        assert.match(generated.exportedAt, /^\d{4}-\d{2}-\d{2}T/);
+    });
+
+    it('merges folder imports while remapping duplicate folder ids and assignments', () => {
+        const result = mergeFolderImport(sampleData(), {
+            schema: 'primer-pp.folders',
+            version: 1,
+            folders: {
+                work: { name: 'Imported Work', color: '#f28b82', rules: [{ type: 'keyword', value: 'ops' }] },
+                archive: { name: 'Archive', color: '#fdd663' }
+            },
+            folderOrder: ['work', 'archive'],
+            chatToFolder: {
+                c1: 'work',
+                c4: 'archive',
+                c5: 'missing'
+            }
+        }, {
+            idFactory: (_folder, index) => `imported_${index}`
+        });
+
+        assert.equal(result.importedFolders, 2);
+        assert.equal(result.importedAssignments, 2);
+        assert.deepEqual(result.data.folderOrder, ['work', 'personal', 'imported_0', 'archive']);
+        assert.equal(result.data.folders.imported_0.name, 'Imported Work');
+        assert.equal(result.data.folders.imported_0.rules[0].value, 'ops');
+        assert.equal(result.data.chatToFolder.c1, 'imported_0');
+        assert.equal(result.data.chatToFolder.c4, 'archive');
+        assert.equal(result.data.chatToFolder.c2, 'personal');
+    });
+
+    it('handles empty folder imports and default import ids', () => {
+        const empty = mergeFolderImport(sampleData(), null, { nowIso });
+        assert.equal(empty.importedFolders, 0);
+        assert.equal(empty.importedAssignments, 0);
+        assert.deepEqual(empty.data.folderOrder, ['work', 'personal']);
+
+        const duplicated = mergeFolderImport({ folders: { work: { name: 'Work' } }, chatToFolder: {}, folderOrder: ['work'] }, {
+            folders: { work: { name: 'Imported' } },
+            chatToFolder: { c1: 'work' },
+            folderOrder: ['work']
+        });
+        const importedId = duplicated.data.folderOrder[1];
+        assert.match(importedId, /^folder_\d+_0/);
+        assert.equal(duplicated.data.chatToFolder.c1, importedId);
+
+        const fallbackId = mergeFolderImport({ folders: { work: { name: 'Work' } }, chatToFolder: {}, folderOrder: ['work'] }, {
+            folders: { work: { name: 'Imported' } },
+            chatToFolder: {},
+            folderOrder: ['work']
+        }, {
+            idFactory: () => ''
+        }).data.folderOrder[1];
+        assert.match(fallbackId, /^folder_\d+_0/);
+    });
+
+    it('adds copy suffixes when import id factories collide repeatedly', () => {
+        const result = mergeFolderImport({
+            folders: {
+                work: { name: 'Work' },
+                copy: { name: 'Copy' },
+                copy_copy: { name: 'Copy Copy' }
+            },
+            chatToFolder: {},
+            folderOrder: ['work', 'copy', 'copy_copy']
+        }, {
+            folders: { work: { name: 'Imported' } },
+            folderOrder: ['work'],
+            chatToFolder: {}
+        }, {
+            idFactory: () => 'copy'
+        });
+
+        assert.equal(result.data.folderOrder[3], 'copy_copy_copy');
+        assert.equal(result.data.folders.copy_copy_copy.name, 'Imported');
     });
 });

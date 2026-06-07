@@ -1,6 +1,6 @@
 # Roadmap
 
-Updated: 2026-06-08 (post-v12 planning refresh + local folder undo).
+Updated: 2026-06-08 (post-v12 planning refresh + local data portability).
 
 This is the maintained roadmap. It replaces the old full feature brainstorming document, which mixed implemented features, speculative ideas, and stale project naming.
 
@@ -24,7 +24,7 @@ Implemented modules:
 - Counter: daily usage, streaks, quota weighting, model breakdown, heatmap/dashboard.
 - Folders: sidebar markers, panel management, search, pinning, drag reorder,
   batch move, auto-classify rules, and one-step local undo for folder
-  moves/deletes.
+  moves/deletes, plus versioned JSON import/export.
 - Export: JSON/CSV/Markdown usage export, current visible conversation
   transcript export, and selected-sidebar chat export in JSON/Markdown/TXT.
 - Prompt Vault: saved prompts, quick insert, import/export, favorites, recent
@@ -37,7 +37,8 @@ Implemented modules:
 - Batch Delete: multi-select deletion workflow.
 - Quote Reply: selected-text quote insertion.
 - UI Tweaks: title sync, Ctrl+Enter behavior, width controls, Gems hiding.
-- Chat Notes: local per-chat notes and pins in the details pane.
+- Chat Notes: local per-chat notes and pins in the details pane, plus versioned
+  JSON import/export.
 
 ## Near-Term Priorities
 
@@ -104,6 +105,9 @@ Prioritize local-first workflow parity with direct Gemini competitors:
 - Local undo/trash safety: Prompt Vault delete undo and local folder
   move/delete undo are implemented; server-side Gemini chat delete restore
   remains out of scope unless it can be intercepted before confirmation.
+- Local data portability: Prompt Vault, Folders, and Chat Notes all support
+  local JSON export/import. This is browser-local migration, not cloud sync or
+  Gemini memory mirroring.
 - Tool-mode awareness for Canvas, Deep Research, Image, Video, Audio Overview,
   Spark, or equivalent Gemini modes so automations can disable themselves
   safely. Canonical label/state matching is covered by unit tests; visible

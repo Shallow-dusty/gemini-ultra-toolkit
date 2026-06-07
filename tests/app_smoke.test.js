@@ -157,4 +157,15 @@ describe('app smoke checks', () => {
         assert.match(read('src/adapters/gemini.js'), /getSelectorHealthReport\(\)/);
         assert.match(read('src/panel_settings.js'), /GeminiAdapter\.getSelectorHealthReport\(\)/);
     });
+
+    it('keeps Prompt Vault import available when the vault is empty', () => {
+        const promptVault = read('src/modules/prompt_vault.js');
+        const emptyIdx = promptVault.indexOf('if (this._prompts.length === 0)');
+        const appendIdx = promptVault.indexOf('this._appendPromptIORow(container);', emptyIdx);
+        const returnIdx = promptVault.indexOf('return;', emptyIdx);
+
+        assert.ok(emptyIdx !== -1, 'empty Prompt Vault branch missing');
+        assert.ok(appendIdx !== -1, 'empty Prompt Vault branch must render import/export controls');
+        assert.ok(appendIdx < returnIdx, 'Prompt Vault import/export controls must render before empty-state return');
+    });
 });

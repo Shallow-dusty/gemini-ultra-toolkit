@@ -9,7 +9,7 @@ mutable, so refresh this file before any major release or store submission.
 - Local git state is mutable; run `git status --short --branch` before release,
   push, or store submission instead of treating this snapshot as live git truth.
 - Local verification on 2026-06-08:
-  - `npm test` passed: 212 tests, `lib/` at 100% c8 coverage.
+  - `npm test` passed: 221 tests, `lib/` at 100% c8 coverage.
   - `npm run build` passed for userscript and extension outputs.
 - 2026-06-08 follow-up: `brace-expansion` was updated from `5.0.5` to
   `5.0.6`; `npm audit --audit-level=moderate` now reports 0 vulnerabilities.
@@ -85,9 +85,9 @@ Direct competitive gap:
   delete, quote reply, UI tweaks, heatmap, and export.
 - Primer++ still trails the top competitors on PDF/DOCX export, image gallery,
   server-side trash/restore, cross-device sync, and deeper queue automation.
-  Post-planning selected-chat export, local message queue, per-chat notes, and
-  local undo for prompts/folders now cover the first parity slice for those
-  gaps.
+  Post-planning selected-chat export, local message queue, per-chat notes,
+  local undo for prompts/folders, and local JSON import/export for prompts,
+  folders, and notes now cover the first parity slice for those gaps.
 - Primer++ has a stronger local-first story than products that disclose
   analytics, cloud sync, or in-app purchases. Keep this as a product boundary,
   not an afterthought.
@@ -107,7 +107,7 @@ Codex CLI/TUI.
   - Plan: keep local-first as a hard product boundary and listing differentiator.
 - Organization
   - Primer++ v12: folders, colors, pinning, search, drag reorder, batch move,
-    auto-rules.
+    auto-rules, local undo, and JSON import/export.
   - Market signal: SPG has native folders/sidebar management; TFG has folders
     and subfolders.
   - Gemini signal: Gemini has built-in chat-history search on web/mobile.
@@ -150,7 +150,7 @@ Codex CLI/TUI.
     claiming current Gemini DOM coverage.
 - Notes/references
   - Primer++ v12 plus post-planning implementation: quote reply plus local
-    per-chat notes and pins.
+    per-chat notes and pins with JSON import/export.
   - Market signal: SPG has notes/chat referencing; TFG has pinned messages.
   - Gemini signal: Gemini renamed past chats to memories and adds app
     connections.
@@ -298,7 +298,9 @@ Goal: differentiate from generic folder/export extensions.
    - include title/date/link plus optional local notes, not full hidden chat
      content unless user explicitly exports/selects it.
 3. Memory migration helper:
-   - support local export/import of Primer++ prompt vault, folders, and notes;
+   - ~~support local export/import of Primer++ prompt vault, folders, and
+     notes~~ done with versioned JSON import/export for all three local data
+     sets;
    - do not try to mirror Gemini's own "memories" feature.
 4. Tool-mode awareness:
    - canonical matching for Canvas, Deep Research, Image, Video, Audio Overview,

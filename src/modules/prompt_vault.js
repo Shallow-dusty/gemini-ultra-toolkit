@@ -383,6 +383,7 @@ export const PromptVaultModule = {
             hint.style.cssText = 'font-size: 10px; color: var(--text-sub); opacity: 0.6; padding: 4px 8px;';
             hint.textContent = 'No saved prompts. Click + to add.';
             container.appendChild(hint);
+            this._appendPromptIORow(container);
             return;
         }
 
@@ -455,7 +456,10 @@ export const PromptVaultModule = {
             });
         });
 
-        // Import/Export buttons
+        this._appendPromptIORow(container);
+    },
+
+    _appendPromptIORow(container) {
         const ioRow = document.createElement('div');
         ioRow.style.cssText = 'display:flex;gap:6px;margin-top:8px;';
 

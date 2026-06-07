@@ -3,11 +3,14 @@ import { Logger } from '../logger.js';
 import { NativeUI } from '../native_ui.js';
 import { PanelUI } from '../panel_ui.js';
 import { createIcon } from '../icons.js';
+import { formatLocalDate } from '../../lib/date_utils.js';
 import {
+    mergeNotesImport,
     deleteChatNote,
     getNotesStats,
     getPinnedNotes,
     normalizeNotesData,
+    serializeNotesExport,
     toggleChatPin,
     upsertChatNote
 } from '../../lib/chat_notes_store.js';
@@ -47,6 +50,44 @@ export const ChatNotesModule = {
 
     _save() {
         try { GM_setValue(this._getStorageKey(), this.data); } catch { /* silent */ }
+    },
+
+    _exportNotes() {
+        const data = serializeNotesExport(this.data, { nowIso: new Date().toISOString() });
+        const blob = new Blob([data], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `primer-pp-notes-${formatLocalDate(new Date())}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        NativeUI.showToast(NativeUI.t('笔记已导出', 'Notes exported'));
+    },
+
+    _importNotes() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                try {
+                    const imported = JSON.parse(ev.target.result);
+                    const result = mergeNotesImport(this.data, imported, { nowIso: new Date().toISOString() });
+                    if (result.importedNotes === 0) throw new Error('Invalid format');
+                    this.data = result.data;
+                    this._save();
+                    PanelUI.renderDetailsPane();
+                    NativeUI.showToast(NativeUI.t(`已导入 ${result.importedNotes} 条笔记`, `Imported ${result.importedNotes} notes`));
+                } catch {
+                    NativeUI.showToast(NativeUI.t('导入失败: 格式无效', 'Import failed: invalid format'));
+                }
+            };
+            reader.readAsText(file);
+        };
+        input.click();
     },
 
     _getCurrentChatRef() {
@@ -187,6 +228,29 @@ export const ChatNotesModule = {
 
         this._renderCurrentChatEditor(container, this._getCurrentChatRef());
         this._renderPinnedNotes(container);
+
+        const ioRow = document.createElement('div');
+        ioRow.style.cssText = 'display:flex;gap:6px;margin-top:8px;';
+
+        const exportBtn = document.createElement('button');
+        exportBtn.style.cssText = 'flex:1;font-size:10px;padding:4px 8px;border-radius:6px;border:1px solid var(--divider,rgba(255,255,255,0.1));background:var(--btn-bg,rgba(255,255,255,0.05));color:var(--text-sub,#9aa0a6);cursor:pointer;';
+        exportBtn.textContent = NativeUI.t('导出', 'Export');
+        exportBtn.onclick = (e) => {
+            e.stopPropagation();
+            this._exportNotes();
+        };
+
+        const importBtn = document.createElement('button');
+        importBtn.style.cssText = 'flex:1;font-size:10px;padding:4px 8px;border-radius:6px;border:1px solid var(--divider,rgba(255,255,255,0.1));background:var(--btn-bg,rgba(255,255,255,0.05));color:var(--text-sub,#9aa0a6);cursor:pointer;';
+        importBtn.textContent = NativeUI.t('导入', 'Import');
+        importBtn.onclick = (e) => {
+            e.stopPropagation();
+            this._importNotes();
+        };
+
+        ioRow.appendChild(exportBtn);
+        ioRow.appendChild(importBtn);
+        container.appendChild(ioRow);
     },
 
     getOnboarding() {

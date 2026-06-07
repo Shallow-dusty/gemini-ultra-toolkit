@@ -35,7 +35,7 @@ WHAT IT ADDS
 
 • Heatmap dashboard — GitHub-style year heatmap of your Gemini usage, plus per-model breakdown and per-day drill-down.
 
-• Folders — group sidebar chats into folders with drag-and-drop, color coding, pinning, batch move, one-step local undo, and optional auto-classify rules (regex or keyword).
+• Folders — group sidebar chats into folders with drag-and-drop, color coding, pinning, batch move, one-step local undo, JSON import/export, and optional auto-classify rules (regex or keyword).
 
 • Export — export usage reports, the current visible chat transcript, or selected sidebar chats to JSON / Markdown / TXT.
 
@@ -49,7 +49,7 @@ WHAT IT ADDS
 
 • Quote Reply — quote selected text from any chat into your next prompt, with attribution.
 
-• Chat Notes — save local notes and pins for important conversations.
+• Chat Notes — save local notes and pins for important conversations. Export or import notes as JSON when moving browsers.
 
 • UI Tweaks — sync the tab title with the chat title, customize Ctrl+Enter behavior, adjust chat width, hide unused Gems.
 

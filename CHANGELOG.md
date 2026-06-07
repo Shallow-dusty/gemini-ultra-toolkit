@@ -5,7 +5,8 @@
 ### Unreleased
 
 - **Local folder undo**: folder moves, batch moves, unassignments, and local folder deletes now keep a one-step in-memory undo record with conflict-safe restore behavior.
-- **Test coverage**: added `lib/folder_tools.js` unit coverage for local folder move/delete undo and restore edge cases.
+- **Local data portability**: folders and chat notes now have versioned JSON export/import alongside the existing Prompt Vault JSON import/export.
+- **Test coverage**: added `lib/folder_tools.js` and `lib/chat_notes_store.js` unit coverage for local folder undo, folder import/export, and notes import/export edge cases.
 
 ### v11.0 Current Release Cleanup
 

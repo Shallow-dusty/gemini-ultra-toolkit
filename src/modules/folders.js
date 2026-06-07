@@ -7,11 +7,14 @@ import { PanelUI } from '../panel_ui.js';
 import { CounterModule } from './counter.js';
 import { GeminiAdapter } from '../adapters/gemini.js';
 import { createIcon } from '../icons.js';
+import { formatLocalDate } from '../../lib/date_utils.js';
 import {
+    mergeFolderImport,
     deleteFolderForUndo,
     moveChatsToFolderForUndo,
     restoreDeletedFolder,
-    restoreFolderMove
+    restoreFolderMove,
+    serializeFolderExport
 } from '../../lib/folder_tools.js';
 
 // Helper: validate href is safe (relative URL, not javascript: or data:)
@@ -360,6 +363,48 @@ export const FoldersModule = {
         this._applyFilter(this._activeFilter);
         this._refreshFilterBar();
         PanelUI.renderDetailsPane();
+    },
+
+    _exportFolders() {
+        const data = serializeFolderExport(this.data, { nowIso: new Date().toISOString() });
+        const blob = new Blob([data], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `primer-pp-folders-${formatLocalDate(new Date())}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        NativeUI.showToast(NativeUI.t('文件夹已导出', 'Folders exported'));
+    },
+
+    _importFolders() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                try {
+                    const imported = JSON.parse(ev.target.result);
+                    const result = mergeFolderImport(this.data, imported, {
+                        idFactory: (_folder, index) => {
+                            return 'folder_' + Date.now() + '_' + index + '_' + Math.random().toString(36).slice(2, 6);
+                        }
+                    });
+                    if (result.importedFolders === 0) throw new Error('Invalid format');
+                    this.data = result.data;
+                    this._lastFolderUndo = null;
+                    this._persistFolderChanges();
+                    NativeUI.showToast(NativeUI.t(`已导入 ${result.importedFolders} 个文件夹`, `Imported ${result.importedFolders} folders`));
+                } catch {
+                    NativeUI.showToast(NativeUI.t('导入失败: 格式无效', 'Import failed: invalid format'));
+                }
+            };
+            reader.readAsText(file);
+        };
+        input.click();
     },
 
     getFolderStats(folderId) {
@@ -1059,6 +1104,29 @@ export const FoldersModule = {
             };
             container.appendChild(classifyBtn);
         }
+
+        const ioRow = document.createElement('div');
+        ioRow.style.cssText = 'display:flex;gap:6px;margin-top:8px;';
+
+        const exportBtn = document.createElement('button');
+        exportBtn.style.cssText = 'flex:1;font-size:10px;padding:4px 8px;border-radius:6px;border:1px solid var(--divider,rgba(255,255,255,0.1));background:var(--btn-bg,rgba(255,255,255,0.05));color:var(--text-sub,#9aa0a6);cursor:pointer;';
+        exportBtn.textContent = NativeUI.t('导出', 'Export');
+        exportBtn.onclick = (e) => {
+            e.stopPropagation();
+            this._exportFolders();
+        };
+
+        const importBtn = document.createElement('button');
+        importBtn.style.cssText = 'flex:1;font-size:10px;padding:4px 8px;border-radius:6px;border:1px solid var(--divider,rgba(255,255,255,0.1));background:var(--btn-bg,rgba(255,255,255,0.05));color:var(--text-sub,#9aa0a6);cursor:pointer;';
+        importBtn.textContent = NativeUI.t('导入', 'Import');
+        importBtn.onclick = (e) => {
+            e.stopPropagation();
+            this._importFolders();
+        };
+
+        ioRow.appendChild(exportBtn);
+        ioRow.appendChild(importBtn);
+        container.appendChild(ioRow);
     },
 
     createFolderRow(folderId, folder, chats) {

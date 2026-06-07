@@ -17,7 +17,7 @@ _Use when publishing the userscript at https://greasyfork.org/_
 Auto-extracted from the `@description` line in the userscript header. Greasyfork lets you write a longer **About** page on the next screen — paste this:
 
 ```
-Primer++ for Gemini™ is an unofficial, open-source companion userscript for Google Gemini (gemini.google.com). It adds modular quality-of-life features — daily message counter with weighted quota, GitHub-style usage heatmap, conversation folders with drag-and-drop and local undo, JSON/Markdown/TXT transcript export, prompt vault with one-click insert and local delete undo, local message queue, local chat notes, default-model selector, batch delete, quote reply, and assorted UI tweaks — all controllable from a draggable floating panel with four themes (Glass / Cyber / Paper / Auto).
+Primer++ for Gemini™ is an unofficial, open-source companion userscript for Google Gemini (gemini.google.com). It adds modular quality-of-life features — daily message counter with weighted quota, GitHub-style usage heatmap, conversation folders with drag-and-drop, local undo, and JSON import/export, JSON/Markdown/TXT transcript export, prompt vault with one-click insert and local delete undo, local message queue, local chat notes with JSON import/export, default-model selector, batch delete, quote reply, and assorted UI tweaks — all controllable from a draggable floating panel with four themes (Glass / Cyber / Paper / Auto).
 
 Privacy: every byte of data lives in your browser's GM storage. The script makes no network requests to any server; no telemetry, no remote code, no tracking. Full policy: https://github.com/Shallow-dusty/primer-pp/blob/main/PRIVACY.md
 

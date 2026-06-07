@@ -1359,7 +1359,7 @@
   var require_date_utils = __commonJS({
     "lib/date_utils.js"(exports, module) {
       "use strict";
-      function formatLocalDate4(d) {
+      function formatLocalDate6(d) {
         const y = d.getFullYear();
         const m = String(d.getMonth() + 1).padStart(2, "0");
         const day = String(d.getDate()).padStart(2, "0");
@@ -1370,7 +1370,7 @@
         if (d.getHours() < resetHour) {
           d.setDate(d.getDate() - 1);
         }
-        return formatLocalDate4(d);
+        return formatLocalDate6(d);
       }
       function getDayKeyForDate(date, resetHour) {
         return getDayKey(resetHour, date);
@@ -1379,7 +1379,7 @@
         const [y, m, d] = dateStr.split("-").map(Number);
         return new Date(y, m - 1, d);
       }
-      module.exports = { formatLocalDate: formatLocalDate4, getDayKey, getDayKeyForDate, parseLocalDate };
+      module.exports = { formatLocalDate: formatLocalDate6, getDayKey, getDayKeyForDate, parseLocalDate };
     }
   });
 
@@ -1547,7 +1547,7 @@
   var require_counter_calc = __commonJS({
     "lib/counter_calc.js"(exports, module) {
       "use strict";
-      var { formatLocalDate: formatLocalDate4, getDayKey, parseLocalDate } = require_date_utils();
+      var { formatLocalDate: formatLocalDate6, getDayKey, parseLocalDate } = require_date_utils();
       function calculateStreaks2(dailyCounts, resetHour, now) {
         const dates = Object.keys(dailyCounts || {}).sort();
         if (dates.length === 0) return { current: 0, best: 0 };
@@ -1570,12 +1570,12 @@
         const yesterdayDate = new Date(ref.getTime());
         if (yesterdayDate.getHours() < resetHour) yesterdayDate.setDate(yesterdayDate.getDate() - 1);
         yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-        const yesterdayStr = formatLocalDate4(yesterdayDate);
+        const yesterdayStr = formatLocalDate6(yesterdayDate);
         const startStr = dailyCounts[todayStr]?.messages > 0 ? todayStr : yesterdayStr;
         let checkDate = parseLocalDate(startStr);
         let current = 0;
         while (true) {
-          const key = formatLocalDate4(checkDate);
+          const key = formatLocalDate6(checkDate);
           if (dailyCounts[key] && dailyCounts[key].messages > 0) {
             current++;
             checkDate.setDate(checkDate.getDate() - 1);
@@ -2168,7 +2168,7 @@
   var require_export_formatter = __commonJS({
     "lib/export_formatter.js"(exports, module) {
       var { getWeightedQuota } = require_quota_calc();
-      var { formatLocalDate: formatLocalDate4 } = require_date_utils();
+      var { formatLocalDate: formatLocalDate6 } = require_date_utils();
       function exportCSV2(dailyCounts, opts = {}) {
         const header = "Date,Messages,Chats,Flash,Thinking,Pro,Weighted";
         const rows = [];
@@ -2196,7 +2196,7 @@
         return header + "\n" + rows.join("\n") + "\n";
       }
       function exportMarkdown2(dailyCounts, opts = {}) {
-        const now = formatLocalDate4(/* @__PURE__ */ new Date());
+        const now = formatLocalDate6(/* @__PURE__ */ new Date());
         const user = opts.user || "Unknown";
         const lines = [];
         lines.push("# Gemini Usage Report");
@@ -5462,6 +5462,11 @@
   // lib/folder_tools.js
   var require_folder_tools = __commonJS({
     "lib/folder_tools.js"(exports, module) {
+      var FOLDER_EXPORT_SCHEMA = "primer-pp.folders";
+      var FOLDER_EXPORT_VERSION = 1;
+      var DEFAULT_FOLDER_COLOR = "#8ab4f8";
+      var MAX_FOLDER_NAME_LENGTH = 80;
+      var MAX_RULE_VALUE_LENGTH = 80;
       function toId(value) {
         if (value === null || value === void 0) return "";
         return String(value).trim();
@@ -5483,6 +5488,62 @@
       }
       function getNowIso(opts = {}) {
         return opts.nowIso || (/* @__PURE__ */ new Date()).toISOString();
+      }
+      function normalizeFolderColor(value, fallback = DEFAULT_FOLDER_COLOR) {
+        const color = toId(value);
+        return /^#[0-9a-fA-F]{3,8}$/.test(color) ? color : fallback;
+      }
+      function normalizeFolderRule(raw) {
+        const source = raw && typeof raw === "object" ? raw : {};
+        const value = toId(source.value).slice(0, MAX_RULE_VALUE_LENGTH);
+        if (!value) return null;
+        return {
+          type: source.type === "regex" ? "regex" : "keyword",
+          value
+        };
+      }
+      function normalizeFolderRecord(raw, index = 0) {
+        const source = raw && typeof raw === "object" ? raw : {};
+        const rules = Array.isArray(source.rules) ? source.rules.map(normalizeFolderRule).filter(Boolean) : [];
+        return {
+          name: (toId(source.name) || `Folder ${index + 1}`).slice(0, MAX_FOLDER_NAME_LENGTH),
+          color: normalizeFolderColor(source.color),
+          collapsed: source.collapsed === true,
+          pinned: source.pinned === true,
+          rules
+        };
+      }
+      function normalizeFolderData(data) {
+        const source = data && typeof data === "object" ? data : {};
+        const rawFolders = source.folders && typeof source.folders === "object" ? source.folders : {};
+        const folders = {};
+        Object.entries(rawFolders).forEach(([rawId, folder], index) => {
+          const id = toId(rawId);
+          if (!id) return;
+          folders[id] = normalizeFolderRecord(folder, index);
+        });
+        const seen = /* @__PURE__ */ new Set();
+        const folderOrder = [];
+        const rawOrder = Array.isArray(source.folderOrder) ? source.folderOrder : Object.keys(folders);
+        rawOrder.forEach((rawId) => {
+          const id = toId(rawId);
+          if (!id || !folders[id] || seen.has(id)) return;
+          seen.add(id);
+          folderOrder.push(id);
+        });
+        Object.keys(folders).forEach((id) => {
+          if (seen.has(id)) return;
+          seen.add(id);
+          folderOrder.push(id);
+        });
+        const chatToFolder = {};
+        const rawMap = source.chatToFolder && typeof source.chatToFolder === "object" ? source.chatToFolder : {};
+        Object.entries(rawMap).forEach(([rawChatId, rawFolderId]) => {
+          const chatId = toId(rawChatId);
+          const folderId = toId(rawFolderId);
+          if (chatId && folders[folderId]) chatToFolder[chatId] = folderId;
+        });
+        return { folders, chatToFolder, folderOrder };
       }
       function getCurrentFolderId(chatToFolder, chatId) {
         return Object.prototype.hasOwnProperty.call(chatToFolder, chatId) ? chatToFolder[chatId] : null;
@@ -5581,6 +5642,53 @@
           }
         };
       }
+      function createFolderExport(data, opts = {}) {
+        return {
+          schema: FOLDER_EXPORT_SCHEMA,
+          version: FOLDER_EXPORT_VERSION,
+          exportedAt: getNowIso(opts),
+          app: "Primer++ for Gemini",
+          ...normalizeFolderData(data)
+        };
+      }
+      function serializeFolderExport2(data, opts = {}) {
+        return JSON.stringify(createFolderExport(data, opts), null, 2);
+      }
+      function defaultImportedFolderId(folder, index) {
+        return `folder_${Date.now()}_${index}`;
+      }
+      function mergeFolderImport2(existing, rawImport, opts = {}) {
+        const state = normalizeFolderData(existing);
+        const imported = normalizeFolderData(rawImport);
+        const idFactory = typeof opts.idFactory === "function" ? opts.idFactory : defaultImportedFolderId;
+        const idMap = {};
+        let importedFolders = 0;
+        imported.folderOrder.forEach((oldId) => {
+          const folder = imported.folders[oldId];
+          let nextId = oldId;
+          if (state.folders[nextId]) {
+            nextId = toId(idFactory(folder, importedFolders)) || defaultImportedFolderId(folder, importedFolders);
+          }
+          while (state.folders[nextId]) {
+            nextId = `${nextId}_copy`;
+          }
+          state.folders[nextId] = folder;
+          state.folderOrder.push(nextId);
+          idMap[oldId] = nextId;
+          importedFolders++;
+        });
+        let importedAssignments = 0;
+        Object.entries(imported.chatToFolder).forEach(([chatId, oldFolderId]) => {
+          const folderId = idMap[oldFolderId];
+          state.chatToFolder[chatId] = folderId;
+          importedAssignments++;
+        });
+        return {
+          data: state,
+          importedFolders,
+          importedAssignments
+        };
+      }
       function restoreDeletedFolder2(data, undo) {
         const next = cloneFolderData(data);
         const folderId = toId(undo && undo.folderId);
@@ -5616,10 +5724,14 @@
       }
       module.exports = {
         cloneFolderData,
+        createFolderExport,
         deleteFolderForUndo: deleteFolderForUndo2,
+        mergeFolderImport: mergeFolderImport2,
         moveChatsToFolderForUndo: moveChatsToFolderForUndo2,
+        normalizeFolderData,
         restoreDeletedFolder: restoreDeletedFolder2,
-        restoreFolderMove: restoreFolderMove2
+        restoreFolderMove: restoreFolderMove2,
+        serializeFolderExport: serializeFolderExport2
       };
     }
   });
@@ -5640,7 +5752,7 @@
     if (src.includes("|") && /[+*]|\{\d+,?\d*\}/.test(src)) return false;
     return true;
   }
-  var import_folder_tools, FoldersModule;
+  var import_date_utils3, import_folder_tools, FoldersModule;
   var init_folders = __esm({
     "src/modules/folders.js"() {
       init_constants();
@@ -5652,6 +5764,7 @@
       init_counter();
       init_gemini();
       init_icons();
+      import_date_utils3 = __toESM(require_date_utils());
       import_folder_tools = __toESM(require_folder_tools());
       FoldersModule = {
         id: "folders",
@@ -5940,6 +6053,46 @@
           this._applyFilter(this._activeFilter);
           this._refreshFilterBar();
           PanelUI.renderDetailsPane();
+        },
+        _exportFolders() {
+          const data = (0, import_folder_tools.serializeFolderExport)(this.data, { nowIso: (/* @__PURE__ */ new Date()).toISOString() });
+          const blob = new Blob([data], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `primer-pp-folders-${(0, import_date_utils3.formatLocalDate)(/* @__PURE__ */ new Date())}.json`;
+          a.click();
+          URL.revokeObjectURL(url);
+          NativeUI.showToast(NativeUI.t("文件夹已导出", "Folders exported"));
+        },
+        _importFolders() {
+          const input = document.createElement("input");
+          input.type = "file";
+          input.accept = ".json";
+          input.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+              try {
+                const imported = JSON.parse(ev.target.result);
+                const result = (0, import_folder_tools.mergeFolderImport)(this.data, imported, {
+                  idFactory: (_folder, index) => {
+                    return "folder_" + Date.now() + "_" + index + "_" + Math.random().toString(36).slice(2, 6);
+                  }
+                });
+                if (result.importedFolders === 0) throw new Error("Invalid format");
+                this.data = result.data;
+                this._lastFolderUndo = null;
+                this._persistFolderChanges();
+                NativeUI.showToast(NativeUI.t(`已导入 ${result.importedFolders} 个文件夹`, `Imported ${result.importedFolders} folders`));
+              } catch {
+                NativeUI.showToast(NativeUI.t("导入失败: 格式无效", "Import failed: invalid format"));
+              }
+            };
+            reader.readAsText(file);
+          };
+          input.click();
         },
         getFolderStats(folderId) {
           const chatIds = Object.entries(this.data.chatToFolder).filter(([, fid]) => fid === folderId).map(([cid]) => cid);
@@ -6576,6 +6729,25 @@
             };
             container.appendChild(classifyBtn);
           }
+          const ioRow = document.createElement("div");
+          ioRow.style.cssText = "display:flex;gap:6px;margin-top:8px;";
+          const exportBtn = document.createElement("button");
+          exportBtn.style.cssText = "flex:1;font-size:10px;padding:4px 8px;border-radius:6px;border:1px solid var(--divider,rgba(255,255,255,0.1));background:var(--btn-bg,rgba(255,255,255,0.05));color:var(--text-sub,#9aa0a6);cursor:pointer;";
+          exportBtn.textContent = NativeUI.t("导出", "Export");
+          exportBtn.onclick = (e) => {
+            e.stopPropagation();
+            this._exportFolders();
+          };
+          const importBtn = document.createElement("button");
+          importBtn.style.cssText = "flex:1;font-size:10px;padding:4px 8px;border-radius:6px;border:1px solid var(--divider,rgba(255,255,255,0.1));background:var(--btn-bg,rgba(255,255,255,0.05));color:var(--text-sub,#9aa0a6);cursor:pointer;";
+          importBtn.textContent = NativeUI.t("导入", "Import");
+          importBtn.onclick = (e) => {
+            e.stopPropagation();
+            this._importFolders();
+          };
+          ioRow.appendChild(exportBtn);
+          ioRow.appendChild(importBtn);
+          container.appendChild(ioRow);
         },
         createFolderRow(folderId, folder, chats) {
           const wrapper = document.createElement("div");
@@ -6922,7 +7094,7 @@
   // lib/prompt_vault_tools.js
   var require_prompt_vault_tools = __commonJS({
     "lib/prompt_vault_tools.js"(exports, module) {
-      var { formatLocalDate: formatLocalDate4 } = require_date_utils();
+      var { formatLocalDate: formatLocalDate6 } = require_date_utils();
       var DEFAULT_CATEGORY = "General";
       var MAX_NAME_LENGTH = 80;
       var MAX_CATEGORY_LENGTH = 40;
@@ -7010,7 +7182,7 @@
       }
       function buildPromptVariables2(context = {}) {
         const date = context.now instanceof Date ? context.now : /* @__PURE__ */ new Date();
-        const day = formatLocalDate4(date);
+        const day = formatLocalDate6(date);
         const time = date.toTimeString().slice(0, 5);
         return {
           date: day,
@@ -7146,7 +7318,7 @@ ${part}`).join("\n\n---\n\n");
   });
 
   // src/modules/prompt_vault.js
-  var import_date_utils3, import_prompt_vault_tools, PromptVaultModule;
+  var import_date_utils4, import_prompt_vault_tools, PromptVaultModule;
   var init_prompt_vault = __esm({
     "src/modules/prompt_vault.js"() {
       init_logger();
@@ -7157,7 +7329,7 @@ ${part}`).join("\n\n---\n\n");
       init_icons();
       init_counter();
       init_gemini();
-      import_date_utils3 = __toESM(require_date_utils());
+      import_date_utils4 = __toESM(require_date_utils());
       import_prompt_vault_tools = __toESM(require_prompt_vault_tools());
       PromptVaultModule = {
         id: "prompt-vault",
@@ -7506,6 +7678,7 @@ ${part}`).join("\n\n---\n\n");
             hint.style.cssText = "font-size: 10px; color: var(--text-sub); opacity: 0.6; padding: 4px 8px;";
             hint.textContent = "No saved prompts. Click + to add.";
             container.appendChild(hint);
+            this._appendPromptIORow(container);
             return;
           }
           const categories = {};
@@ -7576,6 +7749,9 @@ ${part}`).join("\n\n---\n\n");
               container.appendChild(row);
             });
           });
+          this._appendPromptIORow(container);
+        },
+        _appendPromptIORow(container) {
           const ioRow = document.createElement("div");
           ioRow.style.cssText = "display:flex;gap:6px;margin-top:8px;";
           const exportBtn = document.createElement("button");
@@ -7602,7 +7778,7 @@ ${part}`).join("\n\n---\n\n");
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a");
           a.href = url;
-          a.download = `primer-pp-prompts-${(0, import_date_utils3.formatLocalDate)(/* @__PURE__ */ new Date())}.json`;
+          a.download = `primer-pp-prompts-${(0, import_date_utils4.formatLocalDate)(/* @__PURE__ */ new Date())}.json`;
           a.click();
           URL.revokeObjectURL(url);
           NativeUI.showToast(NativeUI.t("提示词已导出", "Prompts exported"));
@@ -8597,6 +8773,8 @@ ${part}`).join("\n\n---\n\n");
     "lib/chat_notes_store.js"(exports, module) {
       var MAX_TITLE_LENGTH = 120;
       var MAX_NOTE_LENGTH = 4e3;
+      var NOTES_EXPORT_SCHEMA = "primer-pp.chat-notes";
+      var NOTES_EXPORT_VERSION = 1;
       function toText(value) {
         if (value === null || value === void 0) return "";
         return String(value);
@@ -8697,13 +8875,41 @@ ${part}`).join("\n\n---\n\n");
           withNote: notes.filter((note) => note.note).length
         };
       }
+      function getNowIso(opts = {}) {
+        return opts.nowIso || (/* @__PURE__ */ new Date()).toISOString();
+      }
+      function createNotesExport(data, opts = {}) {
+        return {
+          schema: NOTES_EXPORT_SCHEMA,
+          version: NOTES_EXPORT_VERSION,
+          exportedAt: getNowIso(opts),
+          app: "Primer++ for Gemini",
+          ...normalizeNotesData2(data, opts)
+        };
+      }
+      function serializeNotesExport2(data, opts = {}) {
+        return JSON.stringify(createNotesExport(data, opts), null, 2);
+      }
+      function mergeNotesImport2(existing, rawImport, opts = {}) {
+        const state = normalizeNotesData2(existing, opts);
+        const imported = normalizeNotesData2(rawImport, opts);
+        let importedNotes = 0;
+        Object.entries(imported.notes).forEach(([chatId, note]) => {
+          state.notes[chatId] = note;
+          importedNotes++;
+        });
+        return { data: state, importedNotes };
+      }
       module.exports = {
+        createNotesExport,
         deleteChatNote: deleteChatNote2,
         getNotesStats: getNotesStats2,
         getPinnedNotes: getPinnedNotes2,
+        mergeNotesImport: mergeNotesImport2,
         normalizeChatRef,
         normalizeNote,
         normalizeNotesData: normalizeNotesData2,
+        serializeNotesExport: serializeNotesExport2,
         toggleChatPin: toggleChatPin2,
         upsertChatNote: upsertChatNote2
       };
@@ -8711,7 +8917,7 @@ ${part}`).join("\n\n---\n\n");
   });
 
   // src/modules/chat_notes.js
-  var import_chat_notes_store, ChatNotesModule;
+  var import_date_utils5, import_chat_notes_store, ChatNotesModule;
   var init_chat_notes = __esm({
     "src/modules/chat_notes.js"() {
       init_core();
@@ -8719,6 +8925,7 @@ ${part}`).join("\n\n---\n\n");
       init_native_ui();
       init_panel_ui();
       init_icons();
+      import_date_utils5 = __toESM(require_date_utils());
       import_chat_notes_store = __toESM(require_chat_notes_store());
       ChatNotesModule = {
         id: "chat-notes",
@@ -8755,6 +8962,42 @@ ${part}`).join("\n\n---\n\n");
             GM_setValue(this._getStorageKey(), this.data);
           } catch {
           }
+        },
+        _exportNotes() {
+          const data = (0, import_chat_notes_store.serializeNotesExport)(this.data, { nowIso: (/* @__PURE__ */ new Date()).toISOString() });
+          const blob = new Blob([data], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `primer-pp-notes-${(0, import_date_utils5.formatLocalDate)(/* @__PURE__ */ new Date())}.json`;
+          a.click();
+          URL.revokeObjectURL(url);
+          NativeUI.showToast(NativeUI.t("笔记已导出", "Notes exported"));
+        },
+        _importNotes() {
+          const input = document.createElement("input");
+          input.type = "file";
+          input.accept = ".json";
+          input.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+              try {
+                const imported = JSON.parse(ev.target.result);
+                const result = (0, import_chat_notes_store.mergeNotesImport)(this.data, imported, { nowIso: (/* @__PURE__ */ new Date()).toISOString() });
+                if (result.importedNotes === 0) throw new Error("Invalid format");
+                this.data = result.data;
+                this._save();
+                PanelUI.renderDetailsPane();
+                NativeUI.showToast(NativeUI.t(`已导入 ${result.importedNotes} 条笔记`, `Imported ${result.importedNotes} notes`));
+              } catch {
+                NativeUI.showToast(NativeUI.t("导入失败: 格式无效", "Import failed: invalid format"));
+              }
+            };
+            reader.readAsText(file);
+          };
+          input.click();
         },
         _getCurrentChatRef() {
           const chatId = Core.getChatId();
@@ -8878,6 +9121,25 @@ ${part}`).join("\n\n---\n\n");
           container.appendChild(title);
           this._renderCurrentChatEditor(container, this._getCurrentChatRef());
           this._renderPinnedNotes(container);
+          const ioRow = document.createElement("div");
+          ioRow.style.cssText = "display:flex;gap:6px;margin-top:8px;";
+          const exportBtn = document.createElement("button");
+          exportBtn.style.cssText = "flex:1;font-size:10px;padding:4px 8px;border-radius:6px;border:1px solid var(--divider,rgba(255,255,255,0.1));background:var(--btn-bg,rgba(255,255,255,0.05));color:var(--text-sub,#9aa0a6);cursor:pointer;";
+          exportBtn.textContent = NativeUI.t("导出", "Export");
+          exportBtn.onclick = (e) => {
+            e.stopPropagation();
+            this._exportNotes();
+          };
+          const importBtn = document.createElement("button");
+          importBtn.style.cssText = "flex:1;font-size:10px;padding:4px 8px;border-radius:6px;border:1px solid var(--divider,rgba(255,255,255,0.1));background:var(--btn-bg,rgba(255,255,255,0.05));color:var(--text-sub,#9aa0a6);cursor:pointer;";
+          importBtn.textContent = NativeUI.t("导入", "Import");
+          importBtn.onclick = (e) => {
+            e.stopPropagation();
+            this._importNotes();
+          };
+          ioRow.appendChild(exportBtn);
+          ioRow.appendChild(importBtn);
+          container.appendChild(ioRow);
         },
         getOnboarding() {
           return {
