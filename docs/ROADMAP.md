@@ -24,7 +24,8 @@ Implemented modules:
 - Counter: daily usage, streaks, quota weighting, model breakdown, heatmap/dashboard.
 - Folders: sidebar markers, panel management, search, pinning, drag reorder, batch move, auto-classify rules.
 - Export: JSON, CSV, and Markdown usage export.
-- Prompt Vault: saved prompts, quick insert, import/export.
+- Prompt Vault: saved prompts, quick insert, import/export, favorites, recent
+  ranking, slash shortcuts, and template variables.
 - Default Model: preferred model selection on new chats.
 - Batch Delete: multi-select deletion workflow.
 - Quote Reply: selected-text quote insertion.
@@ -79,8 +80,12 @@ Implemented modules:
 Prioritize local-first workflow parity with direct Gemini competitors:
 
 - Message queue with pause/cancel/reorder.
-- Prompt vault upgrade: slash commands, prompt chains, placeholders, recents,
-  favorites, and compatible import/export.
+- Prompt vault upgrade:
+  - ~~slash shortcut insertion~~ done after the market/UI planning snapshot;
+  - prompt chains;
+  - ~~variable placeholders~~ done after the market/UI planning snapshot;
+  - ~~recents and favorites~~ done after the market/UI planning snapshot;
+  - compatible import/export for prompt metadata.
 - Per-chat local notes and pins.
 - Bulk export for selected chats in JSON/Markdown/TXT first; PDF/DOCX only
   after dependency and bundle-size review.

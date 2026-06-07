@@ -7,6 +7,16 @@ import { createIcon } from '../icons.js';
 import { CounterModule } from './counter.js';
 import { GeminiAdapter } from '../adapters/gemini.js';
 import { formatLocalDate } from '../../lib/date_utils.js';
+import {
+    buildPromptVariables,
+    findPromptByShortcut,
+    getQuickMenuSections,
+    markPromptUsed,
+    normalizePrompt,
+    normalizePromptList,
+    renderPromptTemplate,
+    sortPromptsForDisplay
+} from '../../lib/prompt_vault_tools.js';
 
 export const PromptVaultModule = {
     id: 'prompt-vault',
@@ -27,26 +37,33 @@ export const PromptVaultModule = {
         let prompts;
         try { prompts = GM_getValue(this._getStorageKey(), []); }
         catch (e) { prompts = []; }
-        this._prompts = prompts;
+        this._prompts = normalizePromptList(prompts);
+        this._save();
         Logger.info('PromptVaultModule initialized', { count: this._prompts.length });
     },
     destroy() {
         const fab = document.getElementById('gv-fab');
         if (fab) fab.remove();
+        if (this._slashAbort) { this._slashAbort.abort(); this._slashAbort = null; }
+        this._slashEditor = null;
         this.removeNativeUI();
     },
     onUserChange() {
         let prompts;
         try { prompts = GM_getValue(this._getStorageKey(), []); }
         catch (e) { prompts = []; }
-        this._prompts = prompts;
+        this._prompts = normalizePromptList(prompts);
+        this._save();
         PanelUI.renderDetailsPane();
     },
 
     // --- Native UI: Quick menu button near input area ---
     injectNativeUI() {
         const NATIVE_ID = 'gc-vault-native';
-        if (document.getElementById(NATIVE_ID)) return;
+        if (document.getElementById(NATIVE_ID)) {
+            this._bindSlashExpansion();
+            return;
+        }
 
         const trailing = GeminiAdapter.getInputTrailingActions();
         if (!trailing) return;
@@ -62,6 +79,7 @@ export const PromptVaultModule = {
         };
 
         trailing.insertBefore(btn, trailing.firstChild);
+        this._bindSlashExpansion();
     },
 
     removeNativeUI() {
@@ -85,44 +103,32 @@ export const PromptVaultModule = {
         menu.style.left = rect.left + 'px';
         menu.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
 
-        if (this._prompts.length === 0) {
+        const sections = getQuickMenuSections(this._prompts, { limit: 8 });
+        if (sections.length === 0) {
             const empty = document.createElement('div');
             empty.className = 'gc-dropdown-item';
             empty.style.cssText = 'color:#9aa0a6;font-size:12px;';
             empty.textContent = NativeUI.t('\u8FD8\u6CA1\u6709\u4FDD\u5B58\u7684\u63D0\u793A\u8BCD', 'No saved prompts yet');
             menu.appendChild(empty);
         } else {
-            // Sort by usage frequency (most used first), then group by category
-            const sorted = [...this._prompts].sort((a, b) => (b.usedCount || 0) - (a.usedCount || 0));
-            const categories = {};
-            sorted.forEach(p => {
-                const cat = p.category || 'General';
-                if (!categories[cat]) categories[cat] = [];
-                categories[cat].push(p);
-            });
-
-            let count = 0;
-            Object.entries(categories).forEach(([catName, prompts]) => {
-                if (count >= 8) return;
+            sections.forEach(section => {
                 const catLabel = document.createElement('div');
                 catLabel.style.cssText = 'padding:4px 16px;font-size:9px;color:#9aa0a6;text-transform:uppercase;letter-spacing:0.5px;';
-                catLabel.textContent = catName;
+                catLabel.textContent = section.label;
                 menu.appendChild(catLabel);
 
-                prompts.forEach(p => {
-                    if (count >= 8) return;
+                section.prompts.forEach(p => {
                     const item = document.createElement('div');
                     item.className = 'gc-dropdown-item';
                     item.style.fontSize = '12px';
-                    item.textContent = p.name;
+                    item.textContent = p.shortcut ? `${p.name}  /${p.shortcut}` : p.name;
                     item.title = p.content.substring(0, 80);
                     item.onclick = (e) => {
                         e.stopPropagation();
                         menu.remove();
-                        this.insertPrompt(p.content);
+                        this.insertPrompt(p.content, p.id);
                     };
                     menu.appendChild(item);
-                    count++;
                 });
             });
         }
@@ -166,14 +172,17 @@ export const PromptVaultModule = {
         try { GM_setValue(this._getStorageKey(), this._prompts); } catch (e) { /* silent */ }
     },
 
-    addPrompt(name, content, category) {
-        this._prompts.push({
+    addPrompt(name, content, category, shortcut) {
+        const nowIso = new Date().toISOString();
+        this._prompts.push(normalizePrompt({
             id: 'p_' + Date.now(),
             name: name || 'Untitled',
             content: content || '',
             category: category || 'General',
-            createdAt: new Date().toISOString()
-        });
+            shortcut,
+            createdAt: nowIso,
+            updatedAt: nowIso
+        }, this._prompts.length, { nowIso }));
         this._save();
     },
 
@@ -183,14 +192,65 @@ export const PromptVaultModule = {
     },
 
     updatePrompt(id, updates) {
-        const p = this._prompts.find(p => p.id === id);
-        if (p) Object.assign(p, updates);
+        const idx = this._prompts.findIndex(p => p.id === id);
+        if (idx !== -1) {
+            const nowIso = new Date().toISOString();
+            this._prompts[idx] = normalizePrompt({
+                ...this._prompts[idx],
+                ...updates,
+                id,
+                updatedAt: nowIso
+            }, idx, { nowIso });
+        }
         this._save();
     },
 
-    insertPrompt(content) {
+    togglePromptFavorite(id) {
+        const p = this._prompts.find(p => p.id === id);
+        if (!p) return;
+        p.favorite = !p.favorite;
+        p.updatedAt = new Date().toISOString();
+        this._save();
+    },
+
+    _getTemplateVariables() {
+        let selectedText = '';
+        let chatTitle = '';
+        let model = '';
+        try { selectedText = window.getSelection()?.toString().trim() || ''; } catch { /* swallow */ }
+        try { chatTitle = GeminiAdapter.getChatTitleText() || document.title || ''; } catch { chatTitle = document.title || ''; }
+        try { model = GeminiAdapter.detectModelKey() || ''; } catch { /* swallow */ }
+        return buildPromptVariables({ selectedText, chatTitle, model, now: new Date() });
+    },
+
+    _clearEditor(editor) {
+        if ('value' in editor) editor.value = '';
+        else editor.textContent = '';
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+    },
+
+    _bindSlashExpansion() {
+        const editor = GeminiAdapter.getInputEditor();
+        if (!editor || editor === this._slashEditor) return;
+        if (this._slashAbort) this._slashAbort.abort();
+        this._slashEditor = editor;
+        this._slashAbort = new AbortController();
+        editor.addEventListener('keydown', (e) => {
+            if (e.key !== 'Tab' || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return;
+            const currentText = (editor.value || editor.textContent || '').trim();
+            const prompt = findPromptByShortcut(this._prompts, currentText);
+            if (!prompt) return;
+            e.preventDefault();
+            this._clearEditor(editor);
+            this.insertPrompt(prompt.content, prompt.id);
+            NativeUI.showToast(NativeUI.t(`已展开 /${prompt.shortcut}`, `Expanded /${prompt.shortcut}`));
+        }, { signal: this._slashAbort.signal });
+    },
+
+    insertPrompt(content, promptId = null) {
         const editor = GeminiAdapter.getInputEditor();
         if (!editor) return;
+        const resolvedContent = renderPromptTemplate(content, this._getTemplateVariables());
         editor.focus();
         // Place cursor at end
         const sel = window.getSelection();
@@ -202,7 +262,7 @@ export const PromptVaultModule = {
         // Insert via InputEvent for Quill/ProseMirror compatibility
         const inputEvent = new InputEvent('beforeinput', {
             inputType: 'insertText',
-            data: content,
+            data: resolvedContent,
             bubbles: true,
             cancelable: true,
             composed: true
@@ -211,15 +271,15 @@ export const PromptVaultModule = {
         if (!accepted || editor.textContent.trim() === '') {
             // Fallback: direct DOM manipulation
             const p = document.createElement('p');
-            p.textContent = content;
+            p.textContent = resolvedContent;
             editor.appendChild(p);
             editor.dispatchEvent(new Event('input', { bubbles: true }));
         }
         // Update usage stats
-        const prompt = this._prompts.find(pr => pr.content === content);
+        const prompt = this._prompts.find(pr => pr.id === promptId) ||
+            this._prompts.find(pr => pr.content === content);
         if (prompt) {
-            prompt.usedCount = (prompt.usedCount || 0) + 1;
-            prompt.lastUsedAt = new Date().toISOString();
+            this._prompts = markPromptUsed(this._prompts, prompt.id);
             this._save();
         }
         Logger.info('Prompt inserted');
@@ -229,13 +289,13 @@ export const PromptVaultModule = {
         return {
             zh: {
                 rant: '\u6BCF\u6B21\u6253\u5F00 Gemini \u90FD\u8981\u91CD\u65B0\u6572\u4E00\u904D\u201C\u4F60\u662F\u4E00\u4E2A\u8D44\u6DF1\u67B6\u6784\u5E08...\u201D\uFF0CGoogle \u89C9\u5F97\u4F60\u7684\u624B\u6307\u4E0D\u9700\u8981\u4F11\u606F\u3002ChatGPT 2023 \u5E74\u5C31\u6709 Custom Instructions \u4E86\uFF0CGemini \u8868\u793A\uFF1A\u6211\u4EEC\u4E0D\u4E00\u6837\uFF0C\u6211\u4EEC\u8BA9\u7528\u6237\u6BCF\u6B21\u90FD\u4ECE\u96F6\u5F00\u59CB\uFF0C\u8FD9\u53EB\u201C\u65B0\u9C9C\u611F\u201D\u3002',
-                features: '\u8F93\u5165\u6846\u65C1\u6DFB\u52A0 \uD83D\uDC8E \u6309\u94AE\uFF0C\u70B9\u51FB\u5F39\u51FA\u63D0\u793A\u8BCD\u5FEB\u6377\u83DC\u5355\uFF0C\u4E00\u952E\u63D2\u5165\u5E38\u7528\u63D0\u793A\u8BCD\u3002\u652F\u6301\u5206\u7C7B\u7BA1\u7406\u3001\u7F16\u8F91\u3001\u4F7F\u7528\u7EDF\u8BA1\u3002',
-                guide: '1. \u70B9\u51FB\u8F93\u5165\u6846\u65C1\u7684 \uD83D\uDC8E \u2192 2. \u9009\u62E9\u63D0\u793A\u8BCD\u63D2\u5165 \u2192 3. \u5982\u9700\u7BA1\u7406\u63D0\u793A\u8BCD\uFF0C\u70B9\u51FB\u83DC\u5355\u5E95\u90E8\u201C\u7BA1\u7406\u63D0\u793A\u8BCD\u201D'
+                features: '\u8F93\u5165\u6846\u65C1\u6DFB\u52A0 \uD83D\uDC8E \u6309\u94AE\uFF0C\u70B9\u51FB\u5F39\u51FA\u63D0\u793A\u8BCD\u5FEB\u6377\u83DC\u5355\uFF0C\u4E00\u952E\u63D2\u5165\u5E38\u7528\u63D0\u793A\u8BCD\u3002\u652F\u6301\u5206\u7C7B\u7BA1\u7406\u3001\u6536\u85CF\u3001slash \u5FEB\u6377\u547D\u4EE4\u3001\u6A21\u677F\u53D8\u91CF\u548C\u4F7F\u7528\u7EDF\u8BA1\u3002',
+                guide: '1. \u70B9\u51FB\u8F93\u5165\u6846\u65C1\u7684 \uD83D\uDC8E \u2192 2. \u9009\u62E9\u63D0\u793A\u8BCD\u63D2\u5165 \u2192 3. \u53EF\u4E3A\u63D0\u793A\u8BCD\u8BBE\u7F6E /review \u8FD9\u6837\u7684\u5FEB\u6377\u547D\u4EE4\uFF0C\u5728\u8F93\u5165\u6846\u7CBE\u786E\u8F93\u5165\u540E\u6309 Tab \u5C55\u5F00'
             },
             en: {
                 rant: "Every time you open Gemini you retype 'You are a senior architect...' because Google thinks your fingers need exercise. ChatGPT had Custom Instructions in 2023. Gemini says: we're different, we let users start from scratch every time. It's called 'freshness'.",
-                features: 'Adds a \uD83D\uDC8E button near the input box. Click to open a prompt quick menu and insert saved prompts with one click. Supports categories, editing, and usage stats.',
-                guide: '1. Click \uD83D\uDC8E near the input box \u2192 2. Select a prompt to insert \u2192 3. To manage prompts, click "Manage prompts" at the bottom'
+                features: 'Adds a \uD83D\uDC8E button near the input box. Click to open a prompt quick menu and insert saved prompts with one click. Supports categories, favorites, slash shortcuts, template variables, and usage stats.',
+                guide: '1. Click \uD83D\uDC8E near the input box \u2192 2. Select a prompt to insert \u2192 3. Optionally give a prompt a shortcut like /review, type it exactly in the composer, then press Tab to expand it'
             }
         };
     },
@@ -268,7 +328,7 @@ export const PromptVaultModule = {
 
         // Group by category
         const categories = {};
-        this._prompts.forEach(p => {
+        sortPromptsForDisplay(this._prompts).forEach(p => {
             const cat = p.category || 'General';
             if (!categories[cat]) categories[cat] = [];
             categories[cat].push(p);
@@ -287,7 +347,7 @@ export const PromptVaultModule = {
 
                 const nameEl = document.createElement('span');
                 nameEl.style.cssText = 'flex: 1; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
-                nameEl.textContent = p.name;
+                nameEl.textContent = p.shortcut ? `${p.name}  /${p.shortcut}` : p.name;
 
                 const actions = document.createElement('div');
                 actions.style.cssText = 'display: flex; gap: 4px; opacity: 0;';
@@ -298,7 +358,17 @@ export const PromptVaultModule = {
                 insertBtn.style.cssText = 'cursor: pointer; display: flex; align-items: center; justify-content: center; width: 14px; height: 14px;';
                 insertBtn.appendChild(createIcon('copy', 12));
                 insertBtn.title = 'Insert into chat';
-                insertBtn.onclick = (e) => { e.stopPropagation(); this.insertPrompt(p.content); };
+                insertBtn.onclick = (e) => { e.stopPropagation(); this.insertPrompt(p.content, p.id); };
+
+                const favoriteBtn = document.createElement('span');
+                favoriteBtn.style.cssText = `cursor: pointer; display: flex; align-items: center; justify-content: center; width: 14px; height: 14px; color: ${p.favorite ? 'var(--accent)' : 'inherit'};`;
+                favoriteBtn.appendChild(createIcon('pin', 12));
+                favoriteBtn.title = p.favorite ? 'Unfavorite' : 'Favorite';
+                favoriteBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    this.togglePromptFavorite(p.id);
+                    PanelUI.renderDetailsPane();
+                };
 
                 const editBtn = document.createElement('span');
                 editBtn.style.cssText = 'cursor: pointer; display: flex; align-items: center; justify-content: center; width: 14px; height: 14px;';
@@ -311,13 +381,14 @@ export const PromptVaultModule = {
                 delBtn.onclick = (e) => { e.stopPropagation(); this.deletePrompt(p.id); PanelUI.renderDetailsPane(); };
 
                 actions.appendChild(insertBtn);
+                actions.appendChild(favoriteBtn);
                 actions.appendChild(editBtn);
                 actions.appendChild(delBtn);
                 row.appendChild(nameEl);
                 row.appendChild(actions);
 
                 // Click to insert
-                row.onclick = (e) => { e.stopPropagation(); this.insertPrompt(p.content); };
+                row.onclick = (e) => { e.stopPropagation(); this.insertPrompt(p.content, p.id); };
 
                 container.appendChild(row);
             });
@@ -373,18 +444,20 @@ export const PromptVaultModule = {
                     const imported = JSON.parse(ev.target.result);
                     if (!Array.isArray(imported)) throw new Error('Invalid format');
                     let added = 0;
-                    imported.forEach(p => {
-                        if (p.name && p.content) {
-                            this._prompts.push({
+                    normalizePromptList(imported, { nowIso: new Date().toISOString() }).forEach(p => {
+                        this._prompts.push(normalizePrompt({
                                 id: 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
                                 name: p.name,
                                 content: p.content,
                                 category: p.category || 'General',
-                                createdAt: p.createdAt || new Date().toISOString(),
-                                usedCount: p.usedCount || 0
-                            });
-                            added++;
-                        }
+                                shortcut: p.shortcut,
+                                favorite: p.favorite,
+                                createdAt: p.createdAt,
+                                updatedAt: p.updatedAt,
+                                usedCount: p.usedCount || 0,
+                                lastUsedAt: p.lastUsedAt
+                            }, this._prompts.length));
+                        added++;
                     });
                     this._save();
                     PanelUI.renderDetailsPane();
@@ -439,6 +512,12 @@ export const PromptVaultModule = {
         catInput.placeholder = 'Category (e.g. Coding, Writing)';
         catInput.value = existing ? existing.category : 'General';
 
+        const shortcutInput = document.createElement('input');
+        shortcutInput.className = 'settings-select';
+        shortcutInput.style.cssText = 'width: 100%; margin-bottom: 8px; padding: 8px; box-sizing: border-box;';
+        shortcutInput.placeholder = 'Slash shortcut (e.g. /review)';
+        shortcutInput.value = existing?.shortcut ? '/' + existing.shortcut : '';
+
         const contentArea = document.createElement('textarea');
         contentArea.style.cssText = 'width: 100%; height: 120px; padding: 8px; font-size: 12px; border-radius: 6px; border: 1px solid var(--border, rgba(255,255,255,0.1)); background: var(--input-bg, rgba(255,255,255,0.05)); color: var(--text-main, #fff); resize: vertical; box-sizing: border-box; font-family: inherit;';
         contentArea.placeholder = 'Enter your prompt template...';
@@ -452,11 +531,12 @@ export const PromptVaultModule = {
             const name = nameInput.value.trim() || 'Untitled';
             const content = contentArea.value.trim();
             const category = catInput.value.trim() || 'General';
+            const shortcut = shortcutInput.value.trim();
             if (!content) return;
             if (existing) {
-                this.updatePrompt(existing.id, { name, content, category });
+                this.updatePrompt(existing.id, { name, content, category, shortcut });
             } else {
-                this.addPrompt(name, content, category);
+                this.addPrompt(name, content, category, shortcut);
             }
             closeOverlay();
             PanelUI.renderDetailsPane();
@@ -464,6 +544,7 @@ export const PromptVaultModule = {
 
         body.appendChild(nameInput);
         body.appendChild(catInput);
+        body.appendChild(shortcutInput);
         body.appendChild(contentArea);
         body.appendChild(saveBtn);
         modal.appendChild(header);
