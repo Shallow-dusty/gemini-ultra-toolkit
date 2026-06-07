@@ -1,6 +1,6 @@
 # Roadmap
 
-Updated: 2026-06-08 (post-v12 planning refresh + local data portability + local context references + pinned context packets + quota window framing + prompt-chain queueing + HTML transcript export + adapter probe export + i18n hardening).
+Updated: 2026-06-08 (post-v12 planning refresh + local data portability + local context references + pinned context packets + prompt context packets + quota window framing + prompt-chain queueing + HTML transcript export + adapter probe export + i18n hardening).
 
 This is the maintained roadmap. It replaces the old full feature brainstorming document, which mixed implemented features, speculative ideas, and stale project naming.
 
@@ -31,7 +31,8 @@ Implemented modules:
 - Prompt Vault: saved prompts, quick insert, import/export, favorites, recent
   ranking, slash shortcuts, template variables, local prompt chains, and
   versioned metadata import/export, plus local prompt-delete undo and
-  step-by-step handoff to Message Queue.
+  step-by-step handoff to Message Queue. Selected saved prompts can also be
+  inserted as explicit local context packets.
 - Message Queue: local prompt queue with start/pause, cancel, reorder, and a
   conservative active-tool-mode pause guard backed by tested tool-label
   matching. Prompt Vault chains can be queued as separate local items before
@@ -124,8 +125,9 @@ Prioritize local-first workflow parity with direct Gemini competitors:
   Gemini memory mirroring.
 - Local context references: Chat Notes can format saved local titles, links,
   chat IDs, notes, and visible pinned-note packets into the composer on explicit
-  user action. This is not a hidden transcript read and does not mirror Gemini
-  memories.
+  user action. Prompt Vault can insert selected saved prompts as explicit local
+  prompt packets. These paths are not hidden transcript reads and do not mirror
+  Gemini memories.
 - Tool-mode awareness for Canvas, Deep Research, Image, Video, Audio Overview,
   Spark, or equivalent Gemini modes so automations can disable themselves
   safely. Canonical label/state matching is covered by unit tests; visible

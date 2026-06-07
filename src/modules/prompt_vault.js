@@ -14,6 +14,7 @@ import {
     composePromptContent,
     createPromptQueueEntries,
     findPromptByShortcut,
+    formatPromptContextPacket,
     getQuickMenuSections,
     markPromptUsed,
     mergePromptImport,
@@ -36,6 +37,7 @@ export const PromptVaultModule = {
     STORAGE_KEY: 'gemini_prompt_vault',
     _prompts: [],
     _lastDeletedPrompt: null,
+    _packetSelected: new Set(),
 
     _getStorageKey() {
         const user = Core.getCurrentUser();
@@ -48,6 +50,7 @@ export const PromptVaultModule = {
         catch (e) { prompts = []; }
         this._prompts = normalizePromptList(prompts);
         this._lastDeletedPrompt = null;
+        this._packetSelected = new Set();
         this._save();
         Logger.info('PromptVaultModule initialized', { count: this._prompts.length });
     },
@@ -57,6 +60,7 @@ export const PromptVaultModule = {
         if (this._slashAbort) { this._slashAbort.abort(); this._slashAbort = null; }
         this._slashEditor = null;
         this._lastDeletedPrompt = null;
+        this._packetSelected.clear();
         this.removeNativeUI();
     },
     onUserChange() {
@@ -65,6 +69,7 @@ export const PromptVaultModule = {
         catch (e) { prompts = []; }
         this._prompts = normalizePromptList(prompts);
         this._lastDeletedPrompt = null;
+        this._packetSelected.clear();
         this._save();
         PanelUI.renderDetailsPane();
     },
@@ -205,6 +210,7 @@ export const PromptVaultModule = {
         if (!result.removed) return;
         this._prompts = result.prompts;
         this._lastDeletedPrompt = result.removed;
+        this._packetSelected.delete(id);
         this._save();
         NativeUI.showToast(NativeUI.t('提示词已删除，可撤销', 'Prompt deleted. Undo is available'));
     },
@@ -261,6 +267,67 @@ export const PromptVaultModule = {
         if ('value' in editor) editor.value = '';
         else editor.textContent = '';
         editor.dispatchEvent(new Event('input', { bubbles: true }));
+    },
+
+    _insertTextIntoEditor(text) {
+        const editor = GeminiAdapter.getInputEditor();
+        if (!editor) {
+            NativeUI.showToast(NativeUI.t('未找到 Gemini 输入框', 'Gemini input box not found'));
+            return false;
+        }
+
+        editor.focus();
+        const before = 'value' in editor ? editor.value : editor.textContent;
+        const inputEvent = new InputEvent('beforeinput', {
+            inputType: 'insertText',
+            data: text,
+            bubbles: true,
+            cancelable: true,
+            composed: true
+        });
+        const accepted = editor.dispatchEvent(inputEvent);
+        const after = 'value' in editor ? editor.value : editor.textContent;
+        if (accepted && after !== before) return true;
+
+        if ('value' in editor) {
+            const start = Number.isInteger(editor.selectionStart) ? editor.selectionStart : editor.value.length;
+            const end = Number.isInteger(editor.selectionEnd) ? editor.selectionEnd : editor.value.length;
+            editor.value = editor.value.slice(0, start) + text + editor.value.slice(end);
+            editor.selectionStart = editor.selectionEnd = start + text.length;
+        } else {
+            const p = document.createElement('p');
+            p.textContent = text;
+            editor.appendChild(p);
+        }
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+        return true;
+    },
+
+    _getSelectedPromptPacketItems() {
+        const selected = new Set(this._packetSelected);
+        return sortPromptsForDisplay(this._prompts)
+            .filter(prompt => selected.has(prompt.id))
+            .slice(0, 8);
+    },
+
+    _togglePromptPacketSelection(promptId) {
+        if (this._packetSelected.has(promptId)) {
+            this._packetSelected.delete(promptId);
+        } else {
+            this._packetSelected.add(promptId);
+        }
+        PanelUI.renderDetailsPane();
+    },
+
+    _insertSelectedPromptPacket() {
+        const items = this._getSelectedPromptPacketItems();
+        const text = formatPromptContextPacket(items, this._getTemplateVariables(), {
+            label: 'Selected Gemini prompt packet'
+        });
+        if (!text) return;
+        if (this._insertTextIntoEditor(text)) {
+            NativeUI.showToast(NativeUI.t('提示词上下文包已插入', 'Prompt packet inserted'));
+        }
     },
 
     _bindSlashExpansion() {
@@ -371,6 +438,41 @@ export const PromptVaultModule = {
         title.appendChild(addBtn);
         container.appendChild(title);
 
+        const selectedPacketItems = this._getSelectedPromptPacketItems();
+        if (selectedPacketItems.length > 0) {
+            const packetRow = document.createElement('div');
+            packetRow.className = 'detail-row';
+            packetRow.style.cssText = 'display:flex;align-items:center;gap:6px;';
+
+            const label = document.createElement('span');
+            label.style.cssText = 'flex:1;font-size:10px;color:var(--text-sub);';
+            label.textContent = NativeUI.t(`已选 ${selectedPacketItems.length} 个提示词`, `${selectedPacketItems.length} prompt(s) selected`);
+
+            const insertBtn = document.createElement('button');
+            insertBtn.className = 'settings-btn';
+            insertBtn.style.cssText = 'width:auto;margin-top:0;padding:3px 8px;font-size:10px;';
+            insertBtn.textContent = NativeUI.t('插入上下文包', 'Insert packet');
+            insertBtn.onclick = (e) => {
+                e.stopPropagation();
+                this._insertSelectedPromptPacket();
+            };
+
+            const clearBtn = document.createElement('button');
+            clearBtn.className = 'settings-btn';
+            clearBtn.style.cssText = 'width:auto;margin-top:0;padding:3px 8px;font-size:10px;';
+            clearBtn.textContent = NativeUI.t('清空', 'Clear');
+            clearBtn.onclick = (e) => {
+                e.stopPropagation();
+                this._packetSelected.clear();
+                PanelUI.renderDetailsPane();
+            };
+
+            packetRow.appendChild(label);
+            packetRow.appendChild(insertBtn);
+            packetRow.appendChild(clearBtn);
+            container.appendChild(packetRow);
+        }
+
         if (this._lastDeletedPrompt) {
             const undoRow = document.createElement('div');
             undoRow.className = 'detail-row';
@@ -431,15 +533,25 @@ export const PromptVaultModule = {
                 nameEl.textContent = `${p.name}${p.shortcut ? '  /' + p.shortcut : ''}${chainLabel}`;
 
                 const actions = document.createElement('div');
-                actions.style.cssText = 'display: flex; gap: 4px; opacity: 0;';
+                const packetSelected = this._packetSelected.has(p.id);
+                actions.style.cssText = `display: flex; gap: 4px; opacity: ${packetSelected ? '1' : '0'};`;
                 row.onmouseenter = () => actions.style.opacity = '1';
-                row.onmouseleave = () => actions.style.opacity = '0';
+                row.onmouseleave = () => { actions.style.opacity = this._packetSelected.has(p.id) ? '1' : '0'; };
 
                 const insertBtn = document.createElement('span');
                 insertBtn.style.cssText = 'cursor: pointer; display: flex; align-items: center; justify-content: center; width: 14px; height: 14px;';
                 insertBtn.appendChild(createIcon('copy', 12));
                 insertBtn.title = NativeUI.t('插入到对话', 'Insert into chat');
                 insertBtn.onclick = (e) => { e.stopPropagation(); this.insertPrompt(p.content, p.id); };
+
+                const packetBtn = document.createElement('span');
+                packetBtn.style.cssText = `cursor: pointer; display: flex; align-items: center; justify-content: center; width: 14px; height: 14px; color: ${packetSelected ? 'var(--accent)' : 'inherit'};`;
+                packetBtn.appendChild(createIcon(packetSelected ? 'x' : 'plus', 12));
+                packetBtn.title = packetSelected ? NativeUI.t('从上下文包移除', 'Remove from packet') : NativeUI.t('加入上下文包', 'Add to packet');
+                packetBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    this._togglePromptPacketSelection(p.id);
+                };
 
                 const queueBtn = document.createElement('span');
                 queueBtn.style.cssText = 'cursor: pointer; display: flex; align-items: center; justify-content: center; width: 14px; height: 14px;';
@@ -468,6 +580,7 @@ export const PromptVaultModule = {
                 delBtn.onclick = (e) => { e.stopPropagation(); this.deletePrompt(p.id); PanelUI.renderDetailsPane(); };
 
                 actions.appendChild(insertBtn);
+                actions.appendChild(packetBtn);
                 if (ModuleRegistry.isEnabled('message-queue')) actions.appendChild(queueBtn);
                 actions.appendChild(favoriteBtn);
                 actions.appendChild(editBtn);
@@ -541,6 +654,7 @@ export const PromptVaultModule = {
                     });
                     if (result.imported === 0) throw new Error('Invalid format');
                     this._prompts = result.prompts;
+                    this._packetSelected.clear();
                     this._save();
                     PanelUI.renderDetailsPane();
                     NativeUI.showToast(NativeUI.t(`已导入 ${result.imported} 条提示词`, `Imported ${result.imported} prompts`));

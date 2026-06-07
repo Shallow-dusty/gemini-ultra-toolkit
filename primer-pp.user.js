@@ -8000,6 +8000,8 @@
       var MAX_CATEGORY_LENGTH = 40;
       var MAX_SHORTCUT_LENGTH = 32;
       var MAX_CHAIN_STEPS = 12;
+      var MAX_PROMPT_PACKET_ITEMS = 8;
+      var MAX_PROMPT_PACKET_CONTENT_LENGTH = 2400;
       var PROMPT_EXPORT_SCHEMA = "primer-pp.prompt-vault";
       var PROMPT_EXPORT_VERSION = 1;
       function toText(value) {
@@ -8131,6 +8133,25 @@ ${part}`).join("\n\n---\n\n");
           };
         });
       }
+      function formatPromptContextPacket2(prompts, variables = {}, opts = {}) {
+        const selected = normalizePromptList2(Array.isArray(prompts) ? prompts : [prompts]).slice(0, MAX_PROMPT_PACKET_ITEMS);
+        if (selected.length === 0) return "";
+        const label = cleanText(opts.label, "Gemini prompt packet");
+        const sections = selected.map((prompt, index) => {
+          const lines = [
+            `[${index + 1}. ${prompt.name}]`,
+            `Category: ${prompt.category}`
+          ];
+          if (prompt.shortcut) lines.push(`Shortcut: /${prompt.shortcut}`);
+          const rendered = composePromptContent2(prompt, variables).slice(0, MAX_PROMPT_PACKET_CONTENT_LENGTH);
+          if (!rendered) return "";
+          lines.push("Prompt:");
+          lines.push(rendered);
+          return lines.join("\n");
+        }).filter(Boolean);
+        if (sections.length === 0) return "";
+        return [`[${label}]`, ...sections].join("\n\n");
+      }
       function findPromptByShortcut2(prompts, command) {
         const shortcut = normalizeShortcut(command);
         if (!shortcut) return null;
@@ -8224,6 +8245,7 @@ ${part}`).join("\n\n---\n\n");
         createPromptQueueEntries: createPromptQueueEntries2,
         createPromptExport,
         findPromptByShortcut: findPromptByShortcut2,
+        formatPromptContextPacket: formatPromptContextPacket2,
         getQuickMenuSections: getQuickMenuSections2,
         markPromptUsed: markPromptUsed2,
         mergePromptImport: mergePromptImport2,
@@ -8266,6 +8288,7 @@ ${part}`).join("\n\n---\n\n");
         STORAGE_KEY: "gemini_prompt_vault",
         _prompts: [],
         _lastDeletedPrompt: null,
+        _packetSelected: /* @__PURE__ */ new Set(),
         _getStorageKey() {
           const user = Core.getCurrentUser();
           return user && user.includes("@") ? `${this.STORAGE_KEY}_${user}` : this.STORAGE_KEY;
@@ -8279,6 +8302,7 @@ ${part}`).join("\n\n---\n\n");
           }
           this._prompts = (0, import_prompt_vault_tools.normalizePromptList)(prompts);
           this._lastDeletedPrompt = null;
+          this._packetSelected = /* @__PURE__ */ new Set();
           this._save();
           Logger.info("PromptVaultModule initialized", { count: this._prompts.length });
         },
@@ -8291,6 +8315,7 @@ ${part}`).join("\n\n---\n\n");
           }
           this._slashEditor = null;
           this._lastDeletedPrompt = null;
+          this._packetSelected.clear();
           this.removeNativeUI();
         },
         onUserChange() {
@@ -8302,6 +8327,7 @@ ${part}`).join("\n\n---\n\n");
           }
           this._prompts = (0, import_prompt_vault_tools.normalizePromptList)(prompts);
           this._lastDeletedPrompt = null;
+          this._packetSelected.clear();
           this._save();
           PanelUI.renderDetailsPane();
         },
@@ -8434,6 +8460,7 @@ ${part}`).join("\n\n---\n\n");
           if (!result.removed) return;
           this._prompts = result.prompts;
           this._lastDeletedPrompt = result.removed;
+          this._packetSelected.delete(id);
           this._save();
           NativeUI.showToast(NativeUI.t("提示词已删除，可撤销", "Prompt deleted. Undo is available"));
         },
@@ -8495,6 +8522,59 @@ ${part}`).join("\n\n---\n\n");
           if ("value" in editor) editor.value = "";
           else editor.textContent = "";
           editor.dispatchEvent(new Event("input", { bubbles: true }));
+        },
+        _insertTextIntoEditor(text) {
+          const editor = GeminiAdapter.getInputEditor();
+          if (!editor) {
+            NativeUI.showToast(NativeUI.t("未找到 Gemini 输入框", "Gemini input box not found"));
+            return false;
+          }
+          editor.focus();
+          const before = "value" in editor ? editor.value : editor.textContent;
+          const inputEvent = new InputEvent("beforeinput", {
+            inputType: "insertText",
+            data: text,
+            bubbles: true,
+            cancelable: true,
+            composed: true
+          });
+          const accepted = editor.dispatchEvent(inputEvent);
+          const after = "value" in editor ? editor.value : editor.textContent;
+          if (accepted && after !== before) return true;
+          if ("value" in editor) {
+            const start = Number.isInteger(editor.selectionStart) ? editor.selectionStart : editor.value.length;
+            const end = Number.isInteger(editor.selectionEnd) ? editor.selectionEnd : editor.value.length;
+            editor.value = editor.value.slice(0, start) + text + editor.value.slice(end);
+            editor.selectionStart = editor.selectionEnd = start + text.length;
+          } else {
+            const p = document.createElement("p");
+            p.textContent = text;
+            editor.appendChild(p);
+          }
+          editor.dispatchEvent(new Event("input", { bubbles: true }));
+          return true;
+        },
+        _getSelectedPromptPacketItems() {
+          const selected = new Set(this._packetSelected);
+          return (0, import_prompt_vault_tools.sortPromptsForDisplay)(this._prompts).filter((prompt) => selected.has(prompt.id)).slice(0, 8);
+        },
+        _togglePromptPacketSelection(promptId) {
+          if (this._packetSelected.has(promptId)) {
+            this._packetSelected.delete(promptId);
+          } else {
+            this._packetSelected.add(promptId);
+          }
+          PanelUI.renderDetailsPane();
+        },
+        _insertSelectedPromptPacket() {
+          const items = this._getSelectedPromptPacketItems();
+          const text = (0, import_prompt_vault_tools.formatPromptContextPacket)(items, this._getTemplateVariables(), {
+            label: "Selected Gemini prompt packet"
+          });
+          if (!text) return;
+          if (this._insertTextIntoEditor(text)) {
+            NativeUI.showToast(NativeUI.t("提示词上下文包已插入", "Prompt packet inserted"));
+          }
         },
         _bindSlashExpansion() {
           const editor = GeminiAdapter.getInputEditor();
@@ -8592,6 +8672,36 @@ ${part}`).join("\n\n---\n\n");
           title.appendChild(titleText);
           title.appendChild(addBtn);
           container.appendChild(title);
+          const selectedPacketItems = this._getSelectedPromptPacketItems();
+          if (selectedPacketItems.length > 0) {
+            const packetRow = document.createElement("div");
+            packetRow.className = "detail-row";
+            packetRow.style.cssText = "display:flex;align-items:center;gap:6px;";
+            const label = document.createElement("span");
+            label.style.cssText = "flex:1;font-size:10px;color:var(--text-sub);";
+            label.textContent = NativeUI.t(`已选 ${selectedPacketItems.length} 个提示词`, `${selectedPacketItems.length} prompt(s) selected`);
+            const insertBtn = document.createElement("button");
+            insertBtn.className = "settings-btn";
+            insertBtn.style.cssText = "width:auto;margin-top:0;padding:3px 8px;font-size:10px;";
+            insertBtn.textContent = NativeUI.t("插入上下文包", "Insert packet");
+            insertBtn.onclick = (e) => {
+              e.stopPropagation();
+              this._insertSelectedPromptPacket();
+            };
+            const clearBtn = document.createElement("button");
+            clearBtn.className = "settings-btn";
+            clearBtn.style.cssText = "width:auto;margin-top:0;padding:3px 8px;font-size:10px;";
+            clearBtn.textContent = NativeUI.t("清空", "Clear");
+            clearBtn.onclick = (e) => {
+              e.stopPropagation();
+              this._packetSelected.clear();
+              PanelUI.renderDetailsPane();
+            };
+            packetRow.appendChild(label);
+            packetRow.appendChild(insertBtn);
+            packetRow.appendChild(clearBtn);
+            container.appendChild(packetRow);
+          }
           if (this._lastDeletedPrompt) {
             const undoRow = document.createElement("div");
             undoRow.className = "detail-row";
@@ -8642,9 +8752,12 @@ ${part}`).join("\n\n---\n\n");
               const chainLabel = p.chainSteps?.length ? `  chain:${p.chainSteps.length + 1}` : "";
               nameEl.textContent = `${p.name}${p.shortcut ? "  /" + p.shortcut : ""}${chainLabel}`;
               const actions = document.createElement("div");
-              actions.style.cssText = "display: flex; gap: 4px; opacity: 0;";
+              const packetSelected = this._packetSelected.has(p.id);
+              actions.style.cssText = `display: flex; gap: 4px; opacity: ${packetSelected ? "1" : "0"};`;
               row.onmouseenter = () => actions.style.opacity = "1";
-              row.onmouseleave = () => actions.style.opacity = "0";
+              row.onmouseleave = () => {
+                actions.style.opacity = this._packetSelected.has(p.id) ? "1" : "0";
+              };
               const insertBtn = document.createElement("span");
               insertBtn.style.cssText = "cursor: pointer; display: flex; align-items: center; justify-content: center; width: 14px; height: 14px;";
               insertBtn.appendChild(createIcon("copy", 12));
@@ -8652,6 +8765,14 @@ ${part}`).join("\n\n---\n\n");
               insertBtn.onclick = (e) => {
                 e.stopPropagation();
                 this.insertPrompt(p.content, p.id);
+              };
+              const packetBtn = document.createElement("span");
+              packetBtn.style.cssText = `cursor: pointer; display: flex; align-items: center; justify-content: center; width: 14px; height: 14px; color: ${packetSelected ? "var(--accent)" : "inherit"};`;
+              packetBtn.appendChild(createIcon(packetSelected ? "x" : "plus", 12));
+              packetBtn.title = packetSelected ? NativeUI.t("从上下文包移除", "Remove from packet") : NativeUI.t("加入上下文包", "Add to packet");
+              packetBtn.onclick = (e) => {
+                e.stopPropagation();
+                this._togglePromptPacketSelection(p.id);
               };
               const queueBtn = document.createElement("span");
               queueBtn.style.cssText = "cursor: pointer; display: flex; align-items: center; justify-content: center; width: 14px; height: 14px;";
@@ -8686,6 +8807,7 @@ ${part}`).join("\n\n---\n\n");
                 PanelUI.renderDetailsPane();
               };
               actions.appendChild(insertBtn);
+              actions.appendChild(packetBtn);
               if (ModuleRegistry.isEnabled("message-queue")) actions.appendChild(queueBtn);
               actions.appendChild(favoriteBtn);
               actions.appendChild(editBtn);
@@ -8752,6 +8874,7 @@ ${part}`).join("\n\n---\n\n");
                 });
                 if (result.imported === 0) throw new Error("Invalid format");
                 this._prompts = result.prompts;
+                this._packetSelected.clear();
                 this._save();
                 PanelUI.renderDetailsPane();
                 NativeUI.showToast(NativeUI.t(`已导入 ${result.imported} 条提示词`, `Imported ${result.imported} prompts`));

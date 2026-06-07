@@ -6,6 +6,7 @@ const {
     createPromptQueueEntries,
     createPromptExport,
     findPromptByShortcut,
+    formatPromptContextPacket,
     getQuickMenuSections,
     markPromptUsed,
     mergePromptImport,
@@ -202,6 +203,87 @@ describe('prompt_vault_tools', () => {
         ]);
 
         assert.deepEqual(createPromptQueueEntries({ name: 'Empty', content: '', chainSteps: [] }), []);
+    });
+
+    it('formats selected prompt packets with rendered local prompt content', () => {
+        const packet = formatPromptContextPacket([
+            {
+                id: 'review',
+                name: 'Review Chain',
+                category: 'Coding',
+                shortcut: '/review',
+                content: 'Plan {{chat_title}}',
+                chainSteps: ['Draft {{selected_text}}', 'Review']
+            },
+            null,
+            {
+                id: 'solo',
+                name: 'Solo',
+                content: 'Summarize {{model}}'
+            }
+        ], {
+            chat_title: 'Architecture',
+            selected_text: 'scope',
+            model: 'pro'
+        }, {
+            label: 'Selected Gemini prompt packet'
+        });
+
+        assert.equal(packet, [
+            '[Selected Gemini prompt packet]',
+            '',
+            '[1. Review Chain]',
+            'Category: Coding',
+            'Shortcut: /review',
+            'Prompt:',
+            'Step 1',
+            'Plan Architecture',
+            '',
+            '---',
+            '',
+            'Step 2',
+            'Draft scope',
+            '',
+            '---',
+            '',
+            'Step 3',
+            'Review',
+            '',
+            '[2. Solo]',
+            'Category: General',
+            'Shortcut: /solo',
+            'Prompt:',
+            'Summarize pro'
+        ].join('\n'));
+
+        const many = Array.from({ length: 10 }, (_, index) => ({
+            name: `Prompt ${index + 1}`,
+            content: 'body'
+        }));
+        assert.match(formatPromptContextPacket(many), /\[8\. Prompt 8\]/);
+        assert.doesNotMatch(formatPromptContextPacket(many), /\[9\. Prompt 9\]/);
+        assert.equal(formatPromptContextPacket([{ name: 'Empty', content: '' }]), '');
+    });
+
+    it('covers prompt packet fallbacks and limits', () => {
+        const single = formatPromptContextPacket({
+            name: '!!!',
+            category: 'Odd',
+            content: 'A'.repeat(2500)
+        });
+
+        assert.match(single, /^\[Gemini prompt packet\]\n\n\[1\. !!!\]/);
+        assert.match(single, /Category: Odd/);
+        assert.doesNotMatch(single, /Shortcut:/);
+        assert.equal(single.includes('A'.repeat(2400)), true);
+        assert.equal(single.includes('A'.repeat(2401)), false);
+
+        assert.equal(formatPromptContextPacket({
+            name: 'Empty Render',
+            content: '{{nullable}}'
+        }, {
+            nullable: null
+        }), '');
     });
 
     it('falls back for dynamic prompt variables when context is missing', () => {

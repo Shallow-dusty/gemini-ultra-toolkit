@@ -9,10 +9,11 @@ mutable, so refresh this file before any major release or store submission.
 - Local git state is mutable; run `git status --short --branch` before release,
   push, or store submission instead of treating this snapshot as live git truth.
 - Local verification on 2026-06-08:
-  - `npm test` passed: 243 tests, `lib/` at 100% c8 coverage.
+  - `npm test` passed: 246 tests, `lib/` at 100% c8 coverage.
   - `npm run build` passed for userscript and extension outputs; generated
-    userscript size was ~468.2 kb after HTML transcript export, adapter probe
-    export, pinned context packets, and broader i18n hardening.
+    userscript size was ~474.6 kb after HTML transcript export, adapter probe
+    export, pinned context packets, prompt context packets, and broader i18n
+    hardening.
 - 2026-06-08 follow-up: `brace-expansion` was updated from `5.0.5` to
   `5.0.6`; `npm audit --audit-level=moderate` now reports 0 vulnerabilities.
 - Live Gemini DOM verification was not refreshed: no Chrome DevTools Protocol
@@ -320,7 +321,8 @@ Goal: differentiate from generic folder/export extensions.
      saved notes, titles, links, and chat IDs;
    - ~~create reusable bundles from selected notes and chat links;~~ visible
      pinned-note packets now package the pinned list without transcript reads;
-   - create reusable bundles from selected prompts and exported snippets;
+   - selected saved prompts now package into explicit local prompt packets;
+   - create reusable bundles from exported snippets;
    - insert them into Gemini via explicit user action.
 2. Chat referencing without server storage:
    - ~~insert a local chat reference or note into the composer;~~ done as an

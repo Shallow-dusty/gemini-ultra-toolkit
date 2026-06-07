@@ -196,6 +196,17 @@ describe('app smoke checks', () => {
         assert.doesNotMatch(chatNotes, /getCurrentConversationMessages/);
     });
 
+    it('keeps Prompt Vault prompt packets explicit and local', () => {
+        const promptVault = read('src/modules/prompt_vault.js');
+
+        assert.match(promptVault, /formatPromptContextPacket/);
+        assert.match(promptVault, /_packetSelected/);
+        assert.match(promptVault, /_insertSelectedPromptPacket/);
+        assert.match(promptVault, /Selected Gemini prompt packet/);
+        assert.doesNotMatch(promptVault, /getCurrentConversationMessages/);
+        assert.doesNotMatch(promptVault, /formatContextPacket/);
+    });
+
     it('keeps recently hardened module labels localized', () => {
         const exportModule = read('src/modules/export.js');
         const promptVault = read('src/modules/prompt_vault.js');
