@@ -6820,10 +6820,10 @@
           title.className = "section-title";
           title.style.cssText = "display: flex; justify-content: space-between; align-items: center;";
           const titleText = document.createElement("span");
-          titleText.textContent = "Folders";
+          titleText.textContent = NativeUI.t("文件夹", "Folders");
           const batchToggle = document.createElement("span");
           batchToggle.style.cssText = "font-size: 9px; cursor: pointer; opacity: 0.6;";
-          batchToggle.textContent = this._batchMode ? "✕ Cancel" : "☑ Select";
+          batchToggle.textContent = this._batchMode ? NativeUI.t("✕ 取消", "✕ Cancel") : NativeUI.t("☑ 选择", "☑ Select");
           batchToggle.onclick = (e) => {
             e.stopPropagation();
             this._batchMode = !this._batchMode;
@@ -6856,7 +6856,7 @@
             const batchBar = document.createElement("div");
             batchBar.className = "gf-batch-bar";
             const countLabel = document.createElement("span");
-            countLabel.textContent = `${this._batchSelected.size} selected`;
+            countLabel.textContent = NativeUI.t(`已选 ${this._batchSelected.size} 个`, `${this._batchSelected.size} selected`);
             batchBar.appendChild(countLabel);
             this.data.folderOrder.forEach((fid) => {
               const f = this.data.folders[fid];
@@ -6867,7 +6867,7 @@
               batchBar.appendChild(btn);
             });
             const unassignBtn = document.createElement("button");
-            unassignBtn.textContent = "→ None";
+            unassignBtn.textContent = NativeUI.t("→ 未分配", "→ None");
             unassignBtn.onclick = () => this.batchMoveToFolder(null);
             batchBar.appendChild(unassignBtn);
             container.appendChild(batchBar);
@@ -6876,7 +6876,7 @@
           searchWrap.style.cssText = "margin-bottom: 6px;";
           const searchInput = document.createElement("input");
           searchInput.type = "text";
-          searchInput.placeholder = "Search chats...";
+          searchInput.placeholder = NativeUI.t("搜索对话...", "Search chats...");
           searchInput.style.cssText = "width: 100%; padding: 4px 8px; font-size: 10px; border-radius: 6px; border: 1px solid var(--divider, rgba(255,255,255,0.1)); background: var(--input-bg, rgba(255,255,255,0.05)); color: var(--text-main, #fff); box-sizing: border-box;";
           searchInput.value = this._searchQuery || "";
           searchInput.oninput = (e) => {
@@ -6904,7 +6904,7 @@
           if (this.data.folderOrder.length === 0) {
             const hint = document.createElement("div");
             hint.style.cssText = "font-size: 10px; color: var(--text-sub); opacity: 0.6; padding: 4px 8px;";
-            hint.textContent = "Drag chats here to organize";
+            hint.textContent = NativeUI.t("拖拽对话到这里进行整理", "Drag chats here to organize");
             container.appendChild(hint);
           } else {
             sortedFolderOrder.forEach((folderId) => {
@@ -7001,10 +7001,10 @@
           }
           const addBtn = document.createElement("button");
           addBtn.className = "gf-add-btn";
-          addBtn.textContent = "+ New Folder";
+          addBtn.textContent = NativeUI.t("+ 新建文件夹", "+ New Folder");
           addBtn.onclick = (e) => {
             e.stopPropagation();
-            this.showFolderModal(null, "Create Folder", "", this.FOLDER_COLORS[0]);
+            this.showFolderModal(null, NativeUI.t("新建文件夹", "Create Folder"), "", this.FOLDER_COLORS[0]);
           };
           container.appendChild(addBtn);
           const hasRules = this.data.folderOrder.some((fid) => {
@@ -7017,15 +7017,15 @@
             classifyBtn.style.borderStyle = "solid";
             classifyBtn.textContent = "";
             classifyBtn.appendChild(createIcon("bot", 12));
-            classifyBtn.appendChild(document.createTextNode(" Auto Classify"));
+            classifyBtn.appendChild(document.createTextNode(NativeUI.t(" 自动分类", " Auto Classify")));
             classifyBtn.onclick = (e) => {
               e.stopPropagation();
               const count = this.autoClassify();
-              classifyBtn.textContent = count > 0 ? `✓ Classified ${count} chats` : "✓ Nothing to classify";
+              classifyBtn.textContent = count > 0 ? NativeUI.t(`✓ 已分类 ${count} 个对话`, `✓ Classified ${count} chats`) : NativeUI.t("✓ 无需分类", "✓ Nothing to classify");
               setTimeout(() => {
                 classifyBtn.textContent = "";
                 classifyBtn.appendChild(createIcon("bot", 12));
-                classifyBtn.appendChild(document.createTextNode(" Auto Classify"));
+                classifyBtn.appendChild(document.createTextNode(NativeUI.t(" 自动分类", " Auto Classify")));
               }, 2e3);
             };
             container.appendChild(classifyBtn);
@@ -7086,7 +7086,7 @@
           const badge = document.createElement("span");
           badge.className = "gf-folder-badge";
           badge.textContent = chats.length > 0 ? `(${chats.length})` : "";
-          badge.title = `Total assigned: ${stats.chatCount} | Visible: ${chats.length}`;
+          badge.title = NativeUI.t(`总分配: ${stats.chatCount} | 可见: ${chats.length}`, `Total assigned: ${stats.chatCount} | Visible: ${chats.length}`);
           const toggle = document.createElement("span");
           toggle.className = "gf-folder-toggle";
           toggle.textContent = "▼";
@@ -7095,15 +7095,15 @@
           const editBtn = document.createElement("span");
           editBtn.className = "gf-folder-action";
           editBtn.appendChild(createIcon("edit", 12));
-          editBtn.title = "Edit";
+          editBtn.title = NativeUI.t("编辑", "Edit");
           editBtn.onclick = (e) => {
             e.stopPropagation();
-            this.showFolderModal(folderId, "Edit Folder", folder.name, folder.color);
+            this.showFolderModal(folderId, NativeUI.t("编辑文件夹", "Edit Folder"), folder.name, folder.color);
           };
           const deleteBtn = document.createElement("span");
           deleteBtn.className = "gf-folder-action";
           deleteBtn.appendChild(createIcon("trash", 12));
-          deleteBtn.title = "Delete";
+          deleteBtn.title = NativeUI.t("删除", "Delete");
           deleteBtn.onclick = (e) => {
             e.stopPropagation();
             NativeUI.showConfirm(
@@ -7115,7 +7115,7 @@
           const pinBtn = document.createElement("span");
           pinBtn.className = "gf-folder-action";
           pinBtn.appendChild(createIcon("pin", 12));
-          pinBtn.title = folder.pinned ? "Unpin" : "Pin to top";
+          pinBtn.title = folder.pinned ? NativeUI.t("取消置顶", "Unpin") : NativeUI.t("置顶", "Pin to top");
           pinBtn.onclick = (e) => {
             e.stopPropagation();
             this.toggleFolderPin(folderId);
@@ -7187,7 +7187,7 @@
               const removeBtn = document.createElement("span");
               removeBtn.className = "gf-chat-remove";
               removeBtn.appendChild(createIcon("x", 10));
-              removeBtn.title = "Remove from folder";
+              removeBtn.title = NativeUI.t("从文件夹移除", "Remove from folder");
               removeBtn.onclick = (e) => {
                 e.stopPropagation();
                 this.moveChatToFolder(chat.id, null);
@@ -7241,7 +7241,7 @@
           const input = document.createElement("input");
           input.className = "gf-modal-input";
           input.type = "text";
-          input.placeholder = "Folder name";
+          input.placeholder = NativeUI.t("文件夹名称", "Folder name");
           input.value = currentName;
           const colorsContainer = document.createElement("div");
           colorsContainer.className = "gf-modal-colors";
@@ -7262,7 +7262,7 @@
           hexWrap.style.cssText = "display: flex; align-items: center; gap: 8px; margin-bottom: 16px;";
           const hexLabel = document.createElement("span");
           hexLabel.style.cssText = "font-size: 11px; color: var(--text-sub, #9aa0a6);";
-          hexLabel.textContent = "Custom:";
+          hexLabel.textContent = NativeUI.t("自定义:", "Custom:");
           const hexInput = document.createElement("input");
           hexInput.type = "text";
           hexInput.value = currentColor;
@@ -7285,7 +7285,7 @@
             rulesSection.style.cssText = "margin-bottom: 16px;";
             const rulesLabel = document.createElement("div");
             rulesLabel.style.cssText = "font-size: 11px; color: var(--text-sub, #9aa0a6); margin-bottom: 6px;";
-            rulesLabel.textContent = "Auto-classify rules (keyword or /regex/):";
+            rulesLabel.textContent = NativeUI.t("自动分类规则（关键词或 /regex/）:", "Auto-classify rules (keyword or /regex/):");
             rulesSection.appendChild(rulesLabel);
             rulesContainer = document.createElement("div");
             rulesContainer.style.cssText = "display: flex; flex-direction: column; gap: 4px;";
@@ -7327,7 +7327,7 @@
             renderRules();
             const addRuleBtn = document.createElement("button");
             addRuleBtn.style.cssText = "font-size: 10px; padding: 4px 8px; border-radius: 4px; border: 1px dashed var(--divider, rgba(255,255,255,0.15)); background: transparent; color: var(--text-sub, #9aa0a6); cursor: pointer; margin-top: 4px;";
-            addRuleBtn.textContent = "+ Add Rule";
+            addRuleBtn.textContent = NativeUI.t("+ 添加规则", "+ Add Rule");
             addRuleBtn.onclick = () => {
               rulesData.push({ type: "keyword", value: "" });
               renderRules();
@@ -7363,7 +7363,7 @@
           cancelBtn.onclick = () => closeOverlay();
           const saveBtn = document.createElement("button");
           saveBtn.className = "gf-modal-btn primary";
-          saveBtn.textContent = isEdit ? "Save" : "Create";
+          saveBtn.textContent = isEdit ? NativeUI.t("保存", "Save") : NativeUI.t("创建", "Create");
           saveBtn.onclick = () => {
             const name = input.value.trim() || "New Folder";
             if (isEdit) {
@@ -9247,17 +9247,20 @@ ${part}`).join("\n\n---\n\n");
           header.style.cssText = "display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;";
           const title = document.createElement("div");
           title.style.cssText = "font-weight:600;font-size:13px;color:var(--text-main);";
-          title.textContent = "Batch Delete";
+          title.textContent = NativeUI.t("批量删除", "Batch Delete");
           header.appendChild(title);
           if (this._deleting) {
             const progress = document.createElement("span");
             progress.style.cssText = "font-size:11px;color:var(--accent);";
-            progress.textContent = "Deleting " + this._progress.current + "/" + this._progress.total + "...";
+            progress.textContent = NativeUI.t(
+              `正在删除 ${this._progress.current}/${this._progress.total}...`,
+              `Deleting ${this._progress.current}/${this._progress.total}...`
+            );
             header.appendChild(progress);
           } else if (this._selected.size > 0) {
             const deleteBtn = document.createElement("button");
             deleteBtn.style.cssText = "background:#ea4335;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;";
-            deleteBtn.textContent = "Delete " + this._selected.size + " chats";
+            deleteBtn.textContent = NativeUI.t(`删除 ${this._selected.size} 个对话`, `Delete ${this._selected.size} chats`);
             deleteBtn.onclick = () => {
               NativeUI.showConfirm(
                 NativeUI.t("确认删除选中的 " + this._selected.size + " 个对话？此操作不可撤销。", "Delete " + this._selected.size + " chats? This cannot be undone."),
@@ -9312,14 +9315,14 @@ ${part}`).join("\n\n---\n\n");
             actions.style.cssText = "display:flex;gap:8px;margin-top:6px;";
             const selectAll = document.createElement("button");
             selectAll.style.cssText = "background:var(--btn-bg);color:var(--text-main);border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-size:11px;cursor:pointer;";
-            selectAll.textContent = "Select All";
+            selectAll.textContent = NativeUI.t("全选", "Select All");
             selectAll.onclick = () => {
               chats.forEach((c) => this._selected.add(c.id));
               PanelUI.renderDetailsPane();
             };
             const deselectAll = document.createElement("button");
             deselectAll.style.cssText = "background:var(--btn-bg);color:var(--text-main);border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-size:11px;cursor:pointer;";
-            deselectAll.textContent = "Deselect All";
+            deselectAll.textContent = NativeUI.t("取消全选", "Deselect All");
             deselectAll.onclick = () => {
               this._selected.clear();
               PanelUI.renderDetailsPane();

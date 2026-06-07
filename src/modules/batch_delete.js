@@ -240,18 +240,21 @@ export const BatchDeleteModule = {
         header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;';
         const title = document.createElement('div');
         title.style.cssText = 'font-weight:600;font-size:13px;color:var(--text-main);';
-        title.textContent = 'Batch Delete';
+        title.textContent = NativeUI.t('批量删除', 'Batch Delete');
         header.appendChild(title);
 
         if (this._deleting) {
             const progress = document.createElement('span');
             progress.style.cssText = 'font-size:11px;color:var(--accent);';
-            progress.textContent = 'Deleting ' + this._progress.current + '/' + this._progress.total + '...';
+            progress.textContent = NativeUI.t(
+                `正在删除 ${this._progress.current}/${this._progress.total}...`,
+                `Deleting ${this._progress.current}/${this._progress.total}...`
+            );
             header.appendChild(progress);
         } else if (this._selected.size > 0) {
             const deleteBtn = document.createElement('button');
             deleteBtn.style.cssText = 'background:#ea4335;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;';
-            deleteBtn.textContent = 'Delete ' + this._selected.size + ' chats';
+            deleteBtn.textContent = NativeUI.t(`删除 ${this._selected.size} 个对话`, `Delete ${this._selected.size} chats`);
             deleteBtn.onclick = () => {
                 NativeUI.showConfirm(
                     NativeUI.t('确认删除选中的 ' + this._selected.size + ' 个对话？此操作不可撤销。', 'Delete ' + this._selected.size + ' chats? This cannot be undone.'),
@@ -310,14 +313,14 @@ export const BatchDeleteModule = {
             actions.style.cssText = 'display:flex;gap:8px;margin-top:6px;';
             const selectAll = document.createElement('button');
             selectAll.style.cssText = 'background:var(--btn-bg);color:var(--text-main);border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-size:11px;cursor:pointer;';
-            selectAll.textContent = 'Select All';
+            selectAll.textContent = NativeUI.t('全选', 'Select All');
             selectAll.onclick = () => {
                 chats.forEach(c => this._selected.add(c.id));
                 PanelUI.renderDetailsPane();
             };
             const deselectAll = document.createElement('button');
             deselectAll.style.cssText = 'background:var(--btn-bg);color:var(--text-main);border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-size:11px;cursor:pointer;';
-            deselectAll.textContent = 'Deselect All';
+            deselectAll.textContent = NativeUI.t('取消全选', 'Deselect All');
             deselectAll.onclick = () => {
                 this._selected.clear();
                 PanelUI.renderDetailsPane();

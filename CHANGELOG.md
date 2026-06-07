@@ -4,7 +4,7 @@
 
 ### Unreleased
 
-- **i18n hardening**: localized remaining Export, Chat Notes, Message Queue, and Prompt Vault panel/editor labels touched by the post-v12 workflow updates.
+- **i18n hardening**: localized remaining Export, Chat Notes, Message Queue, Prompt Vault, Folders, and Batch Delete panel/editor labels touched by the post-v12 workflow updates.
 - **Pinned context packets**: Chat Notes can insert the visible pinned-note list as one explicit local context packet, using saved title/link/chat ID/note data only.
 - **Adapter probe export**: Debug Panel and CDP helper can export a privacy-conservative runtime adapter probe report with selector, model, sidebar, input, header, and tool-mode health.
 - **HTML transcript export**: current-chat and selected-chat transcript exports now include an escaped standalone HTML format alongside JSON, Markdown, and TXT.

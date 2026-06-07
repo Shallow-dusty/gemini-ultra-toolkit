@@ -1,6 +1,6 @@
 # Current Audit Status
 
-Updated: 2026-06-08 — covers v12.0 plus post-release dependency-audit repair, local folder undo, local data portability, local context references, pinned context packets, HTML transcript export, and adapter probe export.
+Updated: 2026-06-08 — covers v12.0 plus post-release dependency-audit repair, local folder undo, local data portability, local context references, pinned context packets, HTML transcript export, adapter probe export, and i18n hardening.
 
 This is the maintained audit summary for v12.0. v12 inherits all v11 protections and adds a `src/adapters/gemini.js` abstraction layer for DOM coupling (see ROADMAP.md). Reviewed across 5 self-audit passes plus 3 independent agent reviews (architecture / generic code / userscript-specific). No `critical` findings; all `important` items addressed before release. v11.0 baseline below remains the audit reference for shared logic.
 
@@ -73,12 +73,15 @@ Implemented protections:
 - Close controls are keyboard-operable.
 - `:focus-visible` styles exist for panel, modal, and native-injected controls.
 - `prefers-reduced-motion: reduce` guards exist for panel and native injected styles.
-- Main panel, settings, dashboard, debug, and calibration user-facing text now uses `NativeUI.t()` for key paths.
+- Main panel, settings, dashboard, debug, calibration, and post-v12 workflow
+  labels in Export, Chat Notes, Message Queue, Prompt Vault, Folders, and Batch
+  Delete now use `NativeUI.t()` for key paths.
 
 Residual checks:
 
 - Verify `Tab` and `Shift+Tab` loops in a real browser.
-- Continue converting lower-priority module settings labels to `NativeUI.t()`.
+- Continue converting any remaining lower-priority module settings labels to
+  `NativeUI.t()`.
 - Recheck theme contrast manually.
 
 ## Verification Commands

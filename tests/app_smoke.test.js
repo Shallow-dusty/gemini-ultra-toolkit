@@ -217,4 +217,26 @@ describe('app smoke checks', () => {
         assert.match(messageQueue, /NativeUI\.t\('消息队列', 'Message Queue'\)/);
         assert.match(chatNotes, /NativeUI\.t\('对话笔记', 'Chat Notes'\)/);
     });
+
+    it('keeps folder and batch-delete panel labels localized', () => {
+        const folders = read('src/modules/folders.js');
+        const batchDelete = read('src/modules/batch_delete.js');
+
+        assert.match(folders, /NativeUI\.t\('文件夹', 'Folders'\)/);
+        assert.match(folders, /NativeUI\.t\('搜索对话\.\.\.', 'Search chats\.\.\.'\)/);
+        assert.match(folders, /NativeUI\.t\('\+ 新建文件夹', '\+ New Folder'\)/);
+        assert.match(folders, /NativeUI\.t\('文件夹名称', 'Folder name'\)/);
+        assert.match(folders, /NativeUI\.t\('\+ 添加规则', '\+ Add Rule'\)/);
+        assert.doesNotMatch(folders, /textContent = 'Folders'/);
+        assert.doesNotMatch(folders, /placeholder = 'Search chats\.\.\.'/);
+        assert.doesNotMatch(folders, /textContent = '\+ New Folder'/);
+        assert.doesNotMatch(folders, /placeholder = 'Folder name'/);
+
+        assert.match(batchDelete, /NativeUI\.t\('批量删除', 'Batch Delete'\)/);
+        assert.match(batchDelete, /NativeUI\.t\('全选', 'Select All'\)/);
+        assert.match(batchDelete, /NativeUI\.t\('取消全选', 'Deselect All'\)/);
+        assert.doesNotMatch(batchDelete, /title\.textContent = 'Batch Delete'/);
+        assert.doesNotMatch(batchDelete, /selectAll\.textContent = 'Select All'/);
+        assert.doesNotMatch(batchDelete, /deselectAll\.textContent = 'Deselect All'/);
+    });
 });

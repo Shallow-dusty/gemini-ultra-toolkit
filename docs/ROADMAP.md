@@ -87,8 +87,8 @@ Implemented modules:
 
 6. Accessibility and i18n hardening
    - Continue replacing hardcoded UI text with `NativeUI.t()`; post-v12 Export,
-     Chat Notes, Message Queue, and Prompt Vault workflow labels now have
-     focused static smoke coverage.
+     Chat Notes, Message Queue, Prompt Vault, Folders, and Batch Delete workflow
+     labels now have focused static smoke coverage.
    - Verify focus order in real browser.
    - Recheck contrast for all themes.
 
