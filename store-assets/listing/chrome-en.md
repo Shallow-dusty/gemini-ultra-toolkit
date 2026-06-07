@@ -39,9 +39,9 @@ WHAT IT ADDS
 
 • Export — export usage reports, the current visible chat transcript, or selected sidebar chats to JSON / Markdown / TXT.
 
-• Prompt Vault — save frequently used prompts, organize by tag, one-click insert into the composer, and undo local prompt deletes. Import / export your library as JSON.
+• Prompt Vault — save frequently used prompts, organize by tag, one-click insert into the composer, queue prompt chains step by step, and undo local prompt deletes. Import / export your library as JSON.
 
-• Message Queue — queue prompts locally, then start, pause, cancel, or reorder the send sequence from the floating panel.
+• Message Queue — queue prompts locally, including Prompt Vault chain steps, then start, pause, cancel, or reorder the send sequence from the floating panel.
 
 • Default Model — auto-select your preferred model (Flash / Pro / Thinking) when you open a fresh chat.
 

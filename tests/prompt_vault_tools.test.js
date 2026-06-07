@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const {
     buildPromptVariables,
     composePromptContent,
+    createPromptQueueEntries,
     createPromptExport,
     findPromptByShortcut,
     getQuickMenuSections,
@@ -167,6 +168,40 @@ describe('prompt_vault_tools', () => {
 
         assert.equal(chain, 'Step 1\nPlan 2026-06-08\n\n---\n\nStep 2\nDraft scope\n\n---\n\nStep 3\nReview');
         assert.equal(composePromptContent({ name: 'Empty', content: '' }), '');
+    });
+
+    it('creates queue entries from prompts and prompt chains', () => {
+        const single = createPromptQueueEntries({
+            id: 'single',
+            name: 'Single Prompt',
+            content: 'Hello {{model}}'
+        }, { model: 'pro' });
+
+        assert.deepEqual(single, [{
+            title: 'Single Prompt',
+            text: 'Hello pro',
+            promptId: 'single',
+            stepIndex: 1,
+            totalSteps: 1
+        }]);
+
+        const chain = createPromptQueueEntries({
+            id: 'chain',
+            name: 'Review Chain',
+            content: 'Plan {{date}}',
+            chainSteps: ['Draft {{selected_text}}', '  ', 'Review']
+        }, {
+            date: '2026-06-08',
+            selected_text: 'scope'
+        });
+
+        assert.deepEqual(chain, [
+            { title: 'Review Chain 1/3', text: 'Plan 2026-06-08', promptId: 'chain', stepIndex: 1, totalSteps: 3 },
+            { title: 'Review Chain 2/3', text: 'Draft scope', promptId: 'chain', stepIndex: 2, totalSteps: 3 },
+            { title: 'Review Chain 3/3', text: 'Review', promptId: 'chain', stepIndex: 3, totalSteps: 3 }
+        ]);
+
+        assert.deepEqual(createPromptQueueEntries({ name: 'Empty', content: '', chainSteps: [] }), []);
     });
 
     it('falls back for dynamic prompt variables when context is missing', () => {

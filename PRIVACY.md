@@ -24,7 +24,7 @@ Data categories:
 | Per-user usage counts | Daily message tallies by model, used to render counter / heatmap / streak | `gemini_store_<your-email>` |
 | Folder definitions | Sidebar folders you create, the chat URLs you put in them | `gemini_folders_data_<your-email>` |
 | Saved prompts | Prompts you choose to save in the Prompt Vault | `gemini_prompt_vault_<your-email>` |
-| Message queue | Prompt text you explicitly add to the local queue | `gemini_message_queue_<your-email>` |
+| Message queue | Prompt text you explicitly add to the local queue, including Prompt Vault items you choose to queue | `gemini_message_queue_<your-email>` |
 | Chat notes | Notes and pins you explicitly save for conversations | `gemini_chat_notes_<your-email>` |
 | Model and UI preferences | Default model choice and UI tweak settings you choose | `gemini_default_model`, `gemini_ui_tweaks` |
 | Panel preferences | Floating panel position, current theme, which modules are enabled | `gemini_panel_pos`, `gemini_current_theme`, `gemini_enabled_modules` |
@@ -44,7 +44,7 @@ To do its job, the content script (`content.js`) reads:
 
 The extension **does not** continuously read or store:
 
-- Prompt text you type, unless you explicitly save it to Prompt Vault or add it to Message Queue.
+- Prompt text you type, unless you explicitly save it to Prompt Vault or add it to Message Queue. Queueing a Prompt Vault item copies that saved prompt text into the local Message Queue store.
 - Conversation bodies, unless you explicitly export a current-chat or selected-chat transcript.
 - Attachments, images, audio, or any other content inside a conversation.
 - Any other tab, window, or site — the content script only runs on `https://gemini.google.com/*`.

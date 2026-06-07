@@ -1,15 +1,18 @@
 import { Logger } from '../logger.js';
 import { Core } from '../core.js';
+import { ModuleRegistry } from '../module_registry.js';
 import { NativeUI } from '../native_ui.js';
 import { PanelUI } from '../panel_ui.js';
 import { getCurrentTheme } from '../state.js';
 import { createIcon } from '../icons.js';
 import { CounterModule } from './counter.js';
+import { MessageQueueModule } from './message_queue.js';
 import { GeminiAdapter } from '../adapters/gemini.js';
 import { formatLocalDate } from '../../lib/date_utils.js';
 import {
     buildPromptVariables,
     composePromptContent,
+    createPromptQueueEntries,
     findPromptByShortcut,
     getQuickMenuSections,
     markPromptUsed,
@@ -319,17 +322,33 @@ export const PromptVaultModule = {
         Logger.info('Prompt inserted');
     },
 
+    queuePrompt(prompt) {
+        if (!ModuleRegistry.isEnabled('message-queue')) {
+            NativeUI.showToast(NativeUI.t('请先启用 Message Queue', 'Enable Message Queue first'));
+            return;
+        }
+        const entries = createPromptQueueEntries(prompt, this._getTemplateVariables());
+        const added = MessageQueueModule.enqueueEntries(entries, {
+            idPrefix: `pv_${prompt.id}_${Date.now()}`
+        });
+        if (added === 0) return;
+        this._prompts = markPromptUsed(this._prompts, prompt.id);
+        this._save();
+        PanelUI.renderDetailsPane();
+        NativeUI.showToast(NativeUI.t(`已加入 ${added} 条队列`, `Queued ${added} item(s)`));
+    },
+
     getOnboarding() {
         return {
             zh: {
                 rant: '\u6BCF\u6B21\u6253\u5F00 Gemini \u90FD\u8981\u91CD\u65B0\u6572\u4E00\u904D\u201C\u4F60\u662F\u4E00\u4E2A\u8D44\u6DF1\u67B6\u6784\u5E08...\u201D\uFF0CGoogle \u89C9\u5F97\u4F60\u7684\u624B\u6307\u4E0D\u9700\u8981\u4F11\u606F\u3002ChatGPT 2023 \u5E74\u5C31\u6709 Custom Instructions \u4E86\uFF0CGemini \u8868\u793A\uFF1A\u6211\u4EEC\u4E0D\u4E00\u6837\uFF0C\u6211\u4EEC\u8BA9\u7528\u6237\u6BCF\u6B21\u90FD\u4ECE\u96F6\u5F00\u59CB\uFF0C\u8FD9\u53EB\u201C\u65B0\u9C9C\u611F\u201D\u3002',
-                features: '\u8F93\u5165\u6846\u65C1\u6DFB\u52A0 \uD83D\uDC8E \u6309\u94AE\uFF0C\u70B9\u51FB\u5F39\u51FA\u63D0\u793A\u8BCD\u5FEB\u6377\u83DC\u5355\uFF0C\u4E00\u952E\u63D2\u5165\u5E38\u7528\u63D0\u793A\u8BCD\u3002\u652F\u6301\u5206\u7C7B\u7BA1\u7406\u3001\u6536\u85CF\u3001slash \u5FEB\u6377\u547D\u4EE4\u3001\u6A21\u677F\u53D8\u91CF\u3001\u591A\u6B65 prompt chain \u548C\u4F7F\u7528\u7EDF\u8BA1\u3002',
-                guide: '1. \u70B9\u51FB\u8F93\u5165\u6846\u65C1\u7684 \uD83D\uDC8E \u2192 2. \u9009\u62E9\u63D0\u793A\u8BCD\u63D2\u5165 \u2192 3. \u53EF\u4E3A\u63D0\u793A\u8BCD\u8BBE\u7F6E /review \u5FEB\u6377\u547D\u4EE4\uFF0C\u6216\u7528 --- \u5206\u9694\u591A\u4E2A chain step \u540E\u4E00\u6B21\u63D2\u5165'
+                features: '\u8F93\u5165\u6846\u65C1\u6DFB\u52A0 \uD83D\uDC8E \u6309\u94AE\uFF0C\u70B9\u51FB\u5F39\u51FA\u63D0\u793A\u8BCD\u5FEB\u6377\u83DC\u5355\uFF0C\u4E00\u952E\u63D2\u5165\u5E38\u7528\u63D0\u793A\u8BCD\u3002\u652F\u6301\u5206\u7C7B\u7BA1\u7406\u3001\u6536\u85CF\u3001slash \u5FEB\u6377\u547D\u4EE4\u3001\u6A21\u677F\u53D8\u91CF\u3001\u591A\u6B65 prompt chain\u3001\u5206\u6B65\u5165\u961F\u548C\u4F7F\u7528\u7EDF\u8BA1\u3002',
+                guide: '1. \u70B9\u51FB\u8F93\u5165\u6846\u65C1\u7684 \uD83D\uDC8E \u2192 2. \u9009\u62E9\u63D0\u793A\u8BCD\u63D2\u5165 \u2192 3. \u53EF\u4E3A\u63D0\u793A\u8BCD\u8BBE\u7F6E /review \u5FEB\u6377\u547D\u4EE4\uFF0C\u6216\u7528 --- \u5206\u9694\u591A\u4E2A chain step \u540E\u63D2\u5165\u6216\u9010\u6B65\u52A0\u5165 Message Queue'
             },
             en: {
                 rant: "Every time you open Gemini you retype 'You are a senior architect...' because Google thinks your fingers need exercise. ChatGPT had Custom Instructions in 2023. Gemini says: we're different, we let users start from scratch every time. It's called 'freshness'.",
-                features: 'Adds a \uD83D\uDC8E button near the input box. Click to open a prompt quick menu and insert saved prompts with one click. Supports categories, favorites, slash shortcuts, template variables, multi-step prompt chains, and usage stats.',
-                guide: '1. Click \uD83D\uDC8E near the input box \u2192 2. Select a prompt to insert \u2192 3. Optionally give a prompt a /review shortcut, or separate chain steps with --- to insert a multi-step prompt packet'
+                features: 'Adds a \uD83D\uDC8E button near the input box. Click to open a prompt quick menu and insert saved prompts with one click. Supports categories, favorites, slash shortcuts, template variables, multi-step prompt chains, step-by-step queueing, and usage stats.',
+                guide: '1. Click \uD83D\uDC8E near the input box \u2192 2. Select a prompt to insert \u2192 3. Optionally give a prompt a /review shortcut, or separate chain steps with --- to insert a multi-step packet or queue each step through Message Queue'
             }
         };
     },
@@ -422,6 +441,12 @@ export const PromptVaultModule = {
                 insertBtn.title = 'Insert into chat';
                 insertBtn.onclick = (e) => { e.stopPropagation(); this.insertPrompt(p.content, p.id); };
 
+                const queueBtn = document.createElement('span');
+                queueBtn.style.cssText = 'cursor: pointer; display: flex; align-items: center; justify-content: center; width: 14px; height: 14px;';
+                queueBtn.appendChild(createIcon('package', 12));
+                queueBtn.title = p.chainSteps?.length ? 'Queue prompt chain' : 'Add to queue';
+                queueBtn.onclick = (e) => { e.stopPropagation(); this.queuePrompt(p); };
+
                 const favoriteBtn = document.createElement('span');
                 favoriteBtn.style.cssText = `cursor: pointer; display: flex; align-items: center; justify-content: center; width: 14px; height: 14px; color: ${p.favorite ? 'var(--accent)' : 'inherit'};`;
                 favoriteBtn.appendChild(createIcon('pin', 12));
@@ -443,6 +468,7 @@ export const PromptVaultModule = {
                 delBtn.onclick = (e) => { e.stopPropagation(); this.deletePrompt(p.id); PanelUI.renderDetailsPane(); };
 
                 actions.appendChild(insertBtn);
+                if (ModuleRegistry.isEnabled('message-queue')) actions.appendChild(queueBtn);
                 actions.appendChild(favoriteBtn);
                 actions.appendChild(editBtn);
                 actions.appendChild(delBtn);

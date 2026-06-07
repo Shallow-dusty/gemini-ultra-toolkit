@@ -37,9 +37,9 @@ Primer++ for Gemini™ 是一款非官方、开源的 Google Gemini 网页版增
 
 • 导出 Export — 将使用报告、当前可见对话记录，或侧边栏中选中的对话导出为 JSON / Markdown / TXT。
 
-• Prompt 库 Prompt Vault — 收藏常用 prompt，按标签整理，一键插入到输入框，并可撤销本地 prompt 删除。库可以 JSON 格式导入 / 导出。
+• Prompt 库 Prompt Vault — 收藏常用 prompt，按标签整理，一键插入到输入框，也可把 prompt chain 分步加入队列，并可撤销本地 prompt 删除。库可以 JSON 格式导入 / 导出。
 
-• 消息队列 Message Queue — 在本地排队多个 prompt，并可从悬浮面板开始、暂停、取消或重排发送顺序。
+• 消息队列 Message Queue — 在本地排队多个 prompt，包括 Prompt Vault 的 chain step，并可从悬浮面板开始、暂停、取消或重排发送顺序。
 
 • 默认模型 Default Model — 打开新对话时自动切换到你常用的模型（Flash / Pro / Thinking）。
 

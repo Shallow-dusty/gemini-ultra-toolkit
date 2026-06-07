@@ -1,6 +1,6 @@
 # Roadmap
 
-Updated: 2026-06-08 (post-v12 planning refresh + local data portability + local context references + quota window framing).
+Updated: 2026-06-08 (post-v12 planning refresh + local data portability + local context references + quota window framing + prompt-chain queueing).
 
 This is the maintained roadmap. It replaces the old full feature brainstorming document, which mixed implemented features, speculative ideas, and stale project naming.
 
@@ -30,10 +30,12 @@ Implemented modules:
   transcript export, and selected-sidebar chat export in JSON/Markdown/TXT.
 - Prompt Vault: saved prompts, quick insert, import/export, favorites, recent
   ranking, slash shortcuts, template variables, local prompt chains, and
-  versioned metadata import/export, plus local prompt-delete undo.
+  versioned metadata import/export, plus local prompt-delete undo and
+  step-by-step handoff to Message Queue.
 - Message Queue: local prompt queue with start/pause, cancel, reorder, and a
   conservative active-tool-mode pause guard backed by tested tool-label
-  matching.
+  matching. Prompt Vault chains can be queued as separate local items before
+  sending.
 - Default Model: preferred model selection on new chats.
 - Batch Delete: multi-select deletion workflow.
 - Quote Reply: selected-text quote insertion.
@@ -99,6 +101,9 @@ Prioritize local-first workflow parity with direct Gemini competitors:
   - ~~recents and favorites~~ done after the market/UI planning snapshot;
   - ~~compatible import/export for prompt metadata~~ done after the market/UI
     planning snapshot.
+- Prompt-chain queueing: Prompt Vault can split a saved chain into separate
+  Message Queue items. This is local queue preparation; sending still requires
+  the Message Queue start action and tool-mode safety checks.
 - ~~Per-chat local notes and pins.~~ Done after the market/UI planning snapshot;
   Chat Notes can also insert explicit local reference packets into the composer.
 - ~~Bulk export for selected chats in JSON/Markdown/TXT first.~~ Implemented

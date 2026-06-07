@@ -9,7 +9,7 @@ mutable, so refresh this file before any major release or store submission.
 - Local git state is mutable; run `git status --short --branch` before release,
   push, or store submission instead of treating this snapshot as live git truth.
 - Local verification on 2026-06-08:
-  - `npm test` passed: 234 tests, `lib/` at 100% c8 coverage.
+  - `npm test` passed: 236 tests, `lib/` at 100% c8 coverage.
   - `npm run build` passed for userscript and extension outputs.
 - 2026-06-08 follow-up: `brace-expansion` was updated from `5.0.5` to
   `5.0.6`; `npm audit --audit-level=moderate` now reports 0 vulnerabilities.
@@ -137,17 +137,19 @@ Codex CLI/TUI.
 - Prompt workflow
   - Primer++ v12 plus post-planning implementation: Prompt Vault, quick insert,
     versioned metadata import/export, favorites, recent ranking, slash
-    shortcuts, template variables, and local prompt chains.
+    shortcuts, template variables, local prompt chains, and chain handoff into
+    Message Queue as separate local queue items.
   - Market signal: SPG has library, chains, slash commands; TFG has library and
     prompt enhancer.
   - Adjacent signal: mature ChatGPT extensions treat prompt management as a
     platform feature.
-  - Plan: move next to broader prompt automation such as message queue safety
-    and chain-aware execution controls.
+  - Plan: chain-aware queue preparation is done; keep broader execution claims
+    behind Message Queue's explicit start control and live tool-mode checks.
 - Send control
   - Primer++ v12 plus post-planning implementation: Ctrl+Enter tweak, default
     model, and a local message queue with pause/cancel/reorder controls plus a
-    conservative active-tool-mode pause guard.
+    conservative active-tool-mode pause guard. Prompt Vault chains can be added
+    as ordered queue items before sending.
   - Market signal: SPG has smart queue and shortcuts; TFG has shortcuts and
     send-to-Gemini.
   - Gemini signal: Gemini is adding agent/tool modes where auto-send risk rises.

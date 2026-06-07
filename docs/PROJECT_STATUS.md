@@ -1,6 +1,6 @@
 # Project Status
 
-Updated: 2026-06-08 — v12.0 released; selected-chat export, local folder undo, local data portability, local context references, and quota reset-window framing added; live smoke still pending.
+Updated: 2026-06-08 — v12.0 released; selected-chat export, local folder undo, local data portability, local context references, quota reset-window framing, and prompt-chain queueing added; live smoke still pending.
 
 ## Summary
 
@@ -18,11 +18,11 @@ Updated: 2026-06-08 — v12.0 released; selected-chat export, local folder undo,
 
 Last verified locally on 2026-06-08:
 
-- `npm test` — 234 passing tests; `lib/` remains at 100% c8 coverage.
-- `npm run build` — userscript and extension builds complete (~449.0 kb
+- `npm test` — 236 passing tests; `lib/` remains at 100% c8 coverage.
+- `npm run build` — userscript and extension builds complete (~452.8 kb
   userscript after selected-chat export, URL filtering, prompt-delete undo,
   folder undo, local folder/notes import-export, local context-reference
-  insertion, and quota reset-window framing).
+  insertion, quota reset-window framing, and prompt-chain queueing).
 - `npm audit --audit-level=moderate` — 0 vulnerabilities after updating
   `brace-expansion` from `5.0.5` to `5.0.6`.
 - **Real-browser smoke test** — last full logged-in smoke passed on 2026-05-21

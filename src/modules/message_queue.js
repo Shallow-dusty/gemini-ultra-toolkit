@@ -6,6 +6,7 @@ import { GeminiAdapter } from '../adapters/gemini.js';
 import { createIcon } from '../icons.js';
 import {
     addQueueItem,
+    addQueueItems,
     cancelQueueItem,
     clearQueueHistory,
     evaluateQueueSafety,
@@ -221,6 +222,17 @@ export const MessageQueueModule = {
         if (editor) this._clearEditor(editor);
         NativeUI.showToast(NativeUI.t('已加入队列', 'Added to queue'));
         PanelUI.renderDetailsPane();
+    },
+
+    enqueueEntries(entries, opts = {}) {
+        const result = addQueueItems(this.data, entries, {
+            idPrefix: opts.idPrefix || `q_${Date.now()}`
+        });
+        if (result.added === 0) return 0;
+        this.data = result.data;
+        this._save();
+        PanelUI.renderDetailsPane();
+        return result.added;
     },
 
     startQueue() {

@@ -2,6 +2,7 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const {
     addQueueItem,
+    addQueueItems,
     cancelQueueItem,
     clearQueueHistory,
     createQueueItem,
@@ -94,6 +95,44 @@ describe('message_queue_tools', () => {
         assert.deepEqual(front.items.map(entry => entry.id), ['two', 'one']);
         assert.equal(front.lastError, '');
         assert.deepEqual(unchanged.items.map(entry => entry.id), ['two', 'one']);
+    });
+
+    it('adds multiple queue items with stable ordering and ids', () => {
+        const base = addQueueItem({ lastError: 'old' }, 'existing', { id: 'existing', nowIso });
+        const result = addQueueItems(base, [
+            { text: 'first step', title: 'Step One' },
+            { content: 'second step', id: 'custom' },
+            'third step',
+            { text: '   ' }
+        ], {
+            idPrefix: 'chain',
+            nowIso: laterIso
+        });
+
+        assert.equal(result.added, 3);
+        assert.deepEqual(result.items.map(item => item.id), ['chain_1', 'custom', 'chain_3']);
+        assert.deepEqual(result.data.items.map(item => item.id), ['existing', 'chain_1', 'custom', 'chain_3']);
+        assert.equal(result.data.items[1].title, 'Step One');
+        assert.equal(result.data.items[2].title, 'second step');
+        assert.equal(result.data.lastError, '');
+        assert.equal(result.data.items[1].createdAt, laterIso);
+
+        const front = addQueueItems(base, ['front one', 'front two'], {
+            idPrefix: 'front',
+            position: 'front',
+            nowIso
+        });
+        assert.deepEqual(front.data.items.map(item => item.id), ['front_1', 'front_2', 'existing']);
+
+        const single = addQueueItems({}, 'solo item', { nowIso });
+        assert.equal(single.added, 1);
+        assert.match(single.items[0].id, /^q_\d+_1$/);
+        assert.equal(single.items[0].text, 'solo item');
+
+        const unchanged = addQueueItems(base, ['', null]);
+        assert.equal(unchanged.added, 0);
+        assert.deepEqual(unchanged.data.items.map(item => item.id), ['existing']);
+        assert.equal(unchanged.data.lastError, '');
     });
 
     it('updates item title and text while ignoring empty replacement text', () => {
