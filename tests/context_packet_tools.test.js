@@ -4,6 +4,8 @@ const assert = require('node:assert/strict');
 const {
     formatContextPacket,
     formatContextReference,
+    formatTextSnippetPacket,
+    normalizeTextSnippet,
     normalizeContextReference
 } = require('../lib/context_packet_tools.js');
 
@@ -115,5 +117,40 @@ describe('context_packet_tools', () => {
             'Title: Solo',
             'Chat ID: solo'
         ].join('\n'));
+    });
+
+    it('formats explicit visible text snippet packets', () => {
+        assert.equal(normalizeTextSnippet(null), null);
+        assert.equal(normalizeTextSnippet(''), null);
+
+        const snippet = normalizeTextSnippet({
+            title: '  Current Chat  ',
+            href: 'javascript:alert(1)',
+            text: '  selected visible text  '
+        });
+        assert.deepEqual(snippet, {
+            title: 'Current Chat',
+            href: '',
+            text: 'selected visible text'
+        });
+
+        const packet = formatTextSnippetPacket({
+            title: '',
+            href: '/app/c1',
+            text: 'quoted passage'
+        }, {
+            label: 'Selected Gemini text snippet'
+        });
+        assert.equal(packet, [
+            '[Selected Gemini text snippet]',
+            'Source: Visible selection',
+            'Link: /app/c1',
+            'Snippet:',
+            'quoted passage'
+        ].join('\n'));
+
+        const long = normalizeTextSnippet('x'.repeat(2500));
+        assert.equal(long.text.length, 2400);
+        assert.equal(formatTextSnippetPacket({ text: '' }), '');
     });
 });

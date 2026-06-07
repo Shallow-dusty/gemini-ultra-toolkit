@@ -15,7 +15,7 @@ Primer++ is an unofficial community extension. Gemini™ is a trademark of Googl
 | **Message Queue** | Queue prompts locally with start/pause, cancel, reorder controls, and Prompt Vault chain handoff |
 | **Default Model** | Auto-select your preferred model on page load |
 | **Batch Delete** | Select and delete multiple conversations at once |
-| **Quote Reply** | Quote selected text into the input area |
+| **Quote Reply** | Quote selected text or insert it as an explicit local snippet packet |
 | **UI Tweaks** | Tab title updates, Ctrl+Enter send, layout customizations |
 | **Chat Notes** | Save local per-chat notes and pins, import/export JSON, and insert explicit local reference packets or pinned context packets |
 

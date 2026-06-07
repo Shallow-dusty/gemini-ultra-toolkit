@@ -258,21 +258,39 @@ export function injectNativeUIStyles() {
             z-index: 2147483646;
             background: #8ab4f8;
             color: #fff;
-            padding: 5px 12px;
+            padding: 4px;
             border-radius: 16px;
             font-size: 12px;
             font-weight: 600;
             font-family: 'Google Sans', Roboto, sans-serif;
-            cursor: pointer;
             box-shadow: 0 2px 12px rgba(0,0,0,0.3);
             user-select: none;
             transition: opacity 0.15s, transform 0.15s;
             opacity: 0;
             transform: scale(0.9);
+            display: inline-flex;
+            gap: 2px;
         }
         .gc-quote-fab.visible {
             opacity: 1;
             transform: scale(1);
+        }
+        .gc-quote-fab-btn {
+            border: 0;
+            border-radius: 12px;
+            background: transparent;
+            color: inherit;
+            padding: 3px 8px;
+            font: inherit;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .gc-quote-fab-btn:hover,
+        .gc-quote-fab-btn:focus-visible {
+            background: rgba(255, 255, 255, 0.18);
+            outline: none;
         }
 
         /* ============================================ */

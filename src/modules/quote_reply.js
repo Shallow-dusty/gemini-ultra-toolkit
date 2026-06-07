@@ -2,6 +2,8 @@ import { TIMINGS, PANEL_ID } from '../constants.js';
 import { Logger } from '../logger.js';
 import { NativeUI } from '../native_ui.js';
 import { GeminiAdapter } from '../adapters/gemini.js';
+import { createIcon } from '../icons.js';
+import { formatTextSnippetPacket } from '../../lib/context_packet_tools.js';
 
 export const QuoteReplyModule = {
     id: 'quote-reply',
@@ -73,21 +75,27 @@ export const QuoteReplyModule = {
 
         const fab = document.createElement('div');
         fab.className = 'gc-quote-fab';
-        fab.textContent = NativeUI.t('\uD83D\uDCAC 引用', '\uD83D\uDCAC Quote');
+
+        const quoteBtn = this._makeFabButton('quote', NativeUI.t('引用', 'Quote'), NativeUI.t('引用选中文本', 'Quote selected text'), (e) => {
+            e.stopPropagation();
+            this._insertQuote(text);
+            this._removeFab();
+        });
+        const packetBtn = this._makeFabButton('package', NativeUI.t('包', 'Packet'), NativeUI.t('插入选中文本上下文包', 'Insert selected text packet'), (e) => {
+            e.stopPropagation();
+            this._insertSnippetPacket(text);
+            this._removeFab();
+        });
+        fab.appendChild(quoteBtn);
+        fab.appendChild(packetBtn);
 
         // Position near cursor, clamped to viewport
-        const fabW = 90;
+        const fabW = 150;
         const fabH = 30;
         let left = Math.min(x + 8, window.innerWidth - fabW - 10);
         let top = Math.max(y - fabH - 8, 10);
         fab.style.left = left + 'px';
         fab.style.top = top + 'px';
-
-        fab.onclick = (e) => {
-            e.stopPropagation();
-            this._insertQuote(text);
-            this._removeFab();
-        };
 
         document.body.appendChild(fab);
         this._fab = fab;
@@ -99,6 +107,18 @@ export const QuoteReplyModule = {
         setTimeout(() => {
             if (this._fab === fab) this._removeFab();
         }, TIMINGS.FAB_AUTO_DISMISS);
+    },
+
+    _makeFabButton(icon, label, title, onClick) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'gc-quote-fab-btn';
+        btn.title = title;
+        btn.setAttribute('aria-label', title);
+        btn.appendChild(createIcon(icon, 12));
+        btn.appendChild(document.createTextNode(label));
+        btn.onclick = onClick;
+        return btn;
     },
 
     _removeFab() {
@@ -153,5 +173,57 @@ export const QuoteReplyModule = {
         sel.addRange(range);
 
         Logger.info('Quote inserted', { length: text.length });
+    },
+
+    _insertEditorText(text) {
+        const editor = GeminiAdapter.getInputEditor();
+        if (!editor) {
+            Logger.warn('QuoteReply: editor not found');
+            return false;
+        }
+
+        editor.focus();
+        const before = 'value' in editor ? editor.value : editor.textContent;
+        const inputEvent = new InputEvent('beforeinput', {
+            inputType: 'insertText',
+            data: text,
+            bubbles: true,
+            cancelable: true,
+            composed: true
+        });
+        const accepted = editor.dispatchEvent(inputEvent);
+        const after = 'value' in editor ? editor.value : editor.textContent;
+        if (accepted && after !== before) return true;
+
+        if ('value' in editor) {
+            const start = Number.isInteger(editor.selectionStart) ? editor.selectionStart : editor.value.length;
+            const end = Number.isInteger(editor.selectionEnd) ? editor.selectionEnd : editor.value.length;
+            editor.value = editor.value.slice(0, start) + text + editor.value.slice(end);
+            editor.selectionStart = editor.selectionEnd = start + text.length;
+        } else {
+            const p = document.createElement('p');
+            p.textContent = text;
+            editor.appendChild(p);
+        }
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+        return true;
+    },
+
+    _insertSnippetPacket(text) {
+        let title = '';
+        try { title = GeminiAdapter.getChatTitleText() || document.title || ''; }
+        catch { title = document.title || ''; }
+        const packet = formatTextSnippetPacket({
+            title,
+            href: window.location.href,
+            text
+        }, {
+            label: 'Selected Gemini text snippet'
+        });
+        if (!packet) return;
+        if (this._insertEditorText(packet)) {
+            NativeUI.showToast(NativeUI.t('选中文本上下文包已插入', 'Selected text packet inserted'));
+            Logger.info('Quote snippet packet inserted', { length: text.length });
+        }
     }
 };

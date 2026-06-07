@@ -1,6 +1,6 @@
 # Current Audit Status
 
-Updated: 2026-06-08 — covers v12.0 plus post-release dependency-audit repair, local folder undo, local data portability, local context references, pinned context packets, prompt context packets, HTML transcript export, adapter probe export, and i18n hardening.
+Updated: 2026-06-08 — covers v12.0 plus post-release dependency-audit repair, local folder undo, local data portability, local context references, pinned context packets, prompt context packets, selected text packets, HTML transcript export, adapter probe export, and i18n hardening.
 
 This is the maintained audit summary for v12.0. v12 inherits all v11 protections and adds a `src/adapters/gemini.js` abstraction layer for DOM coupling (see ROADMAP.md). Reviewed across 5 self-audit passes plus 3 independent agent reviews (architecture / generic code / userscript-specific). No `critical` findings; all `important` items addressed before release. v11.0 baseline below remains the audit reference for shared logic.
 
@@ -40,6 +40,10 @@ Implemented protections:
 - Prompt Vault context-packet insertion is explicit and local: it formats
   selected saved prompts and locally rendered template variables into the
   composer without reading hidden transcript content or auto-sending.
+- Quote Reply snippet-packet insertion is explicit and local: it formats the
+  current visible text selection plus current title/link metadata into the
+  composer without storing snippets, reading hidden transcript content, or
+  auto-sending.
 - GM_* reads and writes are wrapped defensively in source paths that can run in Tampermonkey or the extension polyfill.
 - 2026-06-08: `npm audit --audit-level=moderate` reports 0 vulnerabilities
   after updating `brace-expansion` from `5.0.5` to `5.0.6`.

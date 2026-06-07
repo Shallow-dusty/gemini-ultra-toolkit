@@ -9474,14 +9474,106 @@ ${part}`).join("\n\n---\n\n");
     }
   });
 
+  // lib/context_packet_tools.js
+  var require_context_packet_tools = __commonJS({
+    "lib/context_packet_tools.js"(exports, module) {
+      var MAX_TITLE_LENGTH = 120;
+      var MAX_NOTE_LENGTH = 1200;
+      var MAX_HREF_LENGTH = 600;
+      var MAX_SNIPPET_LENGTH = 2400;
+      function toText(value) {
+        if (value === null || value === void 0) return "";
+        return String(value);
+      }
+      function cleanText(value, fallback = "") {
+        const text = toText(value).trim();
+        return text || fallback;
+      }
+      function normalizeHref(value) {
+        const href = cleanText(value, "").slice(0, MAX_HREF_LENGTH);
+        if (!href) return "";
+        return /^(javascript|data|vbscript):/i.test(href) ? "" : href;
+      }
+      function normalizeContextReference(raw) {
+        if (!raw || typeof raw !== "object") return null;
+        const source = raw;
+        const chatId = cleanText(source.chatId || source.id, "");
+        const note = cleanText(source.note, "").slice(0, MAX_NOTE_LENGTH);
+        const title = cleanText(source.title, chatId || (note ? "Untitled chat" : "")).slice(0, MAX_TITLE_LENGTH);
+        const href = normalizeHref(source.href);
+        if (!chatId && !title && !note) return null;
+        return { chatId, title, href, note };
+      }
+      function normalizeTextSnippet(raw) {
+        const source = raw && typeof raw === "object" ? raw : { text: raw };
+        const text = cleanText(source.text || source.snippet, "").slice(0, MAX_SNIPPET_LENGTH);
+        if (!text) return null;
+        const title = cleanText(source.title, "Visible selection").slice(0, MAX_TITLE_LENGTH);
+        const href = normalizeHref(source.href);
+        return { title, href, text };
+      }
+      function formatTextSnippetPacket2(raw, opts = {}) {
+        const snippet = normalizeTextSnippet(raw);
+        if (!snippet) return "";
+        const label = cleanText(opts.label, "Gemini visible text snippet");
+        const lines = [
+          `[${label}]`,
+          `Source: ${snippet.title}`
+        ];
+        if (snippet.href) lines.push(`Link: ${snippet.href}`);
+        lines.push("Snippet:");
+        lines.push(snippet.text);
+        return lines.join("\n");
+      }
+      function formatContextReference2(raw, opts = {}) {
+        const ref = normalizeContextReference(raw);
+        if (!ref) return "";
+        const label = cleanText(opts.label, "Gemini chat reference");
+        const lines = [
+          `[${label}]`,
+          `Title: ${ref.title}`
+        ];
+        if (ref.href) lines.push(`Link: ${ref.href}`);
+        if (ref.chatId) lines.push(`Chat ID: ${ref.chatId}`);
+        if (ref.note && opts.includeNote !== false) {
+          lines.push("Local note:");
+          lines.push(ref.note);
+        }
+        return lines.join("\n");
+      }
+      function formatContextPacket2(items, opts = {}) {
+        const refs = (Array.isArray(items) ? items : [items]).map(normalizeContextReference).filter(Boolean);
+        if (refs.length === 0) return "";
+        if (refs.length === 1) return formatContextReference2(refs[0], opts);
+        const label = cleanText(opts.label, "Gemini context packet");
+        const sections = refs.map((ref, index) => {
+          return formatContextReference2(ref, {
+            ...opts,
+            label: `${index + 1}. ${ref.title}`
+          });
+        });
+        return [`[${label}]`, ...sections].join("\n\n");
+      }
+      module.exports = {
+        formatContextPacket: formatContextPacket2,
+        formatContextReference: formatContextReference2,
+        formatTextSnippetPacket: formatTextSnippetPacket2,
+        normalizeTextSnippet,
+        normalizeContextReference
+      };
+    }
+  });
+
   // src/modules/quote_reply.js
-  var QuoteReplyModule;
+  var import_context_packet_tools, QuoteReplyModule;
   var init_quote_reply = __esm({
     "src/modules/quote_reply.js"() {
       init_constants();
       init_logger();
       init_native_ui();
       init_gemini();
+      init_icons();
+      import_context_packet_tools = __toESM(require_context_packet_tools());
       QuoteReplyModule = {
         id: "quote-reply",
         name: NativeUI.t("引用回复", "Quote Reply"),
@@ -9537,24 +9629,41 @@ ${part}`).join("\n\n---\n\n");
           this._removeFab();
           const fab = document.createElement("div");
           fab.className = "gc-quote-fab";
-          fab.textContent = NativeUI.t("💬 引用", "💬 Quote");
-          const fabW = 90;
+          const quoteBtn = this._makeFabButton("quote", NativeUI.t("引用", "Quote"), NativeUI.t("引用选中文本", "Quote selected text"), (e) => {
+            e.stopPropagation();
+            this._insertQuote(text);
+            this._removeFab();
+          });
+          const packetBtn = this._makeFabButton("package", NativeUI.t("包", "Packet"), NativeUI.t("插入选中文本上下文包", "Insert selected text packet"), (e) => {
+            e.stopPropagation();
+            this._insertSnippetPacket(text);
+            this._removeFab();
+          });
+          fab.appendChild(quoteBtn);
+          fab.appendChild(packetBtn);
+          const fabW = 150;
           const fabH = 30;
           let left = Math.min(x + 8, window.innerWidth - fabW - 10);
           let top = Math.max(y - fabH - 8, 10);
           fab.style.left = left + "px";
           fab.style.top = top + "px";
-          fab.onclick = (e) => {
-            e.stopPropagation();
-            this._insertQuote(text);
-            this._removeFab();
-          };
           document.body.appendChild(fab);
           this._fab = fab;
           requestAnimationFrame(() => fab.classList.add("visible"));
           setTimeout(() => {
             if (this._fab === fab) this._removeFab();
           }, TIMINGS.FAB_AUTO_DISMISS);
+        },
+        _makeFabButton(icon, label, title, onClick) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "gc-quote-fab-btn";
+          btn.title = title;
+          btn.setAttribute("aria-label", title);
+          btn.appendChild(createIcon(icon, 12));
+          btn.appendChild(document.createTextNode(label));
+          btn.onclick = onClick;
+          return btn;
         },
         _removeFab() {
           if (this._fab) {
@@ -9594,6 +9703,57 @@ ${part}`).join("\n\n---\n\n");
           sel.removeAllRanges();
           sel.addRange(range);
           Logger.info("Quote inserted", { length: text.length });
+        },
+        _insertEditorText(text) {
+          const editor = GeminiAdapter.getInputEditor();
+          if (!editor) {
+            Logger.warn("QuoteReply: editor not found");
+            return false;
+          }
+          editor.focus();
+          const before = "value" in editor ? editor.value : editor.textContent;
+          const inputEvent = new InputEvent("beforeinput", {
+            inputType: "insertText",
+            data: text,
+            bubbles: true,
+            cancelable: true,
+            composed: true
+          });
+          const accepted = editor.dispatchEvent(inputEvent);
+          const after = "value" in editor ? editor.value : editor.textContent;
+          if (accepted && after !== before) return true;
+          if ("value" in editor) {
+            const start = Number.isInteger(editor.selectionStart) ? editor.selectionStart : editor.value.length;
+            const end = Number.isInteger(editor.selectionEnd) ? editor.selectionEnd : editor.value.length;
+            editor.value = editor.value.slice(0, start) + text + editor.value.slice(end);
+            editor.selectionStart = editor.selectionEnd = start + text.length;
+          } else {
+            const p = document.createElement("p");
+            p.textContent = text;
+            editor.appendChild(p);
+          }
+          editor.dispatchEvent(new Event("input", { bubbles: true }));
+          return true;
+        },
+        _insertSnippetPacket(text) {
+          let title = "";
+          try {
+            title = GeminiAdapter.getChatTitleText() || document.title || "";
+          } catch {
+            title = document.title || "";
+          }
+          const packet = (0, import_context_packet_tools.formatTextSnippetPacket)({
+            title,
+            href: window.location.href,
+            text
+          }, {
+            label: "Selected Gemini text snippet"
+          });
+          if (!packet) return;
+          if (this._insertEditorText(packet)) {
+            NativeUI.showToast(NativeUI.t("选中文本上下文包已插入", "Selected text packet inserted"));
+            Logger.info("Quote snippet packet inserted", { length: text.length });
+          }
         }
       };
     }
@@ -9844,72 +10004,6 @@ ${part}`).join("\n\n---\n\n");
     }
   });
 
-  // lib/context_packet_tools.js
-  var require_context_packet_tools = __commonJS({
-    "lib/context_packet_tools.js"(exports, module) {
-      var MAX_TITLE_LENGTH = 120;
-      var MAX_NOTE_LENGTH = 1200;
-      var MAX_HREF_LENGTH = 600;
-      function toText(value) {
-        if (value === null || value === void 0) return "";
-        return String(value);
-      }
-      function cleanText(value, fallback = "") {
-        const text = toText(value).trim();
-        return text || fallback;
-      }
-      function normalizeHref(value) {
-        const href = cleanText(value, "").slice(0, MAX_HREF_LENGTH);
-        if (!href) return "";
-        return /^(javascript|data|vbscript):/i.test(href) ? "" : href;
-      }
-      function normalizeContextReference(raw) {
-        if (!raw || typeof raw !== "object") return null;
-        const source = raw;
-        const chatId = cleanText(source.chatId || source.id, "");
-        const note = cleanText(source.note, "").slice(0, MAX_NOTE_LENGTH);
-        const title = cleanText(source.title, chatId || (note ? "Untitled chat" : "")).slice(0, MAX_TITLE_LENGTH);
-        const href = normalizeHref(source.href);
-        if (!chatId && !title && !note) return null;
-        return { chatId, title, href, note };
-      }
-      function formatContextReference2(raw, opts = {}) {
-        const ref = normalizeContextReference(raw);
-        if (!ref) return "";
-        const label = cleanText(opts.label, "Gemini chat reference");
-        const lines = [
-          `[${label}]`,
-          `Title: ${ref.title}`
-        ];
-        if (ref.href) lines.push(`Link: ${ref.href}`);
-        if (ref.chatId) lines.push(`Chat ID: ${ref.chatId}`);
-        if (ref.note && opts.includeNote !== false) {
-          lines.push("Local note:");
-          lines.push(ref.note);
-        }
-        return lines.join("\n");
-      }
-      function formatContextPacket2(items, opts = {}) {
-        const refs = (Array.isArray(items) ? items : [items]).map(normalizeContextReference).filter(Boolean);
-        if (refs.length === 0) return "";
-        if (refs.length === 1) return formatContextReference2(refs[0], opts);
-        const label = cleanText(opts.label, "Gemini context packet");
-        const sections = refs.map((ref, index) => {
-          return formatContextReference2(ref, {
-            ...opts,
-            label: `${index + 1}. ${ref.title}`
-          });
-        });
-        return [`[${label}]`, ...sections].join("\n\n");
-      }
-      module.exports = {
-        formatContextPacket: formatContextPacket2,
-        formatContextReference: formatContextReference2,
-        normalizeContextReference
-      };
-    }
-  });
-
   // lib/chat_notes_store.js
   var require_chat_notes_store = __commonJS({
     "lib/chat_notes_store.js"(exports, module) {
@@ -10059,7 +10153,7 @@ ${part}`).join("\n\n---\n\n");
   });
 
   // src/modules/chat_notes.js
-  var import_date_utils5, import_context_packet_tools, import_chat_notes_store, ChatNotesModule;
+  var import_date_utils5, import_context_packet_tools2, import_chat_notes_store, ChatNotesModule;
   var init_chat_notes = __esm({
     "src/modules/chat_notes.js"() {
       init_core();
@@ -10069,7 +10163,7 @@ ${part}`).join("\n\n---\n\n");
       init_icons();
       init_gemini();
       import_date_utils5 = __toESM(require_date_utils());
-      import_context_packet_tools = __toESM(require_context_packet_tools());
+      import_context_packet_tools2 = __toESM(require_context_packet_tools());
       import_chat_notes_store = __toESM(require_chat_notes_store());
       ChatNotesModule = {
         id: "chat-notes",
@@ -10139,14 +10233,14 @@ ${part}`).join("\n\n---\n\n");
           return true;
         },
         _insertContextReference(note) {
-          const text = (0, import_context_packet_tools.formatContextReference)(note);
+          const text = (0, import_context_packet_tools2.formatContextReference)(note);
           if (!text) return;
           if (this._insertTextIntoEditor(text)) {
             NativeUI.showToast(NativeUI.t("上下文引用已插入", "Context reference inserted"));
           }
         },
         _insertPinnedContextPacket(notes) {
-          const text = (0, import_context_packet_tools.formatContextPacket)(notes.slice(0, 8), {
+          const text = (0, import_context_packet_tools2.formatContextPacket)(notes.slice(0, 8), {
             label: "Pinned Gemini context packet"
           });
           if (!text) return;
@@ -10635,21 +10729,39 @@ ${part}`).join("\n\n---\n\n");
             z-index: 2147483646;
             background: #8ab4f8;
             color: #fff;
-            padding: 5px 12px;
+            padding: 4px;
             border-radius: 16px;
             font-size: 12px;
             font-weight: 600;
             font-family: 'Google Sans', Roboto, sans-serif;
-            cursor: pointer;
             box-shadow: 0 2px 12px rgba(0,0,0,0.3);
             user-select: none;
             transition: opacity 0.15s, transform 0.15s;
             opacity: 0;
             transform: scale(0.9);
+            display: inline-flex;
+            gap: 2px;
         }
         .gc-quote-fab.visible {
             opacity: 1;
             transform: scale(1);
+        }
+        .gc-quote-fab-btn {
+            border: 0;
+            border-radius: 12px;
+            background: transparent;
+            color: inherit;
+            padding: 3px 8px;
+            font: inherit;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .gc-quote-fab-btn:hover,
+        .gc-quote-fab-btn:focus-visible {
+            background: rgba(255, 255, 255, 0.18);
+            outline: none;
         }
 
         /* ============================================ */
