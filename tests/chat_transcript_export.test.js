@@ -1,11 +1,13 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const {
+    exportBulkTranscriptCSV,
     exportBulkTranscriptDOCX,
     exportBulkTranscriptHTML,
     exportBulkTranscriptJSON,
     exportBulkTranscriptMarkdown,
     exportBulkTranscriptText,
+    exportTranscriptCSV,
     exportTranscriptDOCX,
     exportTranscriptHTML,
     exportTranscriptJSON,
@@ -176,6 +178,31 @@ describe('chat_transcript_export', () => {
         }]);
     });
 
+    it('exports escaped CSV rows for current transcripts', () => {
+        const csv = exportTranscriptCSV({
+            chatId: 'c&1',
+            title: 'Chat, "unsafe"',
+            href: '/app/c1',
+            messages: [
+                { role: 'user', text: '=SUM(1,2)' },
+                { role: 'user', text: '  @import' },
+                { role: 'model', text: 'Answer with "quote"' }
+            ]
+        }, { nowIso });
+
+        assert.ok(csv.startsWith('"chat_order","chat_id","title","status","href","exported_at","message_order","role","text","error"\n'));
+        assert.ok(csv.includes('"1","c&1","Chat, ""unsafe""","exported","/app/c1","2026-06-08T00:00:00.000Z","1","User","\'=SUM(1,2)",""'));
+        assert.ok(csv.includes('"1","c&1","Chat, ""unsafe""","exported","/app/c1","2026-06-08T00:00:00.000Z","2","User","\'@import",""'));
+        assert.ok(csv.includes('"1","c&1","Chat, ""unsafe""","exported","/app/c1","2026-06-08T00:00:00.000Z","3","Gemini","Answer with ""quote""",""'));
+        assert.ok(csv.endsWith('\n'));
+
+        const empty = exportTranscriptCSV({ title: 'Empty', messages: [] }, { nowIso });
+        assert.ok(empty.includes('"1","unknown","Empty","empty","","2026-06-08T00:00:00.000Z","","","No visible messages captured.",""'));
+
+        const unknownChat = exportTranscriptCSV({ title: 'No ID', messages: [{ text: 'Question' }] }, { nowIso });
+        assert.ok(unknownChat.includes('"1","unknown","No ID","exported","","2026-06-08T00:00:00.000Z","1","Message","Question",""'));
+    });
+
     it('exports markdown with role labels, source, and empty-state text', () => {
         const markdown = exportTranscriptMarkdown({
             chatId: 'c1',
@@ -326,6 +353,28 @@ describe('chat_transcript_export', () => {
         assert.equal(parsed.exportedAt, nowIso);
         assert.equal(parsed.chatCount, 1);
         assert.equal(parsed.chats[0].messages[0].text, 'Question');
+    });
+
+    it('exports escaped CSV rows for selected-chat bulk transcripts', () => {
+        const csv = exportBulkTranscriptCSV({
+            chats: [
+                {
+                    chatId: 'c1',
+                    title: 'One',
+                    href: '/app/c1',
+                    messages: [{ role: 'assistant', text: 'Answer, details' }]
+                },
+                { chatId: 'c2', title: 'Two', status: 'failed', error: '+Timeout', messages: [] },
+                { title: 'Three', messages: [] }
+            ]
+        }, { nowIso });
+
+        assert.ok(csv.includes('"1","c1","One","exported","/app/c1","2026-06-08T00:00:00.000Z","1","Gemini","Answer, details",""'));
+        assert.ok(csv.includes('"2","c2","Two","failed","","2026-06-08T00:00:00.000Z","","","Transcript export failed.","\'+Timeout"'));
+        assert.ok(csv.includes('"3","unknown","Three","empty","","2026-06-08T00:00:00.000Z","","","No visible messages captured.",""'));
+
+        const empty = exportBulkTranscriptCSV({ chats: [] }, { nowIso });
+        assert.equal(empty, '"chat_order","chat_id","title","status","href","exported_at","message_order","role","text","error"\n');
     });
 
     it('exports selected-chat bulk markdown with empty and failed states', () => {

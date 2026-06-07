@@ -9,9 +9,9 @@ mutable, so refresh this file before any major release or store submission.
 - Local git state is mutable; run `git status --short --branch` before release,
   push, or store submission instead of treating this snapshot as live git truth.
 - Local verification on 2026-06-08:
-  - `npm test` passed: 259 tests, `lib/` at 100% c8 coverage.
+  - `npm test` passed: 262 tests, `lib/` at 100% c8 coverage.
   - `npm run build` passed for userscript and extension outputs; generated
-    userscript size was ~504.5 kb after HTML/DOCX transcript export, composer
+    userscript size was ~508.1 kb after CSV/HTML/DOCX transcript export, composer
     input counter, adapter probe export, pinned context packets, prompt context
     packets, selected text packets, transcript snippet packets, rich response
     probe counts, and broader i18n hardening.
@@ -132,9 +132,10 @@ Codex CLI/TUI.
 - Export
   - Primer++ v12 plus post-planning implementation: usage export in
     JSON/CSV/Markdown and current visible conversation transcript export in
-    JSON/Markdown/TXT/HTML/DOCX, plus selected-sidebar chat export in
-    JSON/Markdown/TXT/HTML/DOCX through a navigation-and-visible-DOM capture
-    workflow. DOCX is generated as a dependency-free OpenXML package.
+    JSON/CSV/Markdown/TXT/HTML/DOCX, plus selected-sidebar chat export in
+    JSON/CSV/Markdown/TXT/HTML/DOCX through a navigation-and-visible-DOM capture
+    workflow. Transcript CSV guards spreadsheet formula prefixes; DOCX is
+    generated as a dependency-free OpenXML package.
   - Market signal: SPG has PDF/DOCX/TXT/MD; TFG has
     PDF/HTML/Markdown/TXT/CSV.
   - Gemini signal: Gemini built-ins remain limited for power export workflows.
@@ -311,7 +312,7 @@ boundary.
      after this planning snapshot; they format local title/link/chat ID/note
      data into the composer and do not read hidden Gemini transcript content.
 4. Bulk export upgrade:
-   - ~~export selected chats in JSON/Markdown/TXT/HTML first~~ done with a
+   - ~~export selected chats in JSON/CSV/Markdown/TXT/HTML first~~ done with a
      selected-sidebar navigation workflow; live smoke still pending;
    - ~~add DOCX only after a dependency and bundle-size review;~~ done with a
      dependency-free OpenXML package;

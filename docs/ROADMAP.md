@@ -1,6 +1,6 @@
 # Roadmap
 
-Updated: 2026-06-08 (post-v12 planning refresh + local data portability + local context references + pinned context packets + prompt context packets + selected text packets + transcript snippet packets + rich response probe counts + quota window framing + prompt-chain queueing + HTML/DOCX transcript export + composer input counter + adapter probe export + i18n hardening).
+Updated: 2026-06-08 (post-v12 planning refresh + local data portability + local context references + pinned context packets + prompt context packets + selected text packets + transcript snippet packets + rich response probe counts + quota window framing + prompt-chain queueing + CSV/HTML/DOCX transcript export + composer input counter + adapter probe export + i18n hardening).
 
 This is the maintained roadmap. It replaces the old full feature brainstorming document, which mixed implemented features, speculative ideas, and stale project naming.
 
@@ -27,8 +27,8 @@ Implemented modules:
   batch move, auto-classify rules, and one-step local undo for folder
   moves/deletes, plus versioned JSON import/export.
 - Export: JSON/CSV/Markdown usage export, current visible conversation
-  transcript export, selected-sidebar chat export in
-  JSON/Markdown/TXT/HTML/DOCX, and explicit bounded transcript snippet packets.
+  transcript export and selected-sidebar chat export in
+  JSON/CSV/Markdown/TXT/HTML/DOCX, and explicit bounded transcript snippet packets.
 - Prompt Vault: saved prompts, quick insert, import/export, favorites, recent
   ranking, slash shortcuts, template variables, local prompt chains, and
   versioned metadata import/export, plus local prompt-delete undo and
@@ -115,10 +115,11 @@ Prioritize local-first workflow parity with direct Gemini competitors:
 - ~~Per-chat local notes and pins.~~ Done after the market/UI planning snapshot;
   Chat Notes can also insert explicit local reference packets and visible
   pinned-note context packets into the composer.
-- ~~Bulk export for selected chats in JSON/Markdown/TXT/HTML first.~~ Implemented
+- ~~Bulk export for selected chats in JSON/CSV/Markdown/TXT/HTML first.~~ Implemented
   as a selected-sidebar workflow that navigates each selected chat and captures
-  visible transcript text; live Gemini smoke coverage is still due before
-  release claims. DOCX is implemented as a dependency-free OpenXML package;
+  visible transcript text; CSV includes spreadsheet formula-prefix guarding, and
+  live Gemini smoke coverage is still due before release claims. DOCX is
+  implemented as a dependency-free OpenXML package;
   PDF remains deferred after dependency and bundle-size review.
 - Local undo/trash safety: Prompt Vault delete undo and local folder
   move/delete undo are implemented; server-side Gemini chat delete restore

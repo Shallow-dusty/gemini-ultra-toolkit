@@ -2444,6 +2444,14 @@
         };
         return toText(value).replace(/[&<>"']/g, (char) => replacements[char]);
       }
+      function escapeCSVCell(value) {
+        const text = toText(value).replace(/\r\n?/g, "\n");
+        const guarded = /^\s*[=+\-@]/.test(text) ? `'${text}` : text;
+        return `"${guarded.replace(/"/g, '""')}"`;
+      }
+      function renderCSV(rows) {
+        return rows.map((row) => row.map(escapeCSVCell).join(",")).join("\n") + "\n";
+      }
       function normalizeRole(value) {
         const role = cleanText(value).toLowerCase();
         if (role === "user" || role === "assistant" || role === "model" || role === "system") return role;
@@ -2764,8 +2772,60 @@
         });
         return paragraphs;
       }
+      var TRANSCRIPT_CSV_HEADER = [
+        "chat_order",
+        "chat_id",
+        "title",
+        "status",
+        "href",
+        "exported_at",
+        "message_order",
+        "role",
+        "text",
+        "error"
+      ];
+      function appendTranscriptCSVRows(rows, chat, opts = {}) {
+        const order = opts.order || chat.order || 1;
+        const status = opts.status || chat.status || (chat.messages.length > 0 ? "exported" : "empty");
+        const error = cleanText(chat.error);
+        if (chat.messages.length === 0) {
+          rows.push([
+            order,
+            chat.chatId || "unknown",
+            chat.title,
+            status,
+            chat.href,
+            chat.exportedAt,
+            "",
+            "",
+            status === "failed" ? "Transcript export failed." : "No visible messages captured.",
+            error
+          ]);
+          return;
+        }
+        chat.messages.forEach((message, index) => {
+          rows.push([
+            order,
+            chat.chatId || "unknown",
+            chat.title,
+            status,
+            chat.href,
+            chat.exportedAt,
+            index + 1,
+            getRoleLabel(message.role),
+            message.text,
+            error
+          ]);
+        });
+      }
       function exportTranscriptJSON2(transcript, opts = {}) {
         return JSON.stringify(normalizeTranscript(transcript, opts), null, 2);
+      }
+      function exportTranscriptCSV2(transcript, opts = {}) {
+        const data = normalizeTranscript(transcript, opts);
+        const rows = [TRANSCRIPT_CSV_HEADER];
+        appendTranscriptCSVRows(rows, data);
+        return renderCSV(rows);
       }
       function exportTranscriptMarkdown2(transcript, opts = {}) {
         const data = normalizeTranscript(transcript, opts);
@@ -2833,6 +2893,12 @@
       }
       function exportBulkTranscriptJSON2(bulkExport, opts = {}) {
         return JSON.stringify(normalizeBulkTranscriptExport(bulkExport, opts), null, 2);
+      }
+      function exportBulkTranscriptCSV2(bulkExport, opts = {}) {
+        const data = normalizeBulkTranscriptExport(bulkExport, opts);
+        const rows = [TRANSCRIPT_CSV_HEADER];
+        data.chats.forEach((chat) => appendTranscriptCSVRows(rows, chat));
+        return renderCSV(rows);
       }
       function appendBulkChatMarkdown(lines, chat) {
         lines.push(`## ${chat.order}. ${chat.title}`);
@@ -2947,11 +3013,13 @@
         return createDocxPackage(getDocxDocument(buildBulkDocxParagraphs(data)));
       }
       module.exports = {
+        exportBulkTranscriptCSV: exportBulkTranscriptCSV2,
         exportBulkTranscriptDOCX: exportBulkTranscriptDOCX2,
         exportBulkTranscriptHTML: exportBulkTranscriptHTML2,
         exportBulkTranscriptJSON: exportBulkTranscriptJSON2,
         exportBulkTranscriptMarkdown: exportBulkTranscriptMarkdown2,
         exportBulkTranscriptText: exportBulkTranscriptText2,
+        exportTranscriptCSV: exportTranscriptCSV2,
         exportTranscriptDOCX: exportTranscriptDOCX2,
         exportTranscriptHTML: exportTranscriptHTML2,
         exportTranscriptJSON: exportTranscriptJSON2,
@@ -3146,7 +3214,7 @@
       ExportModule = {
         id: "export",
         name: NativeUI.t("数据导出", "Data Export"),
-        description: NativeUI.t("JSON / CSV / Markdown / HTML 多格式导出", "Export in JSON / CSV / Markdown / HTML"),
+        description: NativeUI.t("JSON / CSV / Markdown / HTML / DOCX 多格式导出", "Export in JSON / CSV / Markdown / HTML / DOCX"),
         iconId: "download",
         defaultEnabled: true,
         _bulkSelected: /* @__PURE__ */ new Set(),
@@ -3214,6 +3282,7 @@
             { icon: "chart", text: NativeUI.t("用量 CSV", "Usage CSV"), action: () => this.doExportCSV() },
             { icon: "edit", text: NativeUI.t("用量 Markdown", "Usage Markdown"), action: () => this.doExportMarkdown() },
             { icon: "file-text", text: NativeUI.t("对话 JSON", "Chat JSON"), action: () => this.exportCurrentChatJSON() },
+            { icon: "chart", text: NativeUI.t("对话 CSV", "Chat CSV"), action: () => this.exportCurrentChatCSV() },
             { icon: "edit", text: NativeUI.t("对话 Markdown", "Chat Markdown"), action: () => this.exportCurrentChatMarkdown() },
             { icon: "file-text", text: NativeUI.t("对话 TXT", "Chat TXT"), action: () => this.exportCurrentChatText() },
             { icon: "file-text", text: NativeUI.t("对话 HTML", "Chat HTML"), action: () => this.exportCurrentChatHTML() },
@@ -3506,6 +3575,8 @@
           }
           if (format === "json") {
             this._download((0, import_chat_transcript_export.exportTranscriptJSON)(transcript), `${this._getChatFilePrefix()}.chat.json`, "application/json");
+          } else if (format === "csv") {
+            this._download((0, import_chat_transcript_export.exportTranscriptCSV)(transcript), `${this._getChatFilePrefix()}.chat.csv`, "text/csv");
           } else if (format === "markdown") {
             this._download((0, import_chat_transcript_export.exportTranscriptMarkdown)(transcript), `${this._getChatFilePrefix()}.chat.md`, "text/markdown");
           } else if (format === "html") {
@@ -3518,6 +3589,9 @@
         },
         exportCurrentChatJSON() {
           this._downloadCurrentTranscript("json");
+        },
+        exportCurrentChatCSV() {
+          this._downloadCurrentTranscript("csv");
         },
         exportCurrentChatMarkdown() {
           this._downloadCurrentTranscript("markdown");
@@ -3582,6 +3656,8 @@
           if (!bulkExport) return;
           if (format === "json") {
             this._download((0, import_chat_transcript_export.exportBulkTranscriptJSON)(bulkExport), `${this._getBulkFilePrefix()}.json`, "application/json");
+          } else if (format === "csv") {
+            this._download((0, import_chat_transcript_export.exportBulkTranscriptCSV)(bulkExport), `${this._getBulkFilePrefix()}.csv`, "text/csv");
           } else if (format === "markdown") {
             this._download((0, import_chat_transcript_export.exportBulkTranscriptMarkdown)(bulkExport), `${this._getBulkFilePrefix()}.md`, "text/markdown");
           } else if (format === "html") {
@@ -3610,6 +3686,9 @@
         exportSelectedChatsJSON() {
           return this._downloadSelectedTranscripts("json");
         },
+        exportSelectedChatsCSV() {
+          return this._downloadSelectedTranscripts("csv");
+        },
         exportSelectedChatsMarkdown() {
           return this._downloadSelectedTranscripts("markdown");
         },
@@ -3625,7 +3704,7 @@
         _panelButton(label, onClick, opts = {}) {
           const btn = document.createElement("button");
           btn.className = "settings-btn";
-          btn.style.cssText = opts.style || "width:auto;flex:1;padding:5px 6px;font-size:10px;margin-top:0;";
+          btn.style.cssText = opts.style || "width:auto;flex:1 1 38px;padding:5px 6px;font-size:10px;margin-top:0;";
           btn.textContent = label;
           btn.disabled = !!opts.disabled;
           if (btn.disabled) {
@@ -3638,7 +3717,7 @@
         },
         _buttonRow(buttons) {
           const row = document.createElement("div");
-          row.style.cssText = "display:flex;gap:4px;margin-top:6px;";
+          row.style.cssText = "display:flex;gap:4px;margin-top:6px;flex-wrap:wrap;";
           buttons.forEach((button) => row.appendChild(button));
           return row;
         },
@@ -3651,6 +3730,7 @@
           section.appendChild(currentTitle);
           section.appendChild(this._buttonRow([
             this._panelButton("JSON", () => this.exportCurrentChatJSON()),
+            this._panelButton("CSV", () => this.exportCurrentChatCSV()),
             this._panelButton("MD", () => this.exportCurrentChatMarkdown()),
             this._panelButton("TXT", () => this.exportCurrentChatText()),
             this._panelButton("HTML", () => this.exportCurrentChatHTML()),
@@ -3731,6 +3811,7 @@
             const disabled = this._bulkSelected.size === 0;
             section.appendChild(this._buttonRow([
               this._panelButton("JSON", () => this.exportSelectedChatsJSON(), { disabled }),
+              this._panelButton("CSV", () => this.exportSelectedChatsCSV(), { disabled }),
               this._panelButton("MD", () => this.exportSelectedChatsMarkdown(), { disabled }),
               this._panelButton("TXT", () => this.exportSelectedChatsText(), { disabled }),
               this._panelButton("HTML", () => this.exportSelectedChatsHTML(), { disabled }),
@@ -3744,13 +3825,13 @@
           return {
             zh: {
               rant: "2026 年了，Google 最引以为傲的 AI 产品居然不支持导出对话。你跟 Gemini 讨论了三天的架构方案，结果想保存一份？不好意思，请手动复制粘贴 300 条消息。产品经理是不是觉得用户的对话像阅后即焚的 Snapchat？",
-              features: "在聊天标题旁添加导出按钮，可导出用量报告、当前可见对话，或在导出面板多选侧栏对话并导出为 JSON/Markdown/TXT/HTML/DOCX。",
-              guide: "当前对话：打开对话 → 点击标题右侧导出按钮。多选对话：打开悬浮面板导出标签 → 选择对话 → 选择 JSON / MD / TXT / HTML / DOCX。"
+              features: "在聊天标题旁添加导出按钮，可导出用量报告、当前可见对话，或在导出面板多选侧栏对话并导出为 JSON/CSV/Markdown/TXT/HTML/DOCX。",
+              guide: "当前对话：打开对话 → 点击标题右侧导出按钮。多选对话：打开悬浮面板导出标签 → 选择对话 → 选择 JSON / CSV / MD / TXT / HTML / DOCX。"
             },
             en: {
               rant: "It's 2026. Google's flagship AI product doesn't let you export conversations. You spent three days discussing architecture with Gemini and want to save it? Sorry, please manually copy-paste 300 messages. Does the PM think conversations are Snapchats?",
-              features: "Adds a 📤 export button next to the chat title. Export usage reports, the current visible conversation, or selected sidebar chats to JSON/Markdown/TXT/HTML/DOCX.",
-              guide: "Current chat: open a conversation → click the title export button. Selected chats: open the Export panel tab → select chats → choose JSON / MD / TXT / HTML / DOCX."
+              features: "Adds a 📤 export button next to the chat title. Export usage reports, the current visible conversation, or selected sidebar chats to JSON/CSV/Markdown/TXT/HTML/DOCX.",
+              guide: "Current chat: open a conversation → click the title export button. Selected chats: open the Export panel tab → select chats → choose JSON / CSV / MD / TXT / HTML / DOCX."
             }
           };
         },
@@ -3783,6 +3864,13 @@
           chatMdBtn.appendChild(document.createTextNode(" " + NativeUI.t("导出当前对话", "Export Current Chat")));
           chatMdBtn.onclick = () => this.exportCurrentChatMarkdown();
           container.appendChild(chatMdBtn);
+          const chatCsvBtn = document.createElement("button");
+          chatCsvBtn.className = "settings-btn";
+          chatCsvBtn.style.cssText = "display:flex;align-items:center;gap:6px;";
+          chatCsvBtn.appendChild(createIcon("download", 14));
+          chatCsvBtn.appendChild(document.createTextNode(" " + NativeUI.t("导出当前对话 CSV", "Export Current Chat CSV")));
+          chatCsvBtn.onclick = () => this.exportCurrentChatCSV();
+          container.appendChild(chatCsvBtn);
           const chatHtmlBtn = document.createElement("button");
           chatHtmlBtn.className = "settings-btn";
           chatHtmlBtn.style.cssText = "display:flex;align-items:center;gap:6px;";

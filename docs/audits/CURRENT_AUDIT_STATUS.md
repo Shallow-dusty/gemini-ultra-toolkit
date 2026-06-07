@@ -1,6 +1,6 @@
 # Current Audit Status
 
-Updated: 2026-06-08 — covers v12.0 plus post-release dependency-audit repair, local folder undo, local data portability, local context references, pinned context packets, prompt context packets, selected text packets, transcript snippet packets, rich response probe counts, HTML/DOCX transcript export, composer input counter, adapter probe export, and i18n hardening.
+Updated: 2026-06-08 — covers v12.0 plus post-release dependency-audit repair, local folder undo, local data portability, local context references, pinned context packets, prompt context packets, selected text packets, transcript snippet packets, rich response probe counts, CSV/HTML/DOCX transcript export, composer input counter, adapter probe export, and i18n hardening.
 
 This is the maintained audit summary for v12.0. v12 inherits all v11 protections and adds a `src/adapters/gemini.js` abstraction layer for DOM coupling (see ROADMAP.md). Reviewed across 5 self-audit passes plus 3 independent agent reviews (architecture / generic code / userscript-specific). No `critical` findings; all `important` items addressed before release. v11.0 baseline below remains the audit reference for shared logic.
 
@@ -20,6 +20,9 @@ Implemented protections:
 - Transcript export reads visible conversation text only after an explicit
   user export action; selected-chat export records failed/empty captures rather
   than treating sidebar titles as conversation content.
+- CSV transcript downloads quote all cells and guard spreadsheet formula
+  prefixes; they do not add storage reads or change the explicit-export capture
+  boundary.
 - HTML transcript downloads escape transcript text and metadata into standalone
   static documents; they do not add scripts or change the explicit-export
   capture boundary.

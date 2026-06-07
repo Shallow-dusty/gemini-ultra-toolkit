@@ -339,4 +339,17 @@ describe('app smoke checks', () => {
         assert.equal(pkg.dependencies, undefined);
         assert.doesNotMatch(transcriptTools, /require\('docx'\)|require\('jszip'\)|require\('jspdf'\)|require\('pdf-lib'\)/);
     });
+
+    it('keeps transcript CSV export reachable and spreadsheet-safe', () => {
+        const exportModule = read('src/modules/export.js');
+        const transcriptTools = read('lib/chat_transcript_export.js');
+
+        assert.match(transcriptTools, /exportTranscriptCSV/);
+        assert.match(transcriptTools, /exportBulkTranscriptCSV/);
+        assert.match(transcriptTools, /escapeCSVCell/);
+        assert.match(transcriptTools, /\^\\s\*\[=\+\\-@\]/);
+        assert.match(exportModule, /exportCurrentChatCSV/);
+        assert.match(exportModule, /exportSelectedChatsCSV/);
+        assert.match(exportModule, /text\/csv/);
+    });
 });
