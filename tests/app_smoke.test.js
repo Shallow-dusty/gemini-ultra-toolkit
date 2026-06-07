@@ -180,6 +180,21 @@ describe('app smoke checks', () => {
         assert.doesNotMatch(probeScript, /GM_getValue/);
     });
 
+    it('keeps live Gemini compatibility status conservative', () => {
+        const projectStatus = read('docs/PROJECT_STATUS.md');
+        const roadmap = read('docs/ROADMAP.md');
+        const auditStatus = read('docs/audits/CURRENT_AUDIT_STATUS.md');
+        const marketPlan = read('docs/research/market-ui-plan-2026-06-07.md');
+
+        assert.match(projectStatus, /live smoke still pending/i);
+        assert.match(projectStatus, /last full logged-in smoke passed on 2026-05-21/);
+        assert.match(projectStatus, /does not verify logged-in sidebar history navigation or transcript\s+capture/);
+        assert.match(roadmap, /last live DOM evidence, not a current-day compatibility guarantee/);
+        assert.match(roadmap, /Live logged-in proof is still pending/);
+        assert.match(auditStatus, /Repeat for every Google Gemini frontend shift/);
+        assert.match(marketPlan, /logged-in live proof remains pending/);
+    });
+
     it('keeps Prompt Vault import available when the vault is empty', () => {
         const promptVault = read('src/modules/prompt_vault.js');
         const emptyIdx = promptVault.indexOf('if (this._prompts.length === 0)');
