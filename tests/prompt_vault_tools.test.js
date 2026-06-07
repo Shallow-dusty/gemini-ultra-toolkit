@@ -14,6 +14,8 @@ const {
     normalizeShortcut,
     parsePromptImport,
     renderPromptTemplate,
+    removePromptForUndo,
+    restoreRemovedPrompt,
     serializePromptExport,
     sortPromptsForDisplay
 } = require('../lib/prompt_vault_tools.js');
@@ -195,6 +197,47 @@ describe('prompt_vault_tools', () => {
 
         const defaultTime = markPromptUsed([{ id: 'x', name: 'X', content: 'x' }], 'x')[0];
         assert.match(defaultTime.lastUsedAt, /^\d{4}-\d{2}-\d{2}T/);
+    });
+
+    it('removes prompts with enough metadata to undo deletion', () => {
+        const result = removePromptForUndo(sample, 'fav', { nowIso });
+
+        assert.deepEqual(result.prompts.map(prompt => prompt.id), ['recent', 'top']);
+        assert.equal(result.removed.id, 'fav');
+        assert.equal(result.removed.deletedAt, nowIso);
+        assert.equal(result.removed.restoreIndex, 1);
+
+        const missing = removePromptForUndo(sample, 'missing', { nowIso });
+        assert.deepEqual(missing.prompts.map(prompt => prompt.id), ['recent', 'fav', 'top']);
+        assert.equal(missing.removed, null);
+    });
+
+    it('restores deleted prompts while avoiding duplicate or invalid restores', () => {
+        const removed = removePromptForUndo(sample, 'fav', { nowIso }).removed;
+        const restored = restoreRemovedPrompt(sample.filter(prompt => prompt.id !== 'fav'), removed, { nowIso });
+
+        assert.equal(restored.restored, true);
+        assert.deepEqual(restored.prompts.map(prompt => prompt.id), ['recent', 'fav', 'top']);
+        assert.equal(restored.prompts[1].favorite, true);
+
+        const duplicate = restoreRemovedPrompt(sample, removed, { nowIso });
+        assert.equal(duplicate.restored, false);
+        assert.deepEqual(duplicate.prompts.map(prompt => prompt.id), ['recent', 'fav', 'top']);
+
+        const invalid = restoreRemovedPrompt(sample, null, { nowIso });
+        assert.equal(invalid.restored, false);
+        assert.deepEqual(invalid.prompts.map(prompt => prompt.id), ['recent', 'fav', 'top']);
+    });
+
+    it('clamps restore indexes and appends when restore index is absent', () => {
+        const base = [{ id: 'a', name: 'A', content: 'a' }];
+        const beforeStart = restoreRemovedPrompt(base, { id: 'b', name: 'B', content: 'b', restoreIndex: -5 }, { nowIso });
+        const pastEnd = restoreRemovedPrompt(base, { id: 'c', name: 'C', content: 'c', restoreIndex: 99 }, { nowIso });
+        const append = restoreRemovedPrompt(base, { id: 'd', name: 'D', content: 'd', restoreIndex: 'later' }, { nowIso });
+
+        assert.deepEqual(beforeStart.prompts.map(prompt => prompt.id), ['b', 'a']);
+        assert.deepEqual(pastEnd.prompts.map(prompt => prompt.id), ['a', 'c']);
+        assert.deepEqual(append.prompts.map(prompt => prompt.id), ['a', 'd']);
     });
 
     it('creates a versioned prompt export envelope with metadata intact', () => {

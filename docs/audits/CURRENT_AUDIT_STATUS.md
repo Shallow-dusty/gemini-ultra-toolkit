@@ -20,6 +20,8 @@ Implemented protections:
 - Transcript export reads visible conversation text only after an explicit
   user export action; selected-chat export records failed/empty captures rather
   than treating sidebar titles as conversation content.
+- Prompt Vault local deletes keep a one-step undo record in memory so accidental
+  local prompt removal can be restored before the next delete/session reset.
 - GM_* reads and writes are wrapped defensively in source paths that can run in Tampermonkey or the extension polyfill.
 - 2026-06-08: `npm audit --audit-level=moderate` reports 0 vulnerabilities
   after updating `brace-expansion` from `5.0.5` to `5.0.6`.

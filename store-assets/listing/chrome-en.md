@@ -39,7 +39,7 @@ WHAT IT ADDS
 
 • Export — export usage reports, the current visible chat transcript, or selected sidebar chats to JSON / Markdown / TXT.
 
-• Prompt Vault — save frequently used prompts, organize by tag, one-click insert into the composer. Import / export your library as JSON.
+• Prompt Vault — save frequently used prompts, organize by tag, one-click insert into the composer, and undo local prompt deletes. Import / export your library as JSON.
 
 • Message Queue — queue prompts locally, then start, pause, cancel, or reorder the send sequence from the floating panel.
 

@@ -161,11 +161,12 @@ Codex CLI/TUI.
     responses.
   - Plan: add adapter probes for rich response zones before media features.
 - Bulk safety
-  - Primer++ v12: batch delete; no local undo/trash.
+  - Primer++ v12 plus post-planning implementation: batch delete and local
+    Prompt Vault delete undo; folder-move undo remains open.
   - Market signal: SPG positions trash/restore; TFG has bulk management and
     protected folders.
   - Gemini signal: Gemini delete remains server-side and risky to automate.
-  - Plan: add undo for local operations first; avoid promising server-side
+  - Plan: finish undo for local folder moves; avoid promising server-side
     restore.
 - UI resilience
   - Primer++ v12: primary adapter covers most Gemini DOM paths; a static smoke
@@ -275,7 +276,9 @@ boundary.
      selected-sidebar navigation workflow; live smoke still pending;
    - add PDF/DOCX only after a dependency and bundle-size review.
 5. Undo/trash safety for local operations:
-   - undo folder moves and local prompt deletes;
+   - undo folder moves;
+   - ~~undo local prompt deletes~~ done with a Prompt Vault one-step restore
+     action;
    - do not promise recovery for Gemini server-side chat deletes unless the
      deletion path can be intercepted before confirmation.
 

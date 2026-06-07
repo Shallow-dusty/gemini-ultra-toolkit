@@ -27,7 +27,7 @@ Implemented modules:
   transcript export, and selected-sidebar chat export in JSON/Markdown/TXT.
 - Prompt Vault: saved prompts, quick insert, import/export, favorites, recent
   ranking, slash shortcuts, template variables, local prompt chains, and
-  versioned metadata import/export.
+  versioned metadata import/export, plus local prompt-delete undo.
 - Message Queue: local prompt queue with start/pause, cancel, reorder, and a
   conservative active-tool-mode pause guard backed by tested tool-label
   matching.
@@ -99,6 +99,9 @@ Prioritize local-first workflow parity with direct Gemini competitors:
   as a selected-sidebar workflow that navigates each selected chat and captures
   visible transcript text; live Gemini smoke coverage is still due before
   release claims. PDF/DOCX only after dependency and bundle-size review.
+- Local undo/trash safety: Prompt Vault delete undo is implemented; folder-move
+  undo remains open and server-side Gemini chat delete restore remains out of
+  scope unless it can be intercepted before confirmation.
 - Tool-mode awareness for Canvas, Deep Research, Image, Video, Audio Overview,
   Spark, or equivalent Gemini modes so automations can disable themselves
   safely. Canonical label/state matching is covered by unit tests; visible

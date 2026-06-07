@@ -18,8 +18,8 @@ Updated: 2026-06-08 — v12.0 released; selected-chat export added, live smoke s
 
 Last verified locally on 2026-06-08:
 
-- `npm test` — 196 passing tests; `lib/` remains at 100% c8 coverage.
-- `npm run build` — userscript and extension builds complete (~415.1 kb userscript after selected-chat export and URL filtering).
+- `npm test` — 199 passing tests; `lib/` remains at 100% c8 coverage.
+- `npm run build` — userscript and extension builds complete (~418.7 kb userscript after selected-chat export, URL filtering, and prompt-delete undo).
 - `npm audit --audit-level=moderate` — 0 vulnerabilities after updating
   `brace-expansion` from `5.0.5` to `5.0.6`.
 - **Real-browser smoke test** — last full logged-in smoke passed on 2026-05-21

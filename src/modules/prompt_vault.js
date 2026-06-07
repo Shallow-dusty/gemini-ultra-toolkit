@@ -16,6 +16,8 @@ import {
     mergePromptImport,
     normalizePrompt,
     normalizePromptList,
+    removePromptForUndo,
+    restoreRemovedPrompt,
     renderPromptTemplate,
     serializePromptExport,
     sortPromptsForDisplay
@@ -30,6 +32,7 @@ export const PromptVaultModule = {
 
     STORAGE_KEY: 'gemini_prompt_vault',
     _prompts: [],
+    _lastDeletedPrompt: null,
 
     _getStorageKey() {
         const user = Core.getCurrentUser();
@@ -41,6 +44,7 @@ export const PromptVaultModule = {
         try { prompts = GM_getValue(this._getStorageKey(), []); }
         catch (e) { prompts = []; }
         this._prompts = normalizePromptList(prompts);
+        this._lastDeletedPrompt = null;
         this._save();
         Logger.info('PromptVaultModule initialized', { count: this._prompts.length });
     },
@@ -49,6 +53,7 @@ export const PromptVaultModule = {
         if (fab) fab.remove();
         if (this._slashAbort) { this._slashAbort.abort(); this._slashAbort = null; }
         this._slashEditor = null;
+        this._lastDeletedPrompt = null;
         this.removeNativeUI();
     },
     onUserChange() {
@@ -56,6 +61,7 @@ export const PromptVaultModule = {
         try { prompts = GM_getValue(this._getStorageKey(), []); }
         catch (e) { prompts = []; }
         this._prompts = normalizePromptList(prompts);
+        this._lastDeletedPrompt = null;
         this._save();
         PanelUI.renderDetailsPane();
     },
@@ -192,8 +198,28 @@ export const PromptVaultModule = {
     },
 
     deletePrompt(id) {
-        this._prompts = this._prompts.filter(p => p.id !== id);
+        const result = removePromptForUndo(this._prompts, id, { nowIso: new Date().toISOString() });
+        if (!result.removed) return;
+        this._prompts = result.prompts;
+        this._lastDeletedPrompt = result.removed;
         this._save();
+        NativeUI.showToast(NativeUI.t('提示词已删除，可撤销', 'Prompt deleted. Undo is available'));
+    },
+
+    undoDeletePrompt() {
+        if (!this._lastDeletedPrompt) return;
+        const result = restoreRemovedPrompt(this._prompts, this._lastDeletedPrompt, {
+            nowIso: new Date().toISOString()
+        });
+        if (!result.restored) {
+            this._lastDeletedPrompt = null;
+            return;
+        }
+        this._prompts = result.prompts;
+        this._lastDeletedPrompt = null;
+        this._save();
+        PanelUI.renderDetailsPane();
+        NativeUI.showToast(NativeUI.t('已恢复提示词', 'Prompt restored'));
     },
 
     updatePrompt(id, updates) {
@@ -325,6 +351,32 @@ export const PromptVaultModule = {
         title.appendChild(titleText);
         title.appendChild(addBtn);
         container.appendChild(title);
+
+        if (this._lastDeletedPrompt) {
+            const undoRow = document.createElement('div');
+            undoRow.className = 'detail-row';
+            undoRow.style.cssText = 'display:flex;align-items:center;gap:6px;';
+
+            const label = document.createElement('span');
+            label.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+            label.textContent = NativeUI.t(
+                `已删除：${this._lastDeletedPrompt.name}`,
+                `Deleted: ${this._lastDeletedPrompt.name}`
+            );
+
+            const undoBtn = document.createElement('button');
+            undoBtn.className = 'settings-btn';
+            undoBtn.style.cssText = 'width:auto;margin-top:0;padding:3px 8px;font-size:10px;';
+            undoBtn.textContent = NativeUI.t('撤销', 'Undo');
+            undoBtn.onclick = (e) => {
+                e.stopPropagation();
+                this.undoDeletePrompt();
+            };
+
+            undoRow.appendChild(label);
+            undoRow.appendChild(undoBtn);
+            container.appendChild(undoRow);
+        }
 
         if (this._prompts.length === 0) {
             const hint = document.createElement('div');

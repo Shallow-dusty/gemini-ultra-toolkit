@@ -6853,6 +6853,35 @@ ${part}`).join("\n\n---\n\n");
           };
         });
       }
+      function removePromptForUndo2(prompts, id, opts = {}) {
+        const normalized = normalizePromptList2(prompts, opts);
+        const idx = normalized.findIndex((prompt) => prompt.id === cleanText(id));
+        if (idx === -1) {
+          return { prompts: normalized, removed: null };
+        }
+        const removed = {
+          ...normalized[idx],
+          deletedAt: getNowIso(opts),
+          restoreIndex: idx
+        };
+        return {
+          prompts: normalized.filter((prompt) => prompt.id !== removed.id),
+          removed
+        };
+      }
+      function restoreRemovedPrompt2(prompts, removed, opts = {}) {
+        const normalized = normalizePromptList2(prompts, opts);
+        const source = removed && typeof removed === "object" ? removed : {};
+        const prompt = normalizePrompt2(source, normalized.length, opts);
+        if (!prompt.content || normalized.some((existing) => existing.id === prompt.id)) {
+          return { prompts: normalized, restored: false };
+        }
+        const rawIndex = Number(source.restoreIndex);
+        const restoreIndex = Number.isInteger(rawIndex) ? Math.max(0, Math.min(rawIndex, normalized.length)) : normalized.length;
+        const next = [...normalized];
+        next.splice(restoreIndex, 0, prompt);
+        return { prompts: next, restored: true };
+      }
       function getNowIso(opts = {}) {
         return opts.nowIso || (/* @__PURE__ */ new Date()).toISOString();
       }
@@ -6908,6 +6937,8 @@ ${part}`).join("\n\n---\n\n");
         normalizeShortcut,
         parsePromptImport,
         renderPromptTemplate: renderPromptTemplate2,
+        removePromptForUndo: removePromptForUndo2,
+        restoreRemovedPrompt: restoreRemovedPrompt2,
         serializePromptExport: serializePromptExport2,
         sortPromptsForDisplay: sortPromptsForDisplay2
       };
@@ -6936,6 +6967,7 @@ ${part}`).join("\n\n---\n\n");
         defaultEnabled: false,
         STORAGE_KEY: "gemini_prompt_vault",
         _prompts: [],
+        _lastDeletedPrompt: null,
         _getStorageKey() {
           const user = Core.getCurrentUser();
           return user && user.includes("@") ? `${this.STORAGE_KEY}_${user}` : this.STORAGE_KEY;
@@ -6948,6 +6980,7 @@ ${part}`).join("\n\n---\n\n");
             prompts = [];
           }
           this._prompts = (0, import_prompt_vault_tools.normalizePromptList)(prompts);
+          this._lastDeletedPrompt = null;
           this._save();
           Logger.info("PromptVaultModule initialized", { count: this._prompts.length });
         },
@@ -6959,6 +6992,7 @@ ${part}`).join("\n\n---\n\n");
             this._slashAbort = null;
           }
           this._slashEditor = null;
+          this._lastDeletedPrompt = null;
           this.removeNativeUI();
         },
         onUserChange() {
@@ -6969,6 +7003,7 @@ ${part}`).join("\n\n---\n\n");
             prompts = [];
           }
           this._prompts = (0, import_prompt_vault_tools.normalizePromptList)(prompts);
+          this._lastDeletedPrompt = null;
           this._save();
           PanelUI.renderDetailsPane();
         },
@@ -7097,8 +7132,27 @@ ${part}`).join("\n\n---\n\n");
           this._save();
         },
         deletePrompt(id) {
-          this._prompts = this._prompts.filter((p) => p.id !== id);
+          const result = (0, import_prompt_vault_tools.removePromptForUndo)(this._prompts, id, { nowIso: (/* @__PURE__ */ new Date()).toISOString() });
+          if (!result.removed) return;
+          this._prompts = result.prompts;
+          this._lastDeletedPrompt = result.removed;
           this._save();
+          NativeUI.showToast(NativeUI.t("提示词已删除，可撤销", "Prompt deleted. Undo is available"));
+        },
+        undoDeletePrompt() {
+          if (!this._lastDeletedPrompt) return;
+          const result = (0, import_prompt_vault_tools.restoreRemovedPrompt)(this._prompts, this._lastDeletedPrompt, {
+            nowIso: (/* @__PURE__ */ new Date()).toISOString()
+          });
+          if (!result.restored) {
+            this._lastDeletedPrompt = null;
+            return;
+          }
+          this._prompts = result.prompts;
+          this._lastDeletedPrompt = null;
+          this._save();
+          PanelUI.renderDetailsPane();
+          NativeUI.showToast(NativeUI.t("已恢复提示词", "Prompt restored"));
         },
         updatePrompt(id, updates) {
           const idx = this._prompts.findIndex((p) => p.id === id);
@@ -7225,6 +7279,28 @@ ${part}`).join("\n\n---\n\n");
           title.appendChild(titleText);
           title.appendChild(addBtn);
           container.appendChild(title);
+          if (this._lastDeletedPrompt) {
+            const undoRow = document.createElement("div");
+            undoRow.className = "detail-row";
+            undoRow.style.cssText = "display:flex;align-items:center;gap:6px;";
+            const label = document.createElement("span");
+            label.style.cssText = "flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+            label.textContent = NativeUI.t(
+              `已删除：${this._lastDeletedPrompt.name}`,
+              `Deleted: ${this._lastDeletedPrompt.name}`
+            );
+            const undoBtn = document.createElement("button");
+            undoBtn.className = "settings-btn";
+            undoBtn.style.cssText = "width:auto;margin-top:0;padding:3px 8px;font-size:10px;";
+            undoBtn.textContent = NativeUI.t("撤销", "Undo");
+            undoBtn.onclick = (e) => {
+              e.stopPropagation();
+              this.undoDeletePrompt();
+            };
+            undoRow.appendChild(label);
+            undoRow.appendChild(undoBtn);
+            container.appendChild(undoRow);
+          }
           if (this._prompts.length === 0) {
             const hint = document.createElement("div");
             hint.style.cssText = "font-size: 10px; color: var(--text-sub); opacity: 0.6; padding: 4px 8px;";
