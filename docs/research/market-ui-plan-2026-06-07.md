@@ -11,9 +11,10 @@ mutable, so refresh this file before any major release or store submission.
 - Local verification on 2026-06-08:
   - `npm test` passed: 251 tests, `lib/` at 100% c8 coverage.
   - `npm run build` passed for userscript and extension outputs; generated
-    userscript size was ~485.7 kb after HTML transcript export, adapter probe
+    userscript size was ~487.9 kb after HTML transcript export, adapter probe
     export, pinned context packets, prompt context packets, selected text
-    packets, transcript snippet packets, and broader i18n hardening.
+    packets, transcript snippet packets, rich response probe counts, and broader
+    i18n hardening.
 - 2026-06-08 follow-up: `brace-expansion` was updated from `5.0.5` to
   `5.0.6`; `npm audit --audit-level=moderate` now reports 0 vulnerabilities.
 - Live Gemini DOM verification was not refreshed: no Chrome DevTools Protocol
@@ -173,11 +174,14 @@ Codex CLI/TUI.
   - Plan: continue toward broader context packets without mirroring Gemini
     memories or reading hidden transcript content.
 - Rich responses/media
-  - Primer++ v12: no image gallery or Neural Expressive handling.
+  - Primer++ v12 plus post-planning implementation: no image gallery or Neural
+    Expressive handling yet; adapter probe exports now include structural counts
+    for rendered rich response zones.
   - Market signal: TFG has image gallery; SPG is not primarily media-positioned.
   - Gemini signal: Gemini is moving to richer layouts and modality-specific
     responses.
-  - Plan: add adapter probes for rich response zones before media features.
+  - Plan: use rich response probe evidence before media features; keep exports
+    structural only until a user-visible media workflow is designed.
 - Bulk safety
   - Primer++ v12 plus post-planning implementation: batch delete, local Prompt
     Vault delete undo, and one-step local folder move/delete undo.
@@ -262,6 +266,8 @@ Goal: make "Gemini changed again" a contained adapter task.
    - ~~input editor and send button;~~ covered by the adapter probe export
      helper;
    - ~~chat header/export anchor;~~ covered by adapter/local-UI presence flags;
+   - ~~rich response zones;~~ covered by structural code/table/media/link/
+     citation-candidate counts without exporting content or URLs;
    - ~~Canvas/Spark/tool-mode entry points when visible.~~ The report records
      active tool-mode state and visible entry candidates when the adapter can
      detect them; logged-in live proof is still required.

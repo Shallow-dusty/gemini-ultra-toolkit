@@ -1,6 +1,6 @@
 # Current Audit Status
 
-Updated: 2026-06-08 — covers v12.0 plus post-release dependency-audit repair, local folder undo, local data portability, local context references, pinned context packets, prompt context packets, selected text packets, transcript snippet packets, HTML transcript export, adapter probe export, and i18n hardening.
+Updated: 2026-06-08 — covers v12.0 plus post-release dependency-audit repair, local folder undo, local data portability, local context references, pinned context packets, prompt context packets, selected text packets, transcript snippet packets, rich response probe counts, HTML transcript export, adapter probe export, and i18n hardening.
 
 This is the maintained audit summary for v12.0. v12 inherits all v11 protections and adds a `src/adapters/gemini.js` abstraction layer for DOM coupling (see ROADMAP.md). Reviewed across 5 self-audit passes plus 3 independent agent reviews (architecture / generic code / userscript-specific). No `critical` findings; all `important` items addressed before release. v11.0 baseline below remains the audit reference for shared logic.
 
@@ -26,6 +26,9 @@ Implemented protections:
 - Adapter probe exports are limited to selector/model/sidebar/input/header
   health counts, booleans, and canonical tool-mode labels. They do not dump
   local storage, sidebar titles, or transcript bodies.
+- Rich response probe exports are structural counts only for rendered response
+  zones, such as code/table/media/link/citation candidates; they do not export
+  message bodies, URLs, alt text, filenames, or storage data.
 - Prompt Vault local deletes keep a one-step undo record in memory so accidental
   local prompt removal can be restored before the next delete/session reset.
 - Local folder moves, batch moves, unassignments, and folder deletes keep a

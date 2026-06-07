@@ -1,6 +1,6 @@
 # Roadmap
 
-Updated: 2026-06-08 (post-v12 planning refresh + local data portability + local context references + pinned context packets + prompt context packets + selected text packets + transcript snippet packets + quota window framing + prompt-chain queueing + HTML transcript export + adapter probe export + i18n hardening).
+Updated: 2026-06-08 (post-v12 planning refresh + local data portability + local context references + pinned context packets + prompt context packets + selected text packets + transcript snippet packets + rich response probe counts + quota window framing + prompt-chain queueing + HTML transcript export + adapter probe export + i18n hardening).
 
 This is the maintained roadmap. It replaces the old full feature brainstorming document, which mixed implemented features, speculative ideas, and stale project naming.
 
@@ -61,9 +61,9 @@ Implemented modules:
      release; the last completed live probe is from 2026-05-21.
    - CDP probe export helper now captures the adapter runtime report for model
      switcher, sidebar row actions, input editor/send button, header anchor,
-     visible message count, active tool-mode state, and visible tool-mode entry
-     candidates when a live page is available. Live logged-in proof is still
-     pending.
+     visible message count, rich response structure counts, active tool-mode
+     state, and visible tool-mode entry candidates when a live page is
+     available. Live logged-in proof is still pending.
 
 3. Store-listing readiness
    - Keep `Primer++ for Gemini™` naming consistent.

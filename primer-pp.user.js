@@ -487,6 +487,16 @@
   function cleanVisibleText(el) {
     return (el?.textContent || "").replace(/\s+\n/g, "\n").replace(/\n\s+/g, "\n").trim();
   }
+  function getUniqueDescendantCount(roots, selector) {
+    const seen = /* @__PURE__ */ new Set();
+    roots.forEach((root) => {
+      try {
+        root.querySelectorAll(selector).forEach((el) => seen.add(el));
+      } catch {
+      }
+    });
+    return seen.size;
+  }
   var import_tool_mode_tools, import_gemini_url_tools, S, GeminiAdapter;
   var init_gemini = __esm({
     "src/adapters/gemini.js"() {
@@ -576,6 +586,12 @@
         USER_QUERY_TEXT: ".query-text, .user-query-text",
         CHAT_CONTENT_ROOT: 'main, [role="main"], user-query, model-response, response-container, .conversation-container',
         MAIN_CHAT_AREA: 'main, .chat-container, [role="main"]',
+        RICH_CODE_BLOCK: 'pre, code, [data-language], [class*="code" i]',
+        RICH_TABLE: "table",
+        RICH_IMAGE: "img, picture",
+        RICH_VIDEO: "video",
+        RICH_LINK: "a[href]",
+        RICH_CITATION_CANDIDATE: 'citation, [data-citation], [data-source-id], [aria-label*="source" i], [aria-label*="citation" i]',
         // CSS targets for UI Tweaks. These are CSS rule selectors rather than
         // element lookup selectors, but still belong in the Gemini-owned catalog.
         UI_TWEAK_CHAT_WIDTH_TARGET: "main .conversation-container, main .chat-window",
@@ -826,6 +842,34 @@
           });
           return messages;
         },
+        /**
+         * Privacy-conservative structural probe for rich Gemini responses.
+         * Counts rendered response-zone element types only; it never exports message
+         * bodies, link URLs, image alt text, file names, or local storage data.
+         */
+        getRichResponseProbeReport() {
+          const responseRoots = Array.from(document.querySelectorAll(`${S.MODEL_RESPONSE}, ${S.RESPONSE_CONTAINER}`));
+          const codeBlockCount = getUniqueDescendantCount(responseRoots, S.RICH_CODE_BLOCK);
+          const tableCount = getUniqueDescendantCount(responseRoots, S.RICH_TABLE);
+          const imageCount = getUniqueDescendantCount(responseRoots, S.RICH_IMAGE);
+          const videoCount = getUniqueDescendantCount(responseRoots, S.RICH_VIDEO);
+          const linkCount = getUniqueDescendantCount(responseRoots, S.RICH_LINK);
+          const citationCandidateCount = getUniqueDescendantCount(responseRoots, S.RICH_CITATION_CANDIDATE);
+          const mediaCandidateCount = imageCount + videoCount;
+          const richElementCount = codeBlockCount + tableCount + mediaCandidateCount + linkCount + citationCandidateCount;
+          return {
+            responseRootCount: responseRoots.length,
+            codeBlockCount,
+            tableCount,
+            imageCount,
+            videoCount,
+            mediaCandidateCount,
+            linkCount,
+            citationCandidateCount,
+            richElementCount,
+            hasRichContent: richElementCount > 0
+          };
+        },
         // ─── Mode picker ───────────────────────────────────────────────────
         getModelSwitch() {
           return firstMatch(document, S.MODE_BTN);
@@ -1039,7 +1083,8 @@
                 titleTextPresent: !!this.getChatTitleText()
               },
               conversation: {
-                visibleMessageCount: this.getCurrentConversationMessages().length
+                visibleMessageCount: this.getCurrentConversationMessages().length,
+                richResponse: this.getRichResponseProbeReport()
               }
             }
           };

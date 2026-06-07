@@ -1,6 +1,6 @@
 # Project Status
 
-Updated: 2026-06-08 — v12.0 released; selected-chat export, local folder undo, local data portability, local context references, pinned context packets, prompt context packets, selected text packets, transcript snippet packets, quota reset-window framing, prompt-chain queueing, HTML transcript export, adapter probe export, and i18n hardening added; live smoke still pending.
+Updated: 2026-06-08 — v12.0 released; selected-chat export, local folder undo, local data portability, local context references, pinned context packets, prompt context packets, selected text packets, transcript snippet packets, rich response probe counts, quota reset-window framing, prompt-chain queueing, HTML transcript export, adapter probe export, and i18n hardening added; live smoke still pending.
 
 ## Summary
 
@@ -19,11 +19,11 @@ Updated: 2026-06-08 — v12.0 released; selected-chat export, local folder undo,
 Last verified locally on 2026-06-08:
 
 - `npm test` — 251 passing tests; `lib/` remains at 100% c8 coverage.
-- `npm run build` — userscript and extension builds complete (~485.7 kb
+- `npm run build` — userscript and extension builds complete (~487.9 kb
   userscript after selected-chat export, URL filtering, prompt-delete undo,
   folder undo, local folder/notes import-export, local context-reference
   insertion, pinned context packets, prompt context packets, selected text
-  packets, transcript snippet packets,
+  packets, transcript snippet packets, rich response probe counts,
   quota reset-window framing, prompt-chain queueing, HTML transcript export,
   adapter probe export, and broader i18n hardening).
 - `npm audit --audit-level=moderate` — 0 vulnerabilities after updating
