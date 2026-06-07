@@ -106,6 +106,6 @@ describe('app smoke checks', () => {
         const braceExpansion = lock.packages['node_modules/brace-expansion'];
 
         assert.equal(lock.packages[''].name, 'primer-pp');
-        assert.equal(braceExpansion.version, '5.0.5');
+        assert.equal(braceExpansion.version, '5.0.6');
     });
 });

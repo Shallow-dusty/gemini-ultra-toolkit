@@ -1,6 +1,6 @@
 # Current Audit Status
 
-Updated: 2026-05-21 — covers v12.0.
+Updated: 2026-06-08 — covers v12.0 plus post-release dependency-audit repair.
 
 This is the maintained audit summary for v12.0. v12 inherits all v11 protections and adds a `src/adapters/gemini.js` abstraction layer for DOM coupling (see ROADMAP.md). Reviewed across 5 self-audit passes plus 3 independent agent reviews (architecture / generic code / userscript-specific). No `critical` findings; all `important` items addressed before release. v11.0 baseline below remains the audit reference for shared logic.
 
@@ -16,12 +16,14 @@ Implemented protections:
 - Chat href fallback navigation uses `isValidChatHref()`.
 - Folder color values are validated before use in `cssText`.
 - GM_* reads and writes are wrapped defensively in source paths that can run in Tampermonkey or the extension polyfill.
-- `npm audit --audit-level=moderate` reports 0 vulnerabilities after the `brace-expansion` update.
+- 2026-06-08: `npm audit --audit-level=moderate` reports 0 vulnerabilities
+  after updating `brace-expansion` from `5.0.5` to `5.0.6`.
 
 Residual checks:
 
 - ~~Run a real-browser smoke test before release.~~ — done for v12.0 (`docs/research/v12-dom-probe-2026-05-21-revised.md`). Repeat for every Google Gemini frontend shift.
 - Keep avoiding remote secrets; this is a front-end-only project and provider/API keys do not belong in the repo.
+- Keep `npm audit --audit-level=moderate` in the release gate.
 
 ## Resilience
 

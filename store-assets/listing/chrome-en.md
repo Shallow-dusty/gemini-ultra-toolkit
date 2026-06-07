@@ -166,9 +166,9 @@ https://github.com/Shallow-dusty/primer-pp/blob/main/PRIVACY.md
 Upload in this order from `store-assets/screenshots/`:
 
 1. `01-panel-counter.png` — floating panel with daily counter + quota bar
-2. `02-heatmap-dashboard.png` — year heatmap and model breakdown
-3. `03-folders.png` — sidebar with folders + management modal
-4. `04-prompt-vault.png` — Prompt Vault with saved prompts
-5. `05-settings.png` — settings modal showing module toggles
+2. `02-details-pane.png` — expanded details pane with module tabs
+3. `03-dashboard-heatmap.png` — year heatmap and model breakdown
+4. `04-settings.png` — settings modal showing module toggles
+5. `05-theme-cyber.png` — alternate Cyber theme
 
 > Each 1280×800 PNG, no transparency. Required: at least 1, max 5.

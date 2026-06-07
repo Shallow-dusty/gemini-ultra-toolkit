@@ -1,15 +1,21 @@
 # Roadmap
 
-Updated: 2026-05-21 (v12.0 release).
+Updated: 2026-06-08 (post-v12 planning refresh + Phase 0 audit repair).
 
 This is the maintained roadmap. It replaces the old full feature brainstorming document, which mixed implemented features, speculative ideas, and stale project naming.
 
 ## v12.0 (2026-05-21) — released
 
-- **GeminiAdapter abstraction**: all DOM coupling consolidated into `src/adapters/gemini.js`. Future Gemini frontend rewrites should only require updating this single file.
-- **Live DOM compatibility**: selectors updated for the 2026-05-20 Gemini frontend overhaul (new mode-picker structure, `more options for <title>` row buttons, `data-test-id="delete-button"` confirmation flow, `Send message` aria-label).
+- **GeminiAdapter abstraction**: `src/adapters/gemini.js` is now the primary DOM-coupling layer. Most Gemini selectors live there; remaining module-level assumptions are explicit adapter-hardening work.
+- **Live DOM compatibility**: selectors were updated for the 2026-05-20 Gemini frontend overhaul (new mode-picker structure, `more options for <title>` row buttons, `data-test-id="delete-button"` confirmation flow, `Send message` aria-label).
 - **Real-browser smoke test verified** — first release with end-to-end verification on the live Gemini app.
-- **8 modules still operational** post-migration: counter, folders, export, prompt vault, default model, batch delete, quote reply, UI tweaks.
+- **8 modules were operational in the 2026-05-21 live smoke**: counter, folders, export, prompt vault, default model, batch delete, quote reply, UI tweaks. This is the last live DOM evidence, not a current-day compatibility guarantee.
+
+## Planning Snapshot
+
+The current market/UI planning source is `docs/research/market-ui-plan-2026-06-07.md`.
+Refresh that snapshot before any major release because Gemini's UI and the
+extension market both change quickly.
 
 ## Current Product Baseline
 
@@ -26,23 +32,55 @@ Implemented modules:
 
 ## Near-Term Priorities
 
-1. ~~Real-browser release smoke test~~ — done for v12.0 via Playwright MCP. Repeat for every major release; Gemini's frontend changes more often than expected.
+1. Release hygiene and truthful status
+   - ~~Update `brace-expansion` from `5.0.5` to `5.0.6`, then update the smoke
+     test that currently pins the old version.~~ Done on 2026-06-08.
+   - ~~Refresh `PROJECT_STATUS.md` and `audits/CURRENT_AUDIT_STATUS.md` after
+     `npm audit --audit-level=moderate` is green again.~~ Done on 2026-06-08.
+   - ~~Fix the Chrome Web Store screenshot filename mismatch, or regenerate
+     screenshots that match the listing docs.~~ Done on 2026-06-08.
 
-2. Store-listing readiness
+2. Live Gemini compatibility
+   - Repeat the real-browser smoke test before store submission and every major
+     release; the last completed live probe is from 2026-05-21.
+   - Extend CDP probes to cover model switcher, sidebar row actions, input
+     editor/send button, header/export anchor, and visible tool-mode entry
+     points such as Canvas/Spark when present.
+
+3. Store-listing readiness
    - Keep `Primer++ for Gemini™` naming consistent.
    - Include the unofficial/community disclaimer.
    - Use local-first/privacy-forward positioning.
    - Prepare screenshots around counter/heatmap, folders, prompt vault, and export.
 
-3. Test broadening
+4. Adapter hardening
+   - Move remaining Gemini-dependent CSS selectors and event filters into
+     `GeminiAdapter` helpers or explicit exceptions.
+   - Add static smoke checks so accidental Gemini selectors do not spread back
+     into modules.
+
+5. Test broadening
    - Add browser-level smoke automation if Playwright becomes stable for the Gemini DOM.
    - Keep current unit coverage strict for `lib/`.
    - Add static smoke checks only for release-critical metadata and invariants.
 
-4. Accessibility and i18n hardening
+6. Accessibility and i18n hardening
    - Continue replacing hardcoded UI text with `NativeUI.t()`.
    - Verify focus order in real browser.
    - Recheck contrast for all themes.
+
+## v12.x / v13 Product Direction
+
+Prioritize local-first workflow parity with direct Gemini competitors:
+
+- Message queue with pause/cancel/reorder.
+- Prompt vault upgrade: slash commands, prompt chains, placeholders, recents,
+  favorites, and compatible import/export.
+- Per-chat local notes and pins.
+- Bulk export for selected chats in JSON/Markdown/TXT first; PDF/DOCX only
+  after dependency and bundle-size review.
+- Tool-mode awareness for Canvas, Deep Research, Image, Video, Audio Overview, Spark, or
+  equivalent Gemini modes so automations can disable themselves safely.
 
 ## Deferred Ideas
 

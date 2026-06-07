@@ -1,6 +1,6 @@
 # Project Status
 
-Updated: 2026-05-21 — v12.0 release in progress.
+Updated: 2026-06-08 — v12.0 released; Phase 0 release hygiene mostly repaired.
 
 ## Summary
 
@@ -12,16 +12,21 @@ Updated: 2026-05-21 — v12.0 release in progress.
 - Testable pure logic: `lib/`
 - Node test suite: `tests/`
 
-**v12.0 (2026-05-21)** — Google reshuffled the Gemini frontend on 2026-05-20, breaking several DOM selectors (`.conversation-title-container`, `button.send-button`, `.user-query-text`, `.bard-mode-list-button.is-selected`, `button.gds-pillbox-button`). v12 introduces `src/adapters/gemini.js` — a single DOM-coupling layer used by every module. Future Gemini rewrites should only touch this file.
+**v12.0 (2026-05-21)** — Google reshuffled the Gemini frontend on 2026-05-20, breaking several DOM selectors (`.conversation-title-container`, `button.send-button`, `.user-query-text`, `.bard-mode-list-button.is-selected`, `button.gds-pillbox-button`). v12 introduces `src/adapters/gemini.js` as the primary DOM-coupling layer used by every module. Most Gemini selectors now live there; remaining module-level DOM assumptions are tracked as adapter-hardening work in `docs/ROADMAP.md`.
 
 ## Verification Snapshot
 
-Last verified locally on 2026-05-21:
+Last verified locally on 2026-06-08:
 
 - `npm test` — 146 passing tests; `lib/` remains at 100% c8 coverage.
 - `npm run build` — userscript and extension builds complete (~329 kb userscript).
-- `npm audit --audit-level=moderate` — 0 vulnerabilities.
-- **Real-browser smoke test** — passed (`docs/research/v12-dom-probe-2026-05-21-revised.md`). All 8 modules inject correctly on the new Gemini frontend: panel + counter + export + folders + prompt-vault + default-model + batch-delete + quote-reply + ui-tweaks. Zero `pageerror` events.
+- `npm audit --audit-level=moderate` — 0 vulnerabilities after updating
+  `brace-expansion` from `5.0.5` to `5.0.6`.
+- **Real-browser smoke test** — last passed on 2026-05-21
+  (`docs/research/v12-dom-probe-2026-05-21-revised.md`). A 2026-06-07 CDP
+  refresh was not possible because no Gemini page was available at
+  `127.0.0.1:63366`. Treat live Gemini compatibility as due for refresh before
+  store submission.
 
 ## Repository Structure
 
@@ -47,11 +52,10 @@ Generated or local-only directories:
 
 ## Current Git Notes
 
-Expected modified files after the 2026-05-05 cleanup:
+Expected modified files in the 2026-06-08 planning/audit refresh:
 
-- source and metadata files for branding, a11y/i18n, and audit fixes
-- generated `primer-pp.user.js`
-- docs consolidation files
+- docs planning/status/audit files
+- `store-assets/listing/chrome-en.md`
 - `package-lock.json`
 - `tests/app_smoke.test.js`
 
@@ -63,6 +67,11 @@ npm run build
 npm audit --audit-level=moderate
 git status --short --branch
 ```
+
+## Current Planning Snapshot
+
+See `docs/research/market-ui-plan-2026-06-07.md` for the latest competitor,
+Gemini UI, and v12.x/v13 development planning snapshot.
 
 ## Manual Smoke Test (completed for v12.0)
 
