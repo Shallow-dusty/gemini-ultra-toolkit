@@ -30,6 +30,7 @@ Implemented modules:
 - Batch Delete: multi-select deletion workflow.
 - Quote Reply: selected-text quote insertion.
 - UI Tweaks: title sync, Ctrl+Enter behavior, width controls, Gems hiding.
+- Chat Notes: local per-chat notes and pins in the details pane.
 
 ## Near-Term Priorities
 
@@ -86,7 +87,7 @@ Prioritize local-first workflow parity with direct Gemini competitors:
   - ~~variable placeholders~~ done after the market/UI planning snapshot;
   - ~~recents and favorites~~ done after the market/UI planning snapshot;
   - compatible import/export for prompt metadata.
-- Per-chat local notes and pins.
+- ~~Per-chat local notes and pins.~~ Done after the market/UI planning snapshot.
 - Bulk export for selected chats in JSON/Markdown/TXT first; PDF/DOCX only
   after dependency and bundle-size review.
 - Tool-mode awareness for Canvas, Deep Research, Image, Video, Audio Overview, Spark, or

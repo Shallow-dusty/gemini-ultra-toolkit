@@ -33,6 +33,7 @@ import { DefaultModelModule } from './modules/default_model.js';
 import { BatchDeleteModule } from './modules/batch_delete.js';
 import { QuoteReplyModule } from './modules/quote_reply.js';
 import { UITweaksModule } from './modules/ui_tweaks.js';
+import { ChatNotesModule } from './modules/chat_notes.js';
 
 // Register all modules explicitly (after all imports are resolved)
 ModuleRegistry.register(CounterModule);
@@ -43,6 +44,7 @@ ModuleRegistry.register(DefaultModelModule);
 ModuleRegistry.register(BatchDeleteModule);
 ModuleRegistry.register(QuoteReplyModule);
 ModuleRegistry.register(UITweaksModule);
+ModuleRegistry.register(ChatNotesModule);
 
 // ╔══════════════════════════════════════════════════════════════════════════╗
 // ║                           MAIN LOOP (主循环)                             ║

@@ -27,7 +27,8 @@ export const MODULE_ICON_MAP = {
     'default-model': 'bot',
     'batch-delete': 'trash',
     'quote-reply': 'quote',
-    'ui-tweaks': 'palette'
+    'ui-tweaks': 'palette',
+    'chat-notes': 'pin'
 };
 
 /** Set element content to [SVG icon] + text (CSP-safe) */

@@ -9,7 +9,7 @@ mutable, so refresh this file before any major release or store submission.
 - Local git state is mutable; run `git status --short --branch` before release,
   push, or store submission instead of treating this snapshot as live git truth.
 - Local verification on 2026-06-08:
-  - `npm test` passed: 159 tests, `lib/` at 100% c8 coverage.
+  - `npm test` passed: 168 tests, `lib/` at 100% c8 coverage.
   - `npm run build` passed for userscript and extension outputs.
 - 2026-06-08 follow-up: `brace-expansion` was updated from `5.0.5` to
   `5.0.6`; `npm audit --audit-level=moderate` now reports 0 vulnerabilities.
@@ -138,11 +138,12 @@ Codex CLI/TUI.
   - Gemini signal: Gemini is adding agent/tool modes where auto-send risk rises.
   - Plan: message queue is high-value parity, but must be tool-mode aware.
 - Notes/references
-  - Primer++ v12: quote reply; no durable per-chat notes.
+  - Primer++ v12 plus post-planning implementation: quote reply plus local
+    per-chat notes and pins.
   - Market signal: SPG has notes/chat referencing; TFG has pinned messages.
   - Gemini signal: Gemini renamed past chats to memories and adds app
     connections.
-  - Plan: add local notes/pins/context packets without mirroring Gemini memories.
+  - Plan: continue toward context packets without mirroring Gemini memories.
 - Rich responses/media
   - Primer++ v12: no image gallery or Neural Expressive handling.
   - Market signal: TFG has image gallery; SPG is not primarily media-positioned.
