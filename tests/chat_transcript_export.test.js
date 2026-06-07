@@ -19,16 +19,99 @@ const {
 describe('chat_transcript_export', () => {
     const nowIso = '2026-06-08T00:00:00.000Z';
 
-    function getDocxText(bytes) {
+    function makeCrc32Table() {
+        const table = new Uint32Array(256);
+        for (let i = 0; i < 256; i++) {
+            let value = i;
+            for (let bit = 0; bit < 8; bit++) {
+                value = (value & 1) ? (0xedb88320 ^ (value >>> 1)) : (value >>> 1);
+            }
+            table[i] = value >>> 0;
+        }
+        return table;
+    }
+
+    const crc32Table = makeCrc32Table();
+
+    function testCrc32(bytes) {
+        let crc = 0xffffffff;
+        for (let i = 0; i < bytes.length; i++) {
+            crc = crc32Table[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8);
+        }
+        return (crc ^ 0xffffffff) >>> 0;
+    }
+
+    function findZipSignature(buffer, signature) {
+        for (let offset = buffer.length - 4; offset >= 0; offset--) {
+            if (buffer.readUInt32LE(offset) === signature) return offset;
+        }
+        return -1;
+    }
+
+    function parseStoredZip(bytes) {
         assert.ok(bytes instanceof Uint8Array);
-        assert.equal(bytes[0], 0x50);
-        assert.equal(bytes[1], 0x4b);
-        const text = Buffer.from(bytes).toString('utf8');
-        assert.ok(text.includes('[Content_Types].xml'));
-        assert.ok(text.includes('_rels/.rels'));
-        assert.ok(text.includes('word/document.xml'));
-        assert.ok(text.includes('PK\u0005\u0006'));
-        return text;
+        const buffer = Buffer.from(bytes);
+        const eocdOffset = findZipSignature(buffer, 0x06054b50);
+        assert.notEqual(eocdOffset, -1);
+        assert.equal(buffer.readUInt16LE(eocdOffset + 20), 0);
+
+        const entryCount = buffer.readUInt16LE(eocdOffset + 10);
+        const centralSize = buffer.readUInt32LE(eocdOffset + 12);
+        const centralOffset = buffer.readUInt32LE(eocdOffset + 16);
+        assert.equal(centralOffset + centralSize, eocdOffset);
+
+        const entries = new Map();
+        let offset = centralOffset;
+        for (let index = 0; index < entryCount; index++) {
+            assert.equal(buffer.readUInt32LE(offset), 0x02014b50);
+
+            const flags = buffer.readUInt16LE(offset + 8);
+            const method = buffer.readUInt16LE(offset + 10);
+            const crc = buffer.readUInt32LE(offset + 16);
+            const compressedSize = buffer.readUInt32LE(offset + 20);
+            const uncompressedSize = buffer.readUInt32LE(offset + 24);
+            const nameLength = buffer.readUInt16LE(offset + 28);
+            const extraLength = buffer.readUInt16LE(offset + 30);
+            const commentLength = buffer.readUInt16LE(offset + 32);
+            const localOffset = buffer.readUInt32LE(offset + 42);
+            const nameStart = offset + 46;
+            const name = buffer.toString('utf8', nameStart, nameStart + nameLength);
+
+            assert.equal(method, 0);
+            assert.equal(flags & 0x0800, 0x0800);
+            assert.equal(compressedSize, uncompressedSize);
+            assert.equal(buffer.readUInt32LE(localOffset), 0x04034b50);
+            assert.equal(buffer.readUInt16LE(localOffset + 6), flags);
+            assert.equal(buffer.readUInt16LE(localOffset + 8), method);
+            assert.equal(buffer.readUInt32LE(localOffset + 14), crc);
+            assert.equal(buffer.readUInt32LE(localOffset + 18), compressedSize);
+            assert.equal(buffer.readUInt32LE(localOffset + 22), uncompressedSize);
+
+            const localNameLength = buffer.readUInt16LE(localOffset + 26);
+            const localExtraLength = buffer.readUInt16LE(localOffset + 28);
+            const localNameStart = localOffset + 30;
+            const localName = buffer.toString('utf8', localNameStart, localNameStart + localNameLength);
+            assert.equal(localName, name);
+
+            const dataStart = localNameStart + localNameLength + localExtraLength;
+            const data = buffer.subarray(dataStart, dataStart + compressedSize);
+            assert.equal(data.length, uncompressedSize);
+            assert.equal(testCrc32(data), crc);
+            entries.set(name, data.toString('utf8'));
+
+            offset = nameStart + nameLength + extraLength + commentLength;
+        }
+        assert.equal(offset, eocdOffset);
+        return entries;
+    }
+
+    function getDocxText(bytes) {
+        const entries = parseStoredZip(bytes);
+        assert.deepEqual([...entries.keys()].sort(), ['[Content_Types].xml', '_rels/.rels', 'word/document.xml']);
+        assert.ok(entries.get('[Content_Types].xml').includes('application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml'));
+        assert.doesNotMatch(entries.get('[Content_Types].xml'), /macroEnabled|vbaProject/i);
+        assert.ok(entries.get('_rels/.rels').includes('Target="word/document.xml"'));
+        return entries.get('word/document.xml');
     }
 
     it('normalizes messages and drops empty entries', () => {
