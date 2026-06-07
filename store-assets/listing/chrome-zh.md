@@ -35,7 +35,7 @@ Primer++ for Gemini™ 是一款非官方、开源的 Google Gemini 网页版增
 
 • 文件夹 Folders — 把侧边栏对话分组到自建文件夹，支持拖拽排序、颜色标记、置顶、批量移动、一步本地撤销、JSON 导入 / 导出，以及可选的自动归类规则（正则或关键词）。
 
-• 导出 Export — 将使用报告、当前可见对话记录，或侧边栏中选中的对话导出为 JSON / Markdown / TXT。
+• 导出 Export — 将使用报告、当前可见对话记录，或侧边栏中选中的对话导出为 JSON / Markdown / TXT / HTML。
 
 • Prompt 库 Prompt Vault — 收藏常用 prompt，按标签整理，一键插入到输入框，也可把 prompt chain 分步加入队列，并可撤销本地 prompt 删除。库可以 JSON 格式导入 / 导出。
 

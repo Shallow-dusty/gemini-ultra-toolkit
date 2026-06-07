@@ -1,9 +1,11 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const {
+    exportBulkTranscriptHTML,
     exportBulkTranscriptJSON,
     exportBulkTranscriptMarkdown,
     exportBulkTranscriptText,
+    exportTranscriptHTML,
     exportTranscriptJSON,
     exportTranscriptMarkdown,
     exportTranscriptText,
@@ -117,6 +119,33 @@ describe('chat_transcript_export', () => {
         const empty = exportTranscriptText({ href: '/app/c1', messages: [] }, { nowIso });
         assert.ok(empty.includes('Source: /app/c1'));
         assert.ok(empty.includes('No visible messages captured.'));
+    });
+
+    it('exports escaped standalone HTML for current transcripts', () => {
+        const html = exportTranscriptHTML({
+            chatId: 'c&1',
+            title: 'Chat <unsafe>',
+            href: '/app/c1?x=<tag>',
+            messages: [
+                { role: 'user', text: 'Question & context' },
+                { role: 'model', text: '<script>alert("x")</script>\nAnswer with \'quote\'' }
+            ]
+        }, { nowIso });
+
+        assert.match(html, /^<!doctype html>/);
+        assert.ok(html.includes('<title>Chat &lt;unsafe&gt;</title>'));
+        assert.ok(html.includes('<h1>Chat &lt;unsafe&gt;</h1>'));
+        assert.ok(html.includes('<dt>Chat ID</dt><dd>c&amp;1</dd>'));
+        assert.ok(html.includes('<dt>Source</dt><dd>/app/c1?x=&lt;tag&gt;</dd>'));
+        assert.ok(html.includes('<h2>1. User</h2>'));
+        assert.ok(html.includes('Question &amp; context'));
+        assert.ok(html.includes('&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;'));
+        assert.ok(html.includes('&#39;quote&#39;'));
+        assert.doesNotMatch(html, /<script>/);
+
+        const empty = exportTranscriptHTML({ title: 'Empty', messages: [] }, { nowIso });
+        assert.ok(empty.includes('No visible messages captured.'));
+        assert.doesNotMatch(empty, /<dt>Source<\/dt>/);
     });
 
     it('normalizes selected-chat bulk exports with statuses and counts', () => {
@@ -236,5 +265,37 @@ describe('chat_transcript_export', () => {
         const empty = exportBulkTranscriptText({ chats: [] }, { nowIso });
         assert.ok(empty.includes('No chats selected.'));
         assert.ok(empty.endsWith('\n'));
+    });
+
+    it('exports escaped standalone HTML for selected-chat bulk transcripts', () => {
+        const html = exportBulkTranscriptHTML({
+            chats: [
+                {
+                    chatId: 'c1',
+                    title: 'One <alpha>',
+                    href: '/app/c1',
+                    messages: [{ role: 'assistant', text: 'Answer & details' }]
+                },
+                { chatId: 'c2', title: 'Two', status: 'failed', error: 'Timed <out>', messages: [] },
+                { title: 'Three', messages: [] }
+            ]
+        }, { nowIso });
+
+        assert.match(html, /^<!doctype html>/);
+        assert.ok(html.includes('<title>Gemini Selected Chat Export</title>'));
+        assert.ok(html.includes('<dt>Chats</dt><dd>3</dd>'));
+        assert.ok(html.includes('<dt>Failed chats</dt><dd>1</dd>'));
+        assert.ok(html.includes('<h2>1. One &lt;alpha&gt;</h2>'));
+        assert.ok(html.includes('<span class="status exported">exported</span>'));
+        assert.ok(html.includes('<h3>1. Gemini</h3>'));
+        assert.ok(html.includes('Answer &amp; details'));
+        assert.ok(html.includes('<span class="status failed">failed</span>'));
+        assert.ok(html.includes('<dt>Error</dt><dd>Timed &lt;out&gt;</dd>'));
+        assert.ok(html.includes('Transcript export failed.'));
+        assert.ok(html.includes('<span class="status empty">empty</span>'));
+        assert.ok(html.includes('No visible messages captured.'));
+
+        const empty = exportBulkTranscriptHTML({ chats: [] }, { nowIso });
+        assert.ok(empty.includes('No chats selected.'));
     });
 });

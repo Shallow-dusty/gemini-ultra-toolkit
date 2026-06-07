@@ -9,8 +9,9 @@ mutable, so refresh this file before any major release or store submission.
 - Local git state is mutable; run `git status --short --branch` before release,
   push, or store submission instead of treating this snapshot as live git truth.
 - Local verification on 2026-06-08:
-  - `npm test` passed: 236 tests, `lib/` at 100% c8 coverage.
-  - `npm run build` passed for userscript and extension outputs.
+  - `npm test` passed: 238 tests, `lib/` at 100% c8 coverage.
+  - `npm run build` passed for userscript and extension outputs; generated
+    userscript size was ~459.3 kb after HTML transcript export.
 - 2026-06-08 follow-up: `brace-expansion` was updated from `5.0.5` to
   `5.0.6`; `npm audit --audit-level=moderate` now reports 0 vulnerabilities.
 - Live Gemini DOM verification was not refreshed: no Chrome DevTools Protocol
@@ -126,8 +127,9 @@ Codex CLI/TUI.
 - Export
   - Primer++ v12 plus post-planning implementation: usage export in
     JSON/CSV/Markdown and current visible conversation transcript export in
-    JSON/Markdown/TXT, plus selected-sidebar chat export in JSON/Markdown/TXT
-    through a navigation-and-visible-DOM capture workflow.
+    JSON/Markdown/TXT/HTML, plus selected-sidebar chat export in
+    JSON/Markdown/TXT/HTML through a navigation-and-visible-DOM capture
+    workflow.
   - Market signal: SPG has PDF/DOCX/TXT/MD; TFG has
     PDF/HTML/Markdown/TXT/CSV.
   - Gemini signal: Gemini built-ins remain limited for power export workflows.
@@ -286,7 +288,7 @@ boundary.
      it formats local title/link/chat ID/note data into the composer and does
      not read hidden Gemini transcript content.
 4. Bulk export upgrade:
-   - ~~export selected chats in JSON/Markdown/TXT first~~ done with a
+   - ~~export selected chats in JSON/Markdown/TXT/HTML first~~ done with a
      selected-sidebar navigation workflow; live smoke still pending;
    - add PDF/DOCX only after a dependency and bundle-size review.
 5. Undo/trash safety for local operations:

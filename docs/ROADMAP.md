@@ -1,6 +1,6 @@
 # Roadmap
 
-Updated: 2026-06-08 (post-v12 planning refresh + local data portability + local context references + quota window framing + prompt-chain queueing).
+Updated: 2026-06-08 (post-v12 planning refresh + local data portability + local context references + quota window framing + prompt-chain queueing + HTML transcript export).
 
 This is the maintained roadmap. It replaces the old full feature brainstorming document, which mixed implemented features, speculative ideas, and stale project naming.
 
@@ -27,7 +27,7 @@ Implemented modules:
   batch move, auto-classify rules, and one-step local undo for folder
   moves/deletes, plus versioned JSON import/export.
 - Export: JSON/CSV/Markdown usage export, current visible conversation
-  transcript export, and selected-sidebar chat export in JSON/Markdown/TXT.
+  transcript export, and selected-sidebar chat export in JSON/Markdown/TXT/HTML.
 - Prompt Vault: saved prompts, quick insert, import/export, favorites, recent
   ranking, slash shortcuts, template variables, local prompt chains, and
   versioned metadata import/export, plus local prompt-delete undo and
@@ -106,7 +106,7 @@ Prioritize local-first workflow parity with direct Gemini competitors:
   the Message Queue start action and tool-mode safety checks.
 - ~~Per-chat local notes and pins.~~ Done after the market/UI planning snapshot;
   Chat Notes can also insert explicit local reference packets into the composer.
-- ~~Bulk export for selected chats in JSON/Markdown/TXT first.~~ Implemented
+- ~~Bulk export for selected chats in JSON/Markdown/TXT/HTML first.~~ Implemented
   as a selected-sidebar workflow that navigates each selected chat and captures
   visible transcript text; live Gemini smoke coverage is still due before
   release claims. PDF/DOCX only after dependency and bundle-size review.

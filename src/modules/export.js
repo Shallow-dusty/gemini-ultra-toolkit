@@ -5,9 +5,11 @@ import { PanelUI } from '../panel_ui.js';
 import { CounterModule } from './counter.js';
 import { exportCSV, exportMarkdown } from '../../lib/export_formatter.js';
 import {
+    exportBulkTranscriptHTML,
     exportBulkTranscriptJSON,
     exportBulkTranscriptMarkdown,
     exportBulkTranscriptText,
+    exportTranscriptHTML,
     exportTranscriptJSON,
     exportTranscriptMarkdown,
     exportTranscriptText
@@ -18,7 +20,7 @@ import { GeminiAdapter } from '../adapters/gemini.js';
 export const ExportModule = {
     id: 'export',
     name: NativeUI.t('数据导出', 'Data Export'),
-    description: NativeUI.t('JSON / CSV / Markdown 多格式导出', 'Export in JSON / CSV / Markdown'),
+    description: NativeUI.t('JSON / CSV / Markdown / HTML 多格式导出', 'Export in JSON / CSV / Markdown / HTML'),
     iconId: 'download',
     defaultEnabled: true,
     _bulkSelected: new Set(),
@@ -90,7 +92,8 @@ export const ExportModule = {
             { icon: 'edit', text: 'Usage Markdown', action: () => this.doExportMarkdown() },
             { icon: 'file-text', text: 'Chat JSON', action: () => this.exportCurrentChatJSON() },
             { icon: 'edit', text: 'Chat Markdown', action: () => this.exportCurrentChatMarkdown() },
-            { icon: 'file-text', text: 'Chat TXT', action: () => this.exportCurrentChatText() }
+            { icon: 'file-text', text: 'Chat TXT', action: () => this.exportCurrentChatText() },
+            { icon: 'file-text', text: 'Chat HTML', action: () => this.exportCurrentChatHTML() }
         ];
 
         items.forEach(item => {
@@ -365,6 +368,8 @@ export const ExportModule = {
             this._download(exportTranscriptJSON(transcript), `${this._getChatFilePrefix()}.chat.json`, 'application/json');
         } else if (format === 'markdown') {
             this._download(exportTranscriptMarkdown(transcript), `${this._getChatFilePrefix()}.chat.md`, 'text/markdown');
+        } else if (format === 'html') {
+            this._download(exportTranscriptHTML(transcript), `${this._getChatFilePrefix()}.chat.html`, 'text/html');
         } else {
             this._download(exportTranscriptText(transcript), `${this._getChatFilePrefix()}.chat.txt`, 'text/plain');
         }
@@ -380,6 +385,10 @@ export const ExportModule = {
 
     exportCurrentChatText() {
         this._downloadCurrentTranscript('text');
+    },
+
+    exportCurrentChatHTML() {
+        this._downloadCurrentTranscript('html');
     },
 
     async _collectSelectedTranscripts() {
@@ -444,6 +453,8 @@ export const ExportModule = {
             this._download(exportBulkTranscriptJSON(bulkExport), `${this._getBulkFilePrefix()}.json`, 'application/json');
         } else if (format === 'markdown') {
             this._download(exportBulkTranscriptMarkdown(bulkExport), `${this._getBulkFilePrefix()}.md`, 'text/markdown');
+        } else if (format === 'html') {
+            this._download(exportBulkTranscriptHTML(bulkExport), `${this._getBulkFilePrefix()}.html`, 'text/html');
         } else {
             this._download(exportBulkTranscriptText(bulkExport), `${this._getBulkFilePrefix()}.txt`, 'text/plain');
         }
@@ -459,6 +470,10 @@ export const ExportModule = {
 
     exportSelectedChatsText() {
         return this._downloadSelectedTranscripts('text');
+    },
+
+    exportSelectedChatsHTML() {
+        return this._downloadSelectedTranscripts('html');
     },
 
     _panelButton(label, onClick, opts = {}) {
@@ -494,7 +509,8 @@ export const ExportModule = {
         section.appendChild(this._buttonRow([
             this._panelButton('JSON', () => this.exportCurrentChatJSON()),
             this._panelButton('MD', () => this.exportCurrentChatMarkdown()),
-            this._panelButton('TXT', () => this.exportCurrentChatText())
+            this._panelButton('TXT', () => this.exportCurrentChatText()),
+            this._panelButton('HTML', () => this.exportCurrentChatHTML())
         ]));
 
         const bulkTitle = document.createElement('div');
@@ -575,7 +591,8 @@ export const ExportModule = {
             section.appendChild(this._buttonRow([
                 this._panelButton('JSON', () => this.exportSelectedChatsJSON(), { disabled }),
                 this._panelButton('MD', () => this.exportSelectedChatsMarkdown(), { disabled }),
-                this._panelButton('TXT', () => this.exportSelectedChatsText(), { disabled })
+                this._panelButton('TXT', () => this.exportSelectedChatsText(), { disabled }),
+                this._panelButton('HTML', () => this.exportSelectedChatsHTML(), { disabled })
             ]));
         }
 
@@ -586,13 +603,13 @@ export const ExportModule = {
         return {
             zh: {
                 rant: '2026 \u5E74\u4E86\uFF0CGoogle \u6700\u5F15\u4EE5\u4E3A\u50B2\u7684 AI \u4EA7\u54C1\u5C45\u7136\u4E0D\u652F\u6301\u5BFC\u51FA\u5BF9\u8BDD\u3002\u4F60\u8DDF Gemini \u8BA8\u8BBA\u4E86\u4E09\u5929\u7684\u67B6\u6784\u65B9\u6848\uFF0C\u7ED3\u679C\u60F3\u4FDD\u5B58\u4E00\u4EFD\uFF1F\u4E0D\u597D\u610F\u601D\uFF0C\u8BF7\u624B\u52A8\u590D\u5236\u7C98\u8D34 300 \u6761\u6D88\u606F\u3002\u4EA7\u54C1\u7ECF\u7406\u662F\u4E0D\u662F\u89C9\u5F97\u7528\u6237\u7684\u5BF9\u8BDD\u50CF\u9605\u540E\u5373\u711A\u7684 Snapchat\uFF1F',
-                features: '在聊天标题旁添加导出按钮，可导出用量报告、当前可见对话，或在导出面板多选侧栏对话并导出为 JSON/Markdown/TXT。',
-                guide: '当前对话：打开对话 → 点击标题右侧导出按钮。多选对话：打开悬浮面板导出标签 → 选择对话 → 选择 JSON / MD / TXT。'
+                features: '在聊天标题旁添加导出按钮，可导出用量报告、当前可见对话，或在导出面板多选侧栏对话并导出为 JSON/Markdown/TXT/HTML。',
+                guide: '当前对话：打开对话 → 点击标题右侧导出按钮。多选对话：打开悬浮面板导出标签 → 选择对话 → 选择 JSON / MD / TXT / HTML。'
             },
             en: {
                 rant: "It's 2026. Google's flagship AI product doesn't let you export conversations. You spent three days discussing architecture with Gemini and want to save it? Sorry, please manually copy-paste 300 messages. Does the PM think conversations are Snapchats?",
-                features: 'Adds a \uD83D\uDCE4 export button next to the chat title. Export usage reports, the current visible conversation, or selected sidebar chats to JSON/Markdown/TXT.',
-                guide: 'Current chat: open a conversation \u2192 click the title export button. Selected chats: open the Export panel tab \u2192 select chats \u2192 choose JSON / MD / TXT.'
+                features: 'Adds a \uD83D\uDCE4 export button next to the chat title. Export usage reports, the current visible conversation, or selected sidebar chats to JSON/Markdown/TXT/HTML.',
+                guide: 'Current chat: open a conversation \u2192 click the title export button. Selected chats: open the Export panel tab \u2192 select chats \u2192 choose JSON / MD / TXT / HTML.'
             }
         };
     },
@@ -629,5 +646,13 @@ export const ExportModule = {
         chatMdBtn.appendChild(document.createTextNode(' Export Current Chat'));
         chatMdBtn.onclick = () => this.exportCurrentChatMarkdown();
         container.appendChild(chatMdBtn);
+
+        const chatHtmlBtn = document.createElement('button');
+        chatHtmlBtn.className = 'settings-btn';
+        chatHtmlBtn.style.cssText = 'display:flex;align-items:center;gap:6px;';
+        chatHtmlBtn.appendChild(createIcon('download', 14));
+        chatHtmlBtn.appendChild(document.createTextNode(' Export Current Chat HTML'));
+        chatHtmlBtn.onclick = () => this.exportCurrentChatHTML();
+        container.appendChild(chatHtmlBtn);
     }
 };

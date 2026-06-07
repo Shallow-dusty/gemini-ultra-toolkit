@@ -1,6 +1,6 @@
 # Current Audit Status
 
-Updated: 2026-06-08 — covers v12.0 plus post-release dependency-audit repair, local folder undo, local data portability, and local context references.
+Updated: 2026-06-08 — covers v12.0 plus post-release dependency-audit repair, local folder undo, local data portability, local context references, and HTML transcript export.
 
 This is the maintained audit summary for v12.0. v12 inherits all v11 protections and adds a `src/adapters/gemini.js` abstraction layer for DOM coupling (see ROADMAP.md). Reviewed across 5 self-audit passes plus 3 independent agent reviews (architecture / generic code / userscript-specific). No `critical` findings; all `important` items addressed before release. v11.0 baseline below remains the audit reference for shared logic.
 
@@ -20,6 +20,9 @@ Implemented protections:
 - Transcript export reads visible conversation text only after an explicit
   user export action; selected-chat export records failed/empty captures rather
   than treating sidebar titles as conversation content.
+- HTML transcript downloads escape transcript text and metadata into standalone
+  static documents; they do not add scripts or change the explicit-export
+  capture boundary.
 - Prompt Vault local deletes keep a one-step undo record in memory so accidental
   local prompt removal can be restored before the next delete/session reset.
 - Local folder moves, batch moves, unassignments, and folder deletes keep a

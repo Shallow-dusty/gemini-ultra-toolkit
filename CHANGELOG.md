@@ -4,6 +4,7 @@
 
 ### Unreleased
 
+- **HTML transcript export**: current-chat and selected-chat transcript exports now include an escaped standalone HTML format alongside JSON, Markdown, and TXT.
 - **Prompt chain queueing**: Prompt Vault can add a prompt chain to Message Queue as separate local queue items, so each step remains pause/cancel/reorder controlled before sending.
 - **Quota reset-window framing**: Counter now shows the active daily reset window and time until reset, using the configured reset hour without pretending to track unrecorded 5h/weekly rolling windows.
 - **Local context references**: Chat Notes can insert an explicit local reference packet into the Gemini composer using saved title, link, chat ID, and local note data; it does not read hidden transcript content.
