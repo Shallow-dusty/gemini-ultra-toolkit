@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import threading
 import time
 from pathlib import Path
@@ -26,6 +27,9 @@ from queue import Queue, Empty
 from typing import Any, Optional
 
 import websocket  # websocket-client
+
+
+COMMON_CDP_PORTS = (63366, 9222, 9223, 9229, 50000)
 
 
 class CDPError(RuntimeError):
@@ -160,39 +164,62 @@ def load_userscript(repo_root: Path) -> str:
     return src
 
 
-def find_gemini_page_ws(port: int | None = None) -> str:
+def _add_port(candidates: list[int], value: int | str | None) -> None:
+    if value is None:
+        return
+    try:
+        port = int(str(value).strip())
+    except (TypeError, ValueError):
+        return
+    if 1 <= port <= 65535 and port not in candidates:
+        candidates.append(port)
+
+
+def find_gemini_page_ws(
+    port: int | None = None,
+    *,
+    extra_ports: list[int] | tuple[int, ...] | None = None,
+    scan_range: tuple[int, int] | None = None,
+) -> str:
     """Locate the Gemini tab's CDP WebSocket on the local Roxy daemon.
 
     Tries, in order:
       1. Explicit `port` arg.
-      2. /tmp/roxy-port.txt (written by the open-browser shell snippet).
-      3. Probe ports 50000-65000 looking for one whose /json/version
-         responds with Chrome — slow last resort.
+      2. PRIMER_PP_CDP_PORT.
+      3. /tmp/roxy-port.txt (written by the open-browser shell snippet).
+      4. Any `extra_ports` supplied by the caller.
+      5. Common CDP/debug ports.
+      6. Optional inclusive `scan_range`.
     """
     import json
     from urllib.request import urlopen
     from urllib.error import URLError
 
     candidates: list[int] = []
-    if port is not None:
-        candidates.append(port)
+    _add_port(candidates, port)
+    _add_port(candidates, os.environ.get("PRIMER_PP_CDP_PORT"))
     pf = Path("/tmp/roxy-port.txt")
     if pf.is_file():
-        try:
-            candidates.append(int(pf.read_text().strip()))
-        except ValueError:
-            pass
+        _add_port(candidates, pf.read_text())
+    for p in extra_ports or ():
+        _add_port(candidates, p)
+    for p in COMMON_CDP_PORTS:
+        _add_port(candidates, p)
+    if scan_range is not None:
+        start, end = scan_range
+        for p in range(max(1, int(start)), min(65535, int(end)) + 1):
+            _add_port(candidates, p)
 
     for p in candidates:
         try:
-            with urlopen(f"http://127.0.0.1:{p}/json", timeout=3) as r:
+            with urlopen(f"http://127.0.0.1:{p}/json", timeout=1) as r:
                 tabs = json.loads(r.read())
             for t in tabs:
                 if t.get("type") == "page" and "gemini.google.com" in t.get("url", ""):
                     return t["webSocketDebuggerUrl"]
         except (URLError, OSError, json.JSONDecodeError):
             continue
-    raise RuntimeError(f"no Gemini tab found on Roxy CDP ports tried: {candidates}")
+    raise RuntimeError(f"no Gemini tab found on CDP ports tried: {candidates}")
 
 
 GM_POLYFILL_JS = r"""

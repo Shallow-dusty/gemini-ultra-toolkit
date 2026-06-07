@@ -166,6 +166,8 @@ describe('app smoke checks', () => {
         const debugUtils = read('src/debug_utils.js');
         const panelSettings = read('src/panel_settings.js');
         const probeScript = read('store-assets/scripts/export_adapter_probe.py');
+        const cdpClient = read('store-assets/scripts/cdp_client.py');
+        const panelProbe = read('store-assets/scripts/probe_panel.py');
         const adapter = read('src/adapters/gemini.js');
 
         assert.match(main, /__PRIMER_PP_GET_PROBE_REPORT__/);
@@ -174,6 +176,10 @@ describe('app smoke checks', () => {
         assert.match(panelSettings, /Export Adapter Probe/);
         assert.match(probeScript, /__PRIMER_PP_GET_PROBE_REPORT__/);
         assert.match(probeScript, /--inject-userscript/);
+        assert.match(cdpClient, /COMMON_CDP_PORTS/);
+        assert.match(cdpClient, /PRIMER_PP_CDP_PORT/);
+        assert.match(panelProbe, /find_gemini_page_ws/);
+        assert.doesNotMatch(panelProbe, /127\.0\.0\.1:63366/);
         assert.match(adapter, /richResponse: this\.getRichResponseProbeReport\(\)/);
         assert.match(adapter, /codeBlockCount/);
         assert.match(adapter, /citationCandidateCount/);

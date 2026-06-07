@@ -1,6 +1,6 @@
 # Roadmap
 
-Updated: 2026-06-08 (post-v12 planning refresh + local data portability + local context references + pinned context packets + prompt context packets + selected text packets + transcript snippet packets + rich response probe counts + quota window framing + prompt-chain queueing + queue send-interval control + CSV/HTML/DOCX transcript export + composer input counter + adapter probe export + i18n hardening).
+Updated: 2026-06-08 (post-v12 planning refresh + local data portability + local context references + pinned context packets + prompt context packets + selected text packets + transcript snippet packets + rich response probe counts + quota window framing + prompt-chain queueing + queue send-interval control + CSV/HTML/DOCX transcript export + composer input counter + adapter probe export + CDP probe discovery hardening + i18n hardening).
 
 This is the maintained roadmap. It replaces the old full feature brainstorming document, which mixed implemented features, speculative ideas, and stale project naming.
 
@@ -64,7 +64,8 @@ Implemented modules:
      switcher, sidebar row actions, input editor/send button, header anchor,
      visible message count, rich response structure counts, active tool-mode
      state, and visible tool-mode entry candidates when a live page is
-     available. Live logged-in proof is still pending.
+     available. CDP discovery checks `PRIMER_PP_CDP_PORT`, `/tmp/roxy-port.txt`,
+     and common debug ports. Live logged-in proof is still pending.
 
 3. Store-listing readiness
    - Keep `Primer++ for Gemini™` naming consistent.

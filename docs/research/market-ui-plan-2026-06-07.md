@@ -20,7 +20,9 @@ mutable, so refresh this file before any major release or store submission.
   `5.0.6`; `npm audit --audit-level=moderate` now reports 0 vulnerabilities.
 - Live Gemini DOM verification was not refreshed: no Chrome DevTools Protocol
   Gemini page was available at `127.0.0.1:63366`. Treat the 2026-05-21 DOM probe
-  as the last real-browser evidence, not as proof of current compatibility.
+  as the last real-browser evidence, not as proof of current compatibility. The
+  local CDP helper now also checks `PRIMER_PP_CDP_PORT`, `/tmp/roxy-port.txt`,
+  and common debug ports before failing.
 
 ## External Evidence
 
@@ -200,7 +202,8 @@ Codex CLI/TUI.
   - Market signal: competitor internals are unknown.
   - Gemini signal: Gemini UI churn is frequent.
   - Plan: keep adapter health visible; exportable local probe reports now exist,
-    but live probe coverage still needs a logged-in Gemini page.
+    and CDP discovery now checks env/tmp/common debug ports, but live probe
+    coverage still needs a logged-in Gemini page.
 
 ### Adjacent AI Workspace Benchmark
 
@@ -280,8 +283,8 @@ Goal: make "Gemini changed again" a contained adapter task.
    currently pass in the live page.~~ Done after this planning snapshot.
 
 Exit gate: adapter probe report can be exported from a live Gemini page, and
-the static selector-leak smoke check remains passing. Local export plumbing is
-implemented; logged-in live proof remains pending.
+the static selector-leak smoke check remains passing. Local export and shared
+CDP discovery plumbing are implemented; logged-in live proof remains pending.
 
 ### Phase 2 - Power-User Workflow Parity
 

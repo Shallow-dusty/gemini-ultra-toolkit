@@ -1,6 +1,6 @@
 # Project Status
 
-Updated: 2026-06-08 — v12.0 released; selected-chat export, local folder undo, local data portability, local context references, pinned context packets, prompt context packets, selected text packets, transcript snippet packets, rich response probe counts, quota reset-window framing, prompt-chain queueing, queue send-interval control, CSV/HTML/DOCX transcript export, composer input counter, adapter probe export, and i18n hardening added; live smoke still pending.
+Updated: 2026-06-08 — v12.0 released; selected-chat export, local folder undo, local data portability, local context references, pinned context packets, prompt context packets, selected text packets, transcript snippet packets, rich response probe counts, quota reset-window framing, prompt-chain queueing, queue send-interval control, CSV/HTML/DOCX transcript export, composer input counter, adapter probe export, CDP probe discovery hardening, and i18n hardening added; live smoke still pending.
 
 ## Summary
 
@@ -32,8 +32,9 @@ Last verified locally on 2026-06-08:
 - **Real-browser smoke test** — last full logged-in smoke passed on 2026-05-21
   (`docs/research/v12-dom-probe-2026-05-21-revised.md`). A 2026-06-07 CDP
   refresh was not possible because no Gemini page was available at
-  `127.0.0.1:63366`. Treat live Gemini compatibility as due for refresh before
-  store submission.
+  `127.0.0.1:63366`. The local CDP helper now also checks `PRIMER_PP_CDP_PORT`,
+  `/tmp/roxy-port.txt`, and common debug ports, but treat live Gemini
+  compatibility as due for refresh before store submission.
 - **Limited signed-out headless smoke** — on 2026-06-08, Playwright loaded
   `https://gemini.google.com/app`, injected the generated userscript after DOM
   load, mounted the Primer++ panel, opened the Export tab, and confirmed the
