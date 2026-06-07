@@ -331,6 +331,29 @@ export const GeminiAdapter = {
         return { active: false, label: '' };
     },
 
+    getVisibleToolModeEntries() {
+        const entries = [];
+        const candidates = document.querySelectorAll(S.TOOL_MODE_CANDIDATE);
+        candidates.forEach((el, index) => {
+            const state = getToolModeState({
+                text: el.textContent || '',
+                ariaLabel: el.getAttribute('aria-label') || '',
+                ariaPressed: el.getAttribute('aria-pressed') || '',
+                ariaCurrent: el.getAttribute('aria-current') || '',
+                dataActive: el.getAttribute('data-active') || '',
+                classList: Array.from(el.classList || [])
+            });
+            if (state.label) {
+                entries.push({
+                    index,
+                    label: state.label,
+                    active: state.active
+                });
+            }
+        });
+        return entries.slice(0, 20);
+    },
+
     getSendButton() {
         return firstMatch(document, S.SEND_BUTTON);
     },
@@ -612,6 +635,57 @@ export const GeminiAdapter = {
             total: checks.length,
             failed: checks.filter(check => !check.ok).map(check => check.id),
             checks
+        };
+    },
+
+    getRuntimeProbeReport() {
+        const selectorHealth = this.getSelectorHealthReport();
+        const chatLinks = this.scanSidebarChatLinks();
+        const firstChat = chatLinks[0] || null;
+        const modelOptions = this.getModelMenuOptions();
+        const chatId = this.getChatId();
+
+        return {
+            generatedAt: new Date().toISOString(),
+            page: {
+                host: location.host,
+                pathKind: chatId ? 'conversation' : (this.isNewChatUrl() ? 'new-chat' : 'other'),
+                chatIdPresent: !!chatId,
+                viewport: {
+                    width: window.innerWidth,
+                    height: window.innerHeight,
+                    dpr: window.devicePixelRatio
+                }
+            },
+            selectorHealth,
+            probes: {
+                sidebar: {
+                    present: !!this.getSidebar(),
+                    chatCount: chatLinks.length,
+                    firstRowActionPresent: !!(firstChat && this.getChatRowMoreButton(firstChat.element))
+                },
+                input: {
+                    areaPresent: !!this.getInputArea(),
+                    editorPresent: !!this.getInputEditor(),
+                    sendButtonPresent: !!this.getSendButton(),
+                    activeToolMode: this.getActiveToolMode(),
+                    visibleToolModeEntries: this.getVisibleToolModeEntries()
+                },
+                model: {
+                    switchPresent: !!this.getModelSwitch(),
+                    labelPresent: !!this.getModelSwitchLabel(),
+                    detectedKey: this.detectModelKey(),
+                    openMenuOptionCount: modelOptions.length,
+                    openMenuKeys: modelOptions.map(option => option.key).filter(Boolean)
+                },
+                header: {
+                    anchorPresent: !!this.getChatHeader(),
+                    titleTextPresent: !!this.getChatTitleText()
+                },
+                conversation: {
+                    visibleMessageCount: this.getCurrentConversationMessages().length
+                }
+            }
         };
     }
 };

@@ -155,7 +155,24 @@ describe('app smoke checks', () => {
 
         assert.deepEqual(offenders, []);
         assert.match(read('src/adapters/gemini.js'), /getSelectorHealthReport\(\)/);
+        assert.match(read('src/adapters/gemini.js'), /getRuntimeProbeReport\(\)/);
+        assert.match(read('src/adapters/gemini.js'), /getVisibleToolModeEntries\(\)/);
         assert.match(read('src/panel_settings.js'), /GeminiAdapter\.getSelectorHealthReport\(\)/);
+    });
+
+    it('keeps adapter probe export reachable without exposing storage dumps', () => {
+        const main = read('src/main.js');
+        const debugUtils = read('src/debug_utils.js');
+        const panelSettings = read('src/panel_settings.js');
+        const probeScript = read('store-assets/scripts/export_adapter_probe.py');
+
+        assert.match(main, /__PRIMER_PP_GET_PROBE_REPORT__/);
+        assert.match(main, /Debug: Export Adapter Probe/);
+        assert.match(debugUtils, /debugExportAdapterProbe/);
+        assert.match(panelSettings, /Export Adapter Probe/);
+        assert.match(probeScript, /__PRIMER_PP_GET_PROBE_REPORT__/);
+        assert.match(probeScript, /--inject-userscript/);
+        assert.doesNotMatch(probeScript, /GM_getValue/);
     });
 
     it('keeps Prompt Vault import available when the vault is empty', () => {

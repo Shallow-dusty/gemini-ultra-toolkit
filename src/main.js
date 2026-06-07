@@ -2,7 +2,7 @@
 // ║              Primer++ for Gemini v12.0 — Entry Point                         ║
 // ╚══════════════════════════════════════════════════════════════════════════╝
 
-import { TIMINGS, GLOBAL_KEYS, PANEL_ID, DEFAULT_POS, TEMP_USER } from './constants.js';
+import { TIMINGS, GLOBAL_KEYS, PANEL_ID, DEFAULT_POS, TEMP_USER, APP_NAME, VERSION } from './constants.js';
 import { Logger } from './logger.js';
 import { Core } from './core.js';
 import {
@@ -21,7 +21,8 @@ import {
     debugDumpGeminiStores,
     debugExportLegacyData,
     debugExportAllStorage,
-    debugExportLogs
+    debugExportLogs,
+    debugExportAdapterProbe
 } from './debug_utils.js';
 
 // --- Module imports (explicit registration in main.js to avoid circular dep issues) ---
@@ -47,6 +48,28 @@ ModuleRegistry.register(QuoteReplyModule);
 ModuleRegistry.register(UITweaksModule);
 ModuleRegistry.register(ChatNotesModule);
 ModuleRegistry.register(MessageQueueModule);
+
+function getPrimerProbeReport() {
+    const detailsPane = document.getElementById('g-details-pane');
+    return {
+        app: APP_NAME,
+        version: VERSION,
+        generatedAt: new Date().toISOString(),
+        adapter: GeminiAdapter.getRuntimeProbeReport(),
+        modules: {
+            registered: Object.keys(ModuleRegistry.modules).sort(),
+            enabled: Array.from(ModuleRegistry.enabledModules).sort()
+        },
+        localUI: {
+            panelPresent: !!document.getElementById(PANEL_ID),
+            detailsPanePresent: !!detailsPane,
+            detailsPaneExpanded: !!detailsPane?.classList.contains('expanded'),
+            exportButtonPresent: !!document.getElementById('gc-export-native')
+        }
+    };
+}
+
+window.__PRIMER_PP_GET_PROBE_REPORT__ = getPrimerProbeReport;
 
 // ╔══════════════════════════════════════════════════════════════════════════╗
 // ║                           MAIN LOOP (主循环)                             ║
@@ -330,6 +353,10 @@ GM_registerMenuCommand("\u{1F9F0} Debug: Dump Storage Keys", () => {
 
 GM_registerMenuCommand("\u{1F9F0} Debug: Export All Storage", () => {
     debugExportAllStorage();
+});
+
+GM_registerMenuCommand("\u{1F9F0} Debug: Export Adapter Probe", () => {
+    debugExportAdapterProbe();
 });
 
 GM_registerMenuCommand("\u{1F9F0} Debug: Export Legacy Data", () => {

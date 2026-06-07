@@ -732,6 +732,28 @@
           }
           return { active: false, label: "" };
         },
+        getVisibleToolModeEntries() {
+          const entries = [];
+          const candidates = document.querySelectorAll(S.TOOL_MODE_CANDIDATE);
+          candidates.forEach((el, index) => {
+            const state = (0, import_tool_mode_tools.getToolModeState)({
+              text: el.textContent || "",
+              ariaLabel: el.getAttribute("aria-label") || "",
+              ariaPressed: el.getAttribute("aria-pressed") || "",
+              ariaCurrent: el.getAttribute("aria-current") || "",
+              dataActive: el.getAttribute("data-active") || "",
+              classList: Array.from(el.classList || [])
+            });
+            if (state.label) {
+              entries.push({
+                index,
+                label: state.label,
+                active: state.active
+              });
+            }
+          });
+          return entries.slice(0, 20);
+        },
         getSendButton() {
           return firstMatch(document, S.SEND_BUTTON);
         },
@@ -971,6 +993,55 @@
             total: checks.length,
             failed: checks.filter((check) => !check.ok).map((check) => check.id),
             checks
+          };
+        },
+        getRuntimeProbeReport() {
+          const selectorHealth = this.getSelectorHealthReport();
+          const chatLinks = this.scanSidebarChatLinks();
+          const firstChat = chatLinks[0] || null;
+          const modelOptions = this.getModelMenuOptions();
+          const chatId = this.getChatId();
+          return {
+            generatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+            page: {
+              host: location.host,
+              pathKind: chatId ? "conversation" : this.isNewChatUrl() ? "new-chat" : "other",
+              chatIdPresent: !!chatId,
+              viewport: {
+                width: window.innerWidth,
+                height: window.innerHeight,
+                dpr: window.devicePixelRatio
+              }
+            },
+            selectorHealth,
+            probes: {
+              sidebar: {
+                present: !!this.getSidebar(),
+                chatCount: chatLinks.length,
+                firstRowActionPresent: !!(firstChat && this.getChatRowMoreButton(firstChat.element))
+              },
+              input: {
+                areaPresent: !!this.getInputArea(),
+                editorPresent: !!this.getInputEditor(),
+                sendButtonPresent: !!this.getSendButton(),
+                activeToolMode: this.getActiveToolMode(),
+                visibleToolModeEntries: this.getVisibleToolModeEntries()
+              },
+              model: {
+                switchPresent: !!this.getModelSwitch(),
+                labelPresent: !!this.getModelSwitchLabel(),
+                detectedKey: this.detectModelKey(),
+                openMenuOptionCount: modelOptions.length,
+                openMenuKeys: modelOptions.map((option) => option.key).filter(Boolean)
+              },
+              header: {
+                anchorPresent: !!this.getChatHeader(),
+                titleTextPresent: !!this.getChatTitleText()
+              },
+              conversation: {
+                visibleMessageCount: this.getCurrentConversationMessages().length
+              }
+            }
           };
         }
       };
@@ -3337,6 +3408,26 @@
       Logger.warn("Debug: failed to export logs", { error: String(e) });
     }
   }
+  function debugExportAdapterProbe() {
+    try {
+      if (typeof window.__PRIMER_PP_GET_PROBE_REPORT__ !== "function") {
+        throw new Error("Probe report bridge is unavailable");
+      }
+      const payload = window.__PRIMER_PP_GET_PROBE_REPORT__();
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "primer_pp_adapter_probe.json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      Logger.info("Debug: export adapter probe report");
+    } catch (e) {
+      Logger.warn("Debug: failed to export adapter probe report", { error: String(e) });
+    }
+  }
   function debugDumpGeminiStores() {
     try {
       const keys = (typeof GM_listValues === "function" ? GM_listValues() : []).slice().sort();
@@ -3960,6 +4051,7 @@
     actions.appendChild(mkBtn(NativeUI.t("导出旧版数据", "Export Legacy Data"), () => debugExportLegacyData()));
     actions.appendChild(mkBtn(NativeUI.t("导出全部存储", "Export All Storage"), () => debugExportAllStorage()));
     actions.appendChild(mkBtn(NativeUI.t("导出日志", "Export Logs"), () => debugExportLogs()));
+    actions.appendChild(mkBtn(NativeUI.t("导出适配器探针", "Export Adapter Probe"), () => debugExportAdapterProbe()));
     actions.appendChild(mkBtn(NativeUI.t("清空日志", "Clear Logs"), () => Logger.clear()));
     const logList = document.createElement("div");
     logList.className = "debug-log-list";
@@ -10501,6 +10593,26 @@ ${part}`).join("\n\n---\n\n");
       ModuleRegistry.register(UITweaksModule);
       ModuleRegistry.register(ChatNotesModule);
       ModuleRegistry.register(MessageQueueModule);
+      function getPrimerProbeReport() {
+        const detailsPane = document.getElementById("g-details-pane");
+        return {
+          app: APP_NAME,
+          version: VERSION,
+          generatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+          adapter: GeminiAdapter.getRuntimeProbeReport(),
+          modules: {
+            registered: Object.keys(ModuleRegistry.modules).sort(),
+            enabled: Array.from(ModuleRegistry.enabledModules).sort()
+          },
+          localUI: {
+            panelPresent: !!document.getElementById(PANEL_ID),
+            detailsPanePresent: !!detailsPane,
+            detailsPaneExpanded: !!detailsPane?.classList.contains("expanded"),
+            exportButtonPresent: !!document.getElementById("gc-export-native")
+          }
+        };
+      }
+      window.__PRIMER_PP_GET_PROBE_REPORT__ = getPrimerProbeReport;
       var lastDetectedUser = null;
       function lazyDetect() {
         try {
@@ -10733,6 +10845,9 @@ ${part}`).join("\n\n---\n\n");
       });
       GM_registerMenuCommand("🧰 Debug: Export All Storage", () => {
         debugExportAllStorage();
+      });
+      GM_registerMenuCommand("🧰 Debug: Export Adapter Probe", () => {
+        debugExportAdapterProbe();
       });
       GM_registerMenuCommand("🧰 Debug: Export Legacy Data", () => {
         debugExportLegacyData();

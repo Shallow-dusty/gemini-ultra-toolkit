@@ -9,9 +9,10 @@ mutable, so refresh this file before any major release or store submission.
 - Local git state is mutable; run `git status --short --branch` before release,
   push, or store submission instead of treating this snapshot as live git truth.
 - Local verification on 2026-06-08:
-  - `npm test` passed: 238 tests, `lib/` at 100% c8 coverage.
+  - `npm test` passed: 239 tests, `lib/` at 100% c8 coverage.
   - `npm run build` passed for userscript and extension outputs; generated
-    userscript size was ~459.3 kb after HTML transcript export.
+    userscript size was ~464.1 kb after HTML transcript export and adapter
+    probe export.
 - 2026-06-08 follow-up: `brace-expansion` was updated from `5.0.5` to
   `5.0.6`; `npm audit --audit-level=moderate` now reports 0 vulnerabilities.
 - Live Gemini DOM verification was not refreshed: no Chrome DevTools Protocol
@@ -155,8 +156,9 @@ Codex CLI/TUI.
   - Market signal: SPG has smart queue and shortcuts; TFG has shortcuts and
     send-to-Gemini.
   - Gemini signal: Gemini is adding agent/tool modes where auto-send risk rises.
-  - Plan: broaden live tool-mode probes and queue execution checks before
-    claiming current Gemini DOM coverage.
+  - Plan: local adapter probe export now records active tool-mode state and
+    visible tool-mode entry candidates when available; broaden live queue
+    execution checks before claiming current Gemini DOM coverage.
 - Notes/references
   - Primer++ v12 plus post-planning implementation: quote reply plus local
     per-chat notes and pins with JSON import/export, and explicit local
@@ -184,7 +186,8 @@ Codex CLI/TUI.
     check now blocks new Gemini selector literals outside the adapter.
   - Market signal: competitor internals are unknown.
   - Gemini signal: Gemini UI churn is frequent.
-  - Plan: keep adapter health visible and broaden live probe coverage.
+  - Plan: keep adapter health visible; exportable local probe reports now exist,
+    but live probe coverage still needs a logged-in Gemini page.
 
 ### Adjacent AI Workspace Benchmark
 
@@ -249,16 +252,21 @@ Goal: make "Gemini changed again" a contained adapter task.
    `src/adapters/gemini.js` without an explicit exception.~~ Done after this
    planning snapshot.
 3. Extend the CDP probe scripts to capture:
-   - model switcher state;
-   - sidebar chat rows and row actions;
-   - input editor and send button;
-   - chat header/export anchor;
-   - Canvas/Spark/tool-mode entry points when visible.
+   - ~~model switcher state;~~ covered by the adapter probe export helper;
+   - ~~sidebar chat rows and row actions;~~ covered by the adapter probe export
+     helper as counts/action presence, without exporting titles;
+   - ~~input editor and send button;~~ covered by the adapter probe export
+     helper;
+   - ~~chat header/export anchor;~~ covered by adapter/local-UI presence flags;
+   - ~~Canvas/Spark/tool-mode entry points when visible.~~ The report records
+     active tool-mode state and visible entry candidates when the adapter can
+     detect them; logged-in live proof is still required.
 4. ~~Add a small "selector health" debug panel that reports which adapter probes
    currently pass in the live page.~~ Done after this planning snapshot.
 
 Exit gate: adapter probe report can be exported from a live Gemini page, and
-the static selector-leak smoke check remains passing.
+the static selector-leak smoke check remains passing. Local export plumbing is
+implemented; logged-in live proof remains pending.
 
 ### Phase 2 - Power-User Workflow Parity
 

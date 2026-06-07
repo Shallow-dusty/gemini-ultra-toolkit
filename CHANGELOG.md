@@ -4,6 +4,7 @@
 
 ### Unreleased
 
+- **Adapter probe export**: Debug Panel and CDP helper can export a privacy-conservative runtime adapter probe report with selector, model, sidebar, input, header, and tool-mode health.
 - **HTML transcript export**: current-chat and selected-chat transcript exports now include an escaped standalone HTML format alongside JSON, Markdown, and TXT.
 - **Prompt chain queueing**: Prompt Vault can add a prompt chain to Message Queue as separate local queue items, so each step remains pause/cancel/reorder controlled before sending.
 - **Quota reset-window framing**: Counter now shows the active daily reset window and time until reset, using the configured reset hour without pretending to track unrecorded 5h/weekly rolling windows.

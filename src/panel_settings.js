@@ -21,7 +21,8 @@ import {
     debugDumpGeminiStores,
     debugExportLegacyData,
     debugExportAllStorage,
-    debugExportLogs
+    debugExportLogs,
+    debugExportAdapterProbe
 } from './debug_utils.js';
 
 // Re-use shared helpers from panel_ui
@@ -670,6 +671,7 @@ export function openDebugModal() {
     actions.appendChild(mkBtn(NativeUI.t('导出旧版数据', 'Export Legacy Data'), () => debugExportLegacyData()));
     actions.appendChild(mkBtn(NativeUI.t('导出全部存储', 'Export All Storage'), () => debugExportAllStorage()));
     actions.appendChild(mkBtn(NativeUI.t('导出日志', 'Export Logs'), () => debugExportLogs()));
+    actions.appendChild(mkBtn(NativeUI.t('导出适配器探针', 'Export Adapter Probe'), () => debugExportAdapterProbe()));
     actions.appendChild(mkBtn(NativeUI.t('清空日志', 'Clear Logs'), () => Logger.clear()));
 
     const logList = document.createElement('div');

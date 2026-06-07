@@ -129,6 +129,27 @@ export function debugExportLogs() {
     }
 }
 
+export function debugExportAdapterProbe() {
+    try {
+        if (typeof window.__PRIMER_PP_GET_PROBE_REPORT__ !== 'function') {
+            throw new Error('Probe report bridge is unavailable');
+        }
+        const payload = window.__PRIMER_PP_GET_PROBE_REPORT__();
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'primer_pp_adapter_probe.json';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        Logger.info('Debug: export adapter probe report');
+    } catch (e) {
+        Logger.warn('Debug: failed to export adapter probe report', { error: String(e) });
+    }
+}
+
 export function debugDumpGeminiStores() {
     try {
         const keys = (typeof GM_listValues === 'function' ? GM_listValues() : []).slice().sort();
