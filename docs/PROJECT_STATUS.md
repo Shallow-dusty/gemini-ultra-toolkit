@@ -18,7 +18,7 @@ Updated: 2026-06-08 — v12.0 released; Phase 0 release hygiene mostly repaired.
 
 Last verified locally on 2026-06-08:
 
-- `npm test` — 146 passing tests; `lib/` remains at 100% c8 coverage.
+- `npm test` — 147 passing tests; `lib/` remains at 100% c8 coverage.
 - `npm run build` — userscript and extension builds complete (~329 kb userscript).
 - `npm audit --audit-level=moderate` — 0 vulnerabilities after updating
   `brace-expansion` from `5.0.5` to `5.0.6`.
@@ -52,14 +52,11 @@ Generated or local-only directories:
 
 ## Current Git Notes
 
-Expected modified files in the 2026-06-08 planning/audit refresh:
+Git state is mutable and this document is not the source of truth for whether
+the checkout is clean, ahead, or pushed. Use `git status --short --branch` before
+release, commit, push, or store packaging.
 
-- docs planning/status/audit files
-- `store-assets/listing/chrome-en.md`
-- `package-lock.json`
-- `tests/app_smoke.test.js`
-
-Before release or commit, run:
+Before release or push, run:
 
 ```bash
 npm test

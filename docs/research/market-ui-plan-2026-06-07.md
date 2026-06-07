@@ -6,10 +6,10 @@ mutable, so refresh this file before any major release or store submission.
 
 ## Scope and Verification State
 
-- Local checkout: `main` is aligned with `origin/main` and clean at the time of
-  this snapshot.
-- Local verification on 2026-06-07:
-  - `npm test` passed: 146 tests, `lib/` at 100% c8 coverage.
+- Local git state is mutable; run `git status --short --branch` before release,
+  push, or store submission instead of treating this snapshot as live git truth.
+- Local verification on 2026-06-08:
+  - `npm test` passed: 147 tests, `lib/` at 100% c8 coverage.
   - `npm run build` passed for userscript and extension outputs.
 - 2026-06-08 follow-up: `brace-expansion` was updated from `5.0.5` to
   `5.0.6`; `npm audit --audit-level=moderate` now reports 0 vulnerabilities.
@@ -21,13 +21,21 @@ mutable, so refresh this file before any major release or store submission.
 
 ### Gemini Product and UI Direction
 
-Source: Google Gemini Apps release notes,
-<https://gemini.google/us/release-notes/?hl=en>.
+Sources:
+
+- Google Gemini Apps release notes:
+  <https://gemini.google/us/release-notes/?hl=en>
+- Google Blog, "The Gemini app becomes more agentic, delivering proactive,
+  24/7 help":
+  <https://blog.google/innovation-and-ai/products/gemini-app/next-evolution-gemini-app/>
 
 Current Gemini direction is broader than a chat UI:
 
 - 2026-05-19: Gemini Spark adds an agent tab and moves Gemini toward proactive
   task execution.
+- 2026-05-19: Google's Gemini app post describes a redesigned Gemini
+  experience with the Neural Expressive design language, inline Gemini Live,
+  richer response layouts, Daily Brief, Gemini Omni, and Gemini Spark.
 - 2026-05-19: Gemini 3.5 Flash is available globally through the model dropdown.
 - 2026-05-19: Gemini responses are becoming richer and more interactive under
   the Neural Expressive design language, with multi-layer images, video
@@ -56,17 +64,18 @@ Sources:
 - Toolbox for Gemini, Chrome Web Store:
   <https://chromewebstore.google.com/detail/gemini-toolbox/cbdpdhfnjbkjphmminnkfbeekodlphlp>
 
-Chrome Web Store pages were fetched again on 2026-06-08. Counts and update dates
-below are store-page values, not third-party mirror values.
+Chrome Web Store pages were fetched again on 2026-06-08. Counts and detail-page
+update dates below are official store-page values, not third-party mirror values;
+refresh them before quoting the snapshot in store copy.
 
 Observed market signals:
 
 - Superpower for Gemini is the strongest direct benchmark: 10,000 users, updated
-  2026-06-03, with folders, daily limit counter, PDF/DOCX/TXT/MD export, message
+  2026-06-02, with folders, daily limit counter, PDF/DOCX/TXT/MD export, message
   queue, prompt library, prompt chains, slash commands, default model, notes,
   chat referencing, Google Drive sync, shortcuts, and input counter.
 - Toolbox for Gemini is a focused direct competitor: 5,000 users, updated
-  2026-05-22, with folders/subfolders, PDF/HTML/Markdown/TXT/CSV export, image
+  2026-05-21, with folders/subfolders, PDF/HTML/Markdown/TXT/CSV export, image
   gallery, pinned messages, prompt library, AI prompt enhancer, send-to-Gemini,
   word counter, and bulk management.
 
@@ -85,31 +94,72 @@ Direct competitive gap:
 
 Legend: SPG = Superpower for Gemini; TFG = Toolbox for Gemini.
 
-```text
-Capability              Primer++ v12 evidence                  Direct Gemini competitors             Gemini / adjacent signal              Planning consequence
-----------------------  --------------------------------------  ------------------------------------  ------------------------------------  ------------------------------------
-Privacy/local-first     No backend, no telemetry, low perms     SPG offers local/sync claims; TFG      Gemini itself is account/cloud-native  Keep local-first as a hard product
-                                                                 says chats stay local but discloses                                         boundary and listing differentiator.
-                                                                 anonymous usage analytics
-Organization            Folders, colors, pinning, search,       SPG has native folders/sidebar mgr;    Gemini has built-in chat-history       Folders are parity now; move toward
-                        drag reorder, batch move, auto-rules     TFG has folders/subfolders             search on web/mobile                  notes, pins, and context packets.
-Quota visibility        Daily counter, model weighting,          SPG frames 5-hour and weekly usage;    Gemini exposes tiers but not detailed  Keep quota as a core differentiator;
-                        heatmap, streaks                        TFG is more word-count oriented        personal accounting                   add reset-window framing.
-Export                  Usage export in JSON/CSV/Markdown;       SPG has PDF/DOCX/TXT/MD; TFG has       Gemini built-ins remain limited for    Ship selected-chat bulk export in
-                        chat export remains narrow               PDF/HTML/Markdown/TXT/CSV             power export workflows                JSON/Markdown/TXT before PDF/DOCX.
-Prompt workflow         Prompt Vault, quick insert, import/      SPG has library, chains, slash cmds;   Mature ChatGPT extensions treat        Upgrade vault with slash commands,
-                        export                                  TFG has library and prompt enhancer    prompt mgmt as a platform feature      chains, placeholders, favorites.
-Send control            Ctrl+Enter tweak and default model       SPG has smart queue and shortcuts;     Gemini is adding agent/tool modes      Message queue is high-value parity,
-                                                                 TFG has shortcuts and send-to-Gemini   where auto-send risk rises             but must be tool-mode aware.
-Notes/references        Quote reply; no durable per-chat notes   SPG has notes/chat referencing; TFG    Gemini renamed past chats to           Add local notes/pins/context packets
-                                                                 has pinned messages                    memories and adds app connections      without mirroring Gemini memories.
-Rich responses/media    No image gallery or Neural Expressive    TFG has image gallery; SPG is not      Gemini is moving to richer layouts     Add adapter probes for rich response
-                        handling                                primarily media-positioned             and modality-specific responses        zones before media features.
-Bulk safety             Batch delete; no local undo/trash        SPG positions trash/restore; TFG has   Gemini delete remains server-side       Add undo for local operations first;
-                                                                 bulk management/protected folders      and risky to automate                  avoid promising server-side restore.
-UI resilience           Primary adapter covers most DOM paths;   Competitor internals unknown           Gemini UI churn is frequent            Make adapter health visible and add
-                        known selector leakage remains                                                                                       static selector-leak checks.
-```
+Format: bullet matrix instead of a wide table so the snapshot stays readable in
+Codex CLI/TUI.
+
+- Privacy/local-first
+  - Primer++ v12: no backend, no telemetry, low permissions.
+  - Market signal: SPG offers local/sync claims; TFG says chats stay local but
+    discloses anonymous usage analytics.
+  - Gemini signal: Gemini itself is account/cloud-native.
+  - Plan: keep local-first as a hard product boundary and listing differentiator.
+- Organization
+  - Primer++ v12: folders, colors, pinning, search, drag reorder, batch move,
+    auto-rules.
+  - Market signal: SPG has native folders/sidebar management; TFG has folders
+    and subfolders.
+  - Gemini signal: Gemini has built-in chat-history search on web/mobile.
+  - Plan: folders are parity now; move toward notes, pins, and context packets.
+- Quota visibility
+  - Primer++ v12: daily counter, model weighting, heatmap, streaks.
+  - Market signal: SPG frames 5-hour and weekly usage; TFG is more word-count
+    oriented.
+  - Gemini signal: Gemini exposes tiers but not detailed personal accounting.
+  - Plan: keep quota as a core differentiator and add reset-window framing.
+- Export
+  - Primer++ v12: usage export in JSON/CSV/Markdown; chat export remains narrow.
+  - Market signal: SPG has PDF/DOCX/TXT/MD; TFG has
+    PDF/HTML/Markdown/TXT/CSV.
+  - Gemini signal: Gemini built-ins remain limited for power export workflows.
+  - Plan: ship selected-chat bulk export in JSON/Markdown/TXT before PDF/DOCX.
+- Prompt workflow
+  - Primer++ v12: Prompt Vault, quick insert, import/export.
+  - Market signal: SPG has library, chains, slash commands; TFG has library and
+    prompt enhancer.
+  - Adjacent signal: mature ChatGPT extensions treat prompt management as a
+    platform feature.
+  - Plan: upgrade vault with slash commands, chains, placeholders, favorites.
+- Send control
+  - Primer++ v12: Ctrl+Enter tweak and default model.
+  - Market signal: SPG has smart queue and shortcuts; TFG has shortcuts and
+    send-to-Gemini.
+  - Gemini signal: Gemini is adding agent/tool modes where auto-send risk rises.
+  - Plan: message queue is high-value parity, but must be tool-mode aware.
+- Notes/references
+  - Primer++ v12: quote reply; no durable per-chat notes.
+  - Market signal: SPG has notes/chat referencing; TFG has pinned messages.
+  - Gemini signal: Gemini renamed past chats to memories and adds app
+    connections.
+  - Plan: add local notes/pins/context packets without mirroring Gemini memories.
+- Rich responses/media
+  - Primer++ v12: no image gallery or Neural Expressive handling.
+  - Market signal: TFG has image gallery; SPG is not primarily media-positioned.
+  - Gemini signal: Gemini is moving to richer layouts and modality-specific
+    responses.
+  - Plan: add adapter probes for rich response zones before media features.
+- Bulk safety
+  - Primer++ v12: batch delete; no local undo/trash.
+  - Market signal: SPG positions trash/restore; TFG has bulk management and
+    protected folders.
+  - Gemini signal: Gemini delete remains server-side and risky to automate.
+  - Plan: add undo for local operations first; avoid promising server-side
+    restore.
+- UI resilience
+  - Primer++ v12: primary adapter covers most Gemini DOM paths; a static smoke
+    check now blocks new Gemini selector literals outside the adapter.
+  - Market signal: competitor internals are unknown.
+  - Gemini signal: Gemini UI churn is frequent.
+  - Plan: keep adapter health visible and broaden live probe coverage.
 
 ### Adjacent AI Workspace Benchmark
 
@@ -167,22 +217,23 @@ git status, and one live Gemini smoke run.
 
 Goal: make "Gemini changed again" a contained adapter task.
 
-1. Move remaining Gemini-dependent CSS selectors and event filters into
-   `GeminiAdapter` helpers or an adapter-owned selector catalog.
-2. Add static smoke checks that fail when Gemini selectors appear outside
-   `src/adapters/gemini.js` without an explicit exception.
+1. ~~Move remaining Gemini-dependent CSS selectors and event filters into
+   `GeminiAdapter` helpers or an adapter-owned selector catalog.~~ Done after
+   this planning snapshot.
+2. ~~Add static smoke checks that fail when Gemini selectors appear outside
+   `src/adapters/gemini.js` without an explicit exception.~~ Done after this
+   planning snapshot.
 3. Extend the CDP probe scripts to capture:
    - model switcher state;
    - sidebar chat rows and row actions;
    - input editor and send button;
    - chat header/export anchor;
    - Canvas/Spark/tool-mode entry points when visible.
-4. Add a small "selector health" debug panel that reports which adapter probes
-   currently pass in the live page.
+4. ~~Add a small "selector health" debug panel that reports which adapter probes
+   currently pass in the live page.~~ Done after this planning snapshot.
 
 Exit gate: adapter probe report can be exported from a live Gemini page, and
-all module injection points are covered by either adapter methods or explicit
-exceptions.
+the static selector-leak smoke check remains passing.
 
 ### Phase 2 - Power-User Workflow Parity
 
