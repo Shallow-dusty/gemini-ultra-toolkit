@@ -54,10 +54,15 @@ Implemented modules:
    - Prepare screenshots around counter/heatmap, folders, prompt vault, and export.
 
 4. Adapter hardening
-   - Move remaining Gemini-dependent CSS selectors and event filters into
-     `GeminiAdapter` helpers or explicit exceptions.
-   - Add static smoke checks so accidental Gemini selectors do not spread back
-     into modules.
+   - ~~Move remaining Gemini-dependent CSS selectors and event filters in
+     `counter`, `ui-tweaks`, and `quote-reply` into `GeminiAdapter` helpers.~~
+     Done after the market/UI planning snapshot.
+   - ~~Add static smoke checks so accidental Gemini selectors do not spread back
+     into modules.~~ Done after the market/UI planning snapshot.
+   - ~~Expose adapter selector health in the debug panel.~~ Done after the
+     market/UI planning snapshot.
+   - Continue treating module-owned selectors such as `.gc-*` and `.gf-*` as
+     local UI selectors, not Gemini DOM coupling.
 
 5. Test broadening
    - Add browser-level smoke automation if Playwright becomes stable for the Gemini DOM.

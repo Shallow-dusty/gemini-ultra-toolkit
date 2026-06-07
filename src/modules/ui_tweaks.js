@@ -114,19 +114,15 @@ export const UITweaksModule = {
             return Number.isFinite(n) && n >= min && n <= max ? n : fallback;
         };
 
-        if (this.features.chatWidth.enabled) {
-            const w = clampPx(this.features.chatWidth.value, 900, 400, 4000);
-            rules.push('main .conversation-container, main .chat-window { max-width: ' + w + 'px !important; }');
-        }
-        if (this.features.sidebarWidth.enabled) {
-            const w = clampPx(this.features.sidebarWidth.value, 280, 160, 800);
-            // bard-sidenav still present in v12. Add nav[aria-label="Side Navigation"]
-            // as a forward-compatible alternate selector for safety.
-            rules.push('bard-sidenav, nav[aria-label="Side Navigation"] { width: ' + w + 'px !important; min-width: ' + w + 'px !important; }');
-        }
-        if (this.features.hideGems.enabled) {
-            rules.push('a[href*="/gems/"] { display: none !important; }');
-        }
+        rules.push(...GeminiAdapter.buildUITweakCssRules({
+            chatWidth: this.features.chatWidth.enabled
+                ? clampPx(this.features.chatWidth.value, 900, 400, 4000)
+                : null,
+            sidebarWidth: this.features.sidebarWidth.enabled
+                ? clampPx(this.features.sidebarWidth.value, 280, 160, 800)
+                : null,
+            hideGems: this.features.hideGems.enabled
+        }));
 
         if (rules.length > 0) {
             const style = document.createElement('style');
@@ -161,7 +157,7 @@ export const UITweaksModule = {
                 if (m.type === 'childList') {
                     const target = m.target;
                     if (!target || !target.closest) return true;
-                    return !!target.closest('main, .chat-container, [role="main"]');
+                    return GeminiAdapter.isInsideMainChatArea(target);
                 }
                 return false;
             },
@@ -181,7 +177,7 @@ export const UITweaksModule = {
             if (e.key !== 'Enter') return;
             const target = e.target;
             // Only intercept in the editor
-            if (!target.closest('.ql-editor, [contenteditable="true"]')) return;
+            if (!GeminiAdapter.isInsideInputEditor(target)) return;
             if (e.isComposing) return; // IME
 
             if (!e.ctrlKey && !e.metaKey) {

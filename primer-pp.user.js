@@ -429,6 +429,7 @@
         ],
         INPUT_EDITOR: 'div.ql-editor[contenteditable="true"]',
         INPUT_EDITOR_BY_ARIA: '[role="textbox"][aria-label="Enter a prompt for Gemini"]',
+        INPUT_EDITOR_TARGET: 'textarea, div.ql-editor[contenteditable="true"], [role="textbox"][aria-label="Enter a prompt for Gemini"], [contenteditable="true"]',
         INPUT_TRAILING_ACTIONS: ".trailing-actions-wrapper",
         SEND_BUTTON: [
           'button[aria-label="Send message"]',
@@ -481,6 +482,13 @@
         RESPONSE_CONTAINER: "response-container",
         CONVERSATION_CONTAINER: ".conversation-container",
         USER_QUERY_TEXT: ".query-text, .user-query-text",
+        CHAT_CONTENT_ROOT: 'main, [role="main"], user-query, model-response, response-container, .conversation-container',
+        MAIN_CHAT_AREA: 'main, .chat-container, [role="main"]',
+        // CSS targets for UI Tweaks. These are CSS rule selectors rather than
+        // element lookup selectors, but still belong in the Gemini-owned catalog.
+        UI_TWEAK_CHAT_WIDTH_TARGET: "main .conversation-container, main .chat-window",
+        UI_TWEAK_SIDEBAR_WIDTH_TARGET: 'bard-sidenav, nav[aria-label="Side Navigation"]',
+        UI_TWEAK_GEMS_ENTRY: 'a[href*="/gems/"]',
         // Mutation-watch closest() roots (DOMWatcher zone matches)
         SIDEBAR_MUTATION_ROOT: 'nav[aria-label="Side Navigation"], bard-sidenav, bard-sidenav-container, .sidenav-with-history-container, nav[role="navigation"]',
         INPUT_MUTATION_ROOT: "input-area-v2, .input-area-container, input-container",
@@ -610,6 +618,21 @@
         getSendButton() {
           return firstMatch(document, S.SEND_BUTTON);
         },
+        isInsideInputEditor(target) {
+          return !!closestAny(target, S.INPUT_EDITOR_TARGET.split(", "));
+        },
+        isSendButtonElement(btn) {
+          if (!btn || btn.disabled) return false;
+          if (btn.classList?.contains("send-button")) return true;
+          const label = (btn.getAttribute?.("aria-label") || "").trim();
+          if (label === "Send message" || label === "Send") return true;
+          if (/^send\s+(message|prompt)$/i.test(label)) return true;
+          return label.includes("发送") || label.includes("送信") || label.includes("전송") || label.includes("보내기");
+        },
+        getClosestSendButton(target) {
+          const btn = closestAny(target, ["button"]);
+          return this.isSendButtonElement(btn) ? btn : null;
+        },
         // ─── Chat header ───────────────────────────────────────────────────
         /**
          * Anchor element next to which export's 📤 button can be injected.
@@ -637,6 +660,12 @@
             return firstMsg.textContent.trim().substring(0, 50);
           }
           return "";
+        },
+        isInsideMainChatArea(target) {
+          return !!closestAny(target, S.MAIN_CHAT_AREA.split(", "));
+        },
+        isInsideChatContent(target) {
+          return !!closestAny(target, S.CHAT_CONTENT_ROOT.split(", "));
         },
         // ─── Mode picker ───────────────────────────────────────────────────
         getModelSwitch() {
@@ -772,6 +801,40 @@
             "bard-sidenav",
             'nav[role="navigation"]'
           ]);
+        },
+        buildUITweakCssRules({ chatWidth, sidebarWidth, hideGems } = {}) {
+          const rules = [];
+          if (Number.isFinite(chatWidth)) {
+            rules.push(`${S.UI_TWEAK_CHAT_WIDTH_TARGET} { max-width: ${chatWidth}px !important; }`);
+          }
+          if (Number.isFinite(sidebarWidth)) {
+            rules.push(`${S.UI_TWEAK_SIDEBAR_WIDTH_TARGET} { width: ${sidebarWidth}px !important; min-width: ${sidebarWidth}px !important; }`);
+          }
+          if (hideGems) {
+            rules.push(`${S.UI_TWEAK_GEMS_ENTRY} { display: none !important; }`);
+          }
+          return rules;
+        },
+        getSelectorHealthReport() {
+          const checks = [
+            { id: "sidebar", label: "Sidebar", ok: !!this.getSidebar() },
+            { id: "sidebar-overflow", label: "Sidebar overflow", ok: !!this.getSidebarOverflowContainer() },
+            { id: "input-area", label: "Input area", ok: !!this.getInputArea() },
+            { id: "input-editor", label: "Input editor", ok: !!this.getInputEditor() },
+            { id: "input-actions", label: "Input actions", ok: !!this.getInputTrailingActions() },
+            { id: "send-button", label: "Send button", ok: !!this.getSendButton() },
+            { id: "chat-header", label: "Chat header", ok: !!this.getChatHeader() },
+            { id: "model-switch", label: "Model switch", ok: !!this.getModelSwitch() },
+            { id: "chat-links", label: "Sidebar chat links", ok: this.getChatLinkCount() > 0, detail: String(this.getChatLinkCount()) }
+          ];
+          const passed = checks.filter((check) => check.ok).length;
+          return {
+            ready: this.isReady(),
+            passed,
+            total: checks.length,
+            failed: checks.filter((check) => !check.ok).map((check) => check.id),
+            checks
+          };
         }
       };
     }
@@ -1514,22 +1577,15 @@
             if (!ModuleRegistry.isEnabled("counter")) return;
             if (e.key !== "Enter" || e.shiftKey || e.isComposing || e.originalEvent?.isComposing) return;
             const act = document.activeElement;
-            if (act && (act.tagName === "TEXTAREA" || act.getAttribute("contenteditable") === "true")) {
+            if (GeminiAdapter.isInsideInputEditor(act)) {
               setTimeout(() => this.attemptIncrement(), 50);
             }
           };
           this._boundClickHandler = (e) => {
             if (!ModuleRegistry.isEnabled("counter")) return;
-            const btn = e.target?.closest ? e.target.closest("button") : null;
-            if (btn && !btn.disabled) {
-              if (btn.classList.contains("send-button")) {
-                this.attemptIncrement();
-                return;
-              }
-              const label = btn.getAttribute("aria-label") || "";
-              if (label === "Send message" || label === "Send" || label.startsWith("Send ") || label.includes("发送")) {
-                this.attemptIncrement();
-              }
+            const sendBtn = GeminiAdapter.getClosestSendButton(e.target);
+            if (sendBtn) {
+              this.attemptIncrement();
             }
           };
           document.addEventListener("keydown", this._boundKeyHandler, true);
@@ -2934,6 +2990,15 @@
     info.appendChild(infoLine("Storage Key", storageKey));
     info.appendChild(infoLine("Debug Enabled", String(isDebugEnabled())));
     info.appendChild(infoLine("Log Level", Logger.getLevel()));
+    const adapterHealth = GeminiAdapter.getSelectorHealthReport();
+    const health = document.createElement("div");
+    health.className = "debug-kv";
+    health.appendChild(infoLine("Adapter Ready", String(adapterHealth.ready)));
+    health.appendChild(infoLine("Adapter Health", `${adapterHealth.passed}/${adapterHealth.total}`));
+    adapterHealth.checks.forEach((check) => {
+      const label = check.detail ? `${check.label} (${check.detail})` : check.label;
+      health.appendChild(infoLine(label, check.ok ? "ok" : "missing"));
+    });
     const filterRow = document.createElement("div");
     filterRow.className = "debug-filter-row";
     const filters = ["all", "error", "warn", "info", "debug"];
@@ -3008,6 +3073,7 @@
     renderLogs();
     unsubscribe = Logger.subscribe(renderLogs);
     body.appendChild(info);
+    body.appendChild(health);
     body.appendChild(filterRow);
     body.appendChild(search);
     body.appendChild(actions);
@@ -3161,6 +3227,7 @@
       init_module_registry();
       init_state();
       init_native_ui();
+      init_gemini();
       init_counter();
       init_export();
       init_debug_utils();
@@ -6918,7 +6985,8 @@
             const el = container.nodeType === 3 ? container.parentElement : container;
             if (!el) return;
             if (el.closest("#" + PANEL_ID)) return;
-            if (el.closest(".ql-editor")) return;
+            if (GeminiAdapter.isInsideInputEditor(el)) return;
+            if (!GeminiAdapter.isInsideChatContent(el)) return;
             const text = sel.toString().trim();
             if (!text || text.length < 2) return;
             this._showFab(e.clientX, e.clientY, text);
@@ -7099,17 +7167,11 @@
             const n = Math.floor(Number(v));
             return Number.isFinite(n) && n >= min && n <= max ? n : fallback;
           };
-          if (this.features.chatWidth.enabled) {
-            const w = clampPx(this.features.chatWidth.value, 900, 400, 4e3);
-            rules.push("main .conversation-container, main .chat-window { max-width: " + w + "px !important; }");
-          }
-          if (this.features.sidebarWidth.enabled) {
-            const w = clampPx(this.features.sidebarWidth.value, 280, 160, 800);
-            rules.push('bard-sidenav, nav[aria-label="Side Navigation"] { width: ' + w + "px !important; min-width: " + w + "px !important; }");
-          }
-          if (this.features.hideGems.enabled) {
-            rules.push('a[href*="/gems/"] { display: none !important; }');
-          }
+          rules.push(...GeminiAdapter.buildUITweakCssRules({
+            chatWidth: this.features.chatWidth.enabled ? clampPx(this.features.chatWidth.value, 900, 400, 4e3) : null,
+            sidebarWidth: this.features.sidebarWidth.enabled ? clampPx(this.features.sidebarWidth.value, 280, 160, 800) : null,
+            hideGems: this.features.hideGems.enabled
+          }));
           if (rules.length > 0) {
             const style = document.createElement("style");
             style.textContent = rules.join("\n");
@@ -7138,7 +7200,7 @@
               if (m.type === "childList") {
                 const target = m.target;
                 if (!target || !target.closest) return true;
-                return !!target.closest('main, .chat-container, [role="main"]');
+                return GeminiAdapter.isInsideMainChatArea(target);
               }
               return false;
             },
@@ -7155,7 +7217,7 @@
           this._keyHandler = (e) => {
             if (e.key !== "Enter") return;
             const target = e.target;
-            if (!target.closest('.ql-editor, [contenteditable="true"]')) return;
+            if (!GeminiAdapter.isInsideInputEditor(target)) return;
             if (e.isComposing) return;
             if (!e.ctrlKey && !e.metaKey) {
               e.stopPropagation();

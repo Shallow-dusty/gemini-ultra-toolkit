@@ -108,4 +108,53 @@ describe('app smoke checks', () => {
         assert.equal(lock.packages[''].name, 'primer-pp');
         assert.equal(braceExpansion.version, '5.0.6');
     });
+
+    it('keeps Gemini-owned DOM selectors behind GeminiAdapter', () => {
+        const sourceFiles = [
+            ...fs.readdirSync(path.join(root, 'src/modules'))
+                .filter(file => file.endsWith('.js'))
+                .map(file => `src/modules/${file}`),
+            'src/core.js',
+            'src/main.js',
+            'src/native_ui.js',
+            'src/panel_settings.js'
+        ];
+        const forbiddenFragments = [
+            'bard-',
+            'gem-nav',
+            'gem-menu',
+            'model-response',
+            'user-query',
+            'response-container',
+            'conversation-container',
+            'chat-window',
+            'chat-container',
+            'gds-pillbox',
+            'data-test-id',
+            'aria-label="Side Navigation"',
+            'aria-label="Enter a prompt for Gemini"',
+            'aria-label="Send message"',
+            'aria-label="Open mode picker"',
+            'aria-label="Open menu for conversation actions"',
+            'href*="/gems/"',
+            '.ql-editor'
+        ];
+        const selectorLiteral = /(?:\.(?:querySelector(?:All)?|closest|matches)|rules\.push)\(\s*(['"`])((?:\\.|(?!\1)[\s\S])*?)\1/g;
+        const offenders = [];
+
+        for (const file of sourceFiles) {
+            const source = read(file);
+            for (const match of source.matchAll(selectorLiteral)) {
+                const literal = match[2];
+                const fragment = forbiddenFragments.find(item => literal.includes(item));
+                if (fragment) {
+                    offenders.push(`${file}: ${fragment}`);
+                }
+            }
+        }
+
+        assert.deepEqual(offenders, []);
+        assert.match(read('src/adapters/gemini.js'), /getSelectorHealthReport\(\)/);
+        assert.match(read('src/panel_settings.js'), /GeminiAdapter\.getSelectorHealthReport\(\)/);
+    });
 });

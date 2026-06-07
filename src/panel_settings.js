@@ -12,6 +12,7 @@ import { Core } from './core.js';
 import { ModuleRegistry } from './module_registry.js';
 import { getCurrentTheme } from './state.js';
 import { NativeUI } from './native_ui.js';
+import { GeminiAdapter } from './adapters/gemini.js';
 import { CounterModule } from './modules/counter.js';
 import { ExportModule } from './modules/export.js';
 import {
@@ -610,6 +611,16 @@ export function openDebugModal() {
     info.appendChild(infoLine('Debug Enabled', String(isDebugEnabled())));
     info.appendChild(infoLine('Log Level', Logger.getLevel()));
 
+    const adapterHealth = GeminiAdapter.getSelectorHealthReport();
+    const health = document.createElement('div');
+    health.className = 'debug-kv';
+    health.appendChild(infoLine('Adapter Ready', String(adapterHealth.ready)));
+    health.appendChild(infoLine('Adapter Health', `${adapterHealth.passed}/${adapterHealth.total}`));
+    adapterHealth.checks.forEach(check => {
+        const label = check.detail ? `${check.label} (${check.detail})` : check.label;
+        health.appendChild(infoLine(label, check.ok ? 'ok' : 'missing'));
+    });
+
     const filterRow = document.createElement('div');
     filterRow.className = 'debug-filter-row';
     const filters = ['all', 'error', 'warn', 'info', 'debug'];
@@ -693,6 +704,7 @@ export function openDebugModal() {
     unsubscribe = Logger.subscribe(renderLogs);
 
     body.appendChild(info);
+    body.appendChild(health);
     body.appendChild(filterRow);
     body.appendChild(search);
     body.appendChild(actions);

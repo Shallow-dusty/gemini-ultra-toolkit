@@ -101,32 +101,16 @@ export const CounterModule = {
             if (!ModuleRegistry.isEnabled('counter')) return;
             if (e.key !== 'Enter' || e.shiftKey || e.isComposing || e.originalEvent?.isComposing) return;
             const act = document.activeElement;
-            if (act && (act.tagName === 'TEXTAREA' || act.getAttribute('contenteditable') === 'true')) {
+            if (GeminiAdapter.isInsideInputEditor(act)) {
                 setTimeout(() => this.attemptIncrement(), 50);
             }
         };
 
         this._boundClickHandler = (e) => {
             if (!ModuleRegistry.isEnabled('counter')) return;
-            const btn = e.target?.closest ? e.target.closest('button') : null;
-            if (btn && !btn.disabled) {
-                // v11 had `button.send-button`; v12 only exposes the aria-label,
-                // so the aria-label branch is now load-bearing. Keep the class
-                // check to handle mixed rollouts (some users still see v11).
-                if (btn.classList.contains('send-button')) {
-                    this.attemptIncrement();
-                    return;
-                }
-                const label = btn.getAttribute('aria-label') || '';
-                // Exact 'Send message' first (v12); fall through to looser i18n
-                // match. The looser match is intentional \u2014 Gemini ships many
-                // locales \u2014 but exact wins to avoid hypothetical "Send feedback".
-                if (label === 'Send message' ||
-                    label === 'Send' ||
-                    label.startsWith('Send ') ||
-                    label.includes('\u53D1\u9001')) {
-                    this.attemptIncrement();
-                }
+            const sendBtn = GeminiAdapter.getClosestSendButton(e.target);
+            if (sendBtn) {
+                this.attemptIncrement();
             }
         };
 

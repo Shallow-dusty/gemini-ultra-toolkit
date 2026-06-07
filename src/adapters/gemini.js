@@ -1,10 +1,10 @@
 /**
- * GeminiAdapter — centralizes ALL DOM coupling with the Gemini web app.
+ * GeminiAdapter — centralizes Gemini web-app DOM coupling.
  *
  * Why it exists: Google occasionally restructures Gemini's frontend. Without an
- * adapter, every such change touches a dozen module files. With it, the next
- * change touches only this file. Every querySelector that depends on Gemini's
- * own markup MUST live here.
+ * adapter, every such change touches a dozen module files. With it, Gemini
+ * markup changes should be contained here first. Every querySelector that
+ * depends on Gemini's own markup MUST live here.
  *
  * Selector strategy: each accessor tries multiple selectors in priority order —
  * v12 primary → v11 fallback → role/aria fallback. This keeps the script
@@ -39,6 +39,7 @@ const S = Object.freeze({
     ],
     INPUT_EDITOR: 'div.ql-editor[contenteditable="true"]',
     INPUT_EDITOR_BY_ARIA: '[role="textbox"][aria-label="Enter a prompt for Gemini"]',
+    INPUT_EDITOR_TARGET: 'textarea, div.ql-editor[contenteditable="true"], [role="textbox"][aria-label="Enter a prompt for Gemini"], [contenteditable="true"]',
     INPUT_TRAILING_ACTIONS: '.trailing-actions-wrapper',
     SEND_BUTTON: [
         'button[aria-label="Send message"]',         // v12 primary
@@ -87,6 +88,14 @@ const S = Object.freeze({
     RESPONSE_CONTAINER: 'response-container',
     CONVERSATION_CONTAINER: '.conversation-container',
     USER_QUERY_TEXT: '.query-text, .user-query-text',
+    CHAT_CONTENT_ROOT: 'main, [role="main"], user-query, model-response, response-container, .conversation-container',
+    MAIN_CHAT_AREA: 'main, .chat-container, [role="main"]',
+
+    // CSS targets for UI Tweaks. These are CSS rule selectors rather than
+    // element lookup selectors, but still belong in the Gemini-owned catalog.
+    UI_TWEAK_CHAT_WIDTH_TARGET: 'main .conversation-container, main .chat-window',
+    UI_TWEAK_SIDEBAR_WIDTH_TARGET: 'bard-sidenav, nav[aria-label="Side Navigation"]',
+    UI_TWEAK_GEMS_ENTRY: 'a[href*="/gems/"]',
 
     // Mutation-watch closest() roots (DOMWatcher zone matches)
     SIDEBAR_MUTATION_ROOT: 'nav[aria-label="Side Navigation"], bard-sidenav, bard-sidenav-container, .sidenav-with-history-container, nav[role="navigation"]',
@@ -292,6 +301,27 @@ export const GeminiAdapter = {
         return firstMatch(document, S.SEND_BUTTON);
     },
 
+    isInsideInputEditor(target) {
+        return !!closestAny(target, S.INPUT_EDITOR_TARGET.split(', '));
+    },
+
+    isSendButtonElement(btn) {
+        if (!btn || btn.disabled) return false;
+        if (btn.classList?.contains('send-button')) return true;
+        const label = (btn.getAttribute?.('aria-label') || '').trim();
+        if (label === 'Send message' || label === 'Send') return true;
+        if (/^send\s+(message|prompt)$/i.test(label)) return true;
+        return label.includes('发送') ||
+               label.includes('送信') ||
+               label.includes('전송') ||
+               label.includes('보내기');
+    },
+
+    getClosestSendButton(target) {
+        const btn = closestAny(target, ['button']);
+        return this.isSendButtonElement(btn) ? btn : null;
+    },
+
     // ─── Chat header ───────────────────────────────────────────────────
     /**
      * Anchor element next to which export's 📤 button can be injected.
@@ -325,6 +355,14 @@ export const GeminiAdapter = {
             return firstMsg.textContent.trim().substring(0, 50);
         }
         return '';
+    },
+
+    isInsideMainChatArea(target) {
+        return !!closestAny(target, S.MAIN_CHAT_AREA.split(', '));
+    },
+
+    isInsideChatContent(target) {
+        return !!closestAny(target, S.CHAT_CONTENT_ROOT.split(', '));
     },
 
     // ─── Mode picker ───────────────────────────────────────────────────
@@ -482,5 +520,41 @@ export const GeminiAdapter = {
             'bard-sidenav',
             'nav[role="navigation"]'
         ]);
+    },
+
+    buildUITweakCssRules({ chatWidth, sidebarWidth, hideGems } = {}) {
+        const rules = [];
+        if (Number.isFinite(chatWidth)) {
+            rules.push(`${S.UI_TWEAK_CHAT_WIDTH_TARGET} { max-width: ${chatWidth}px !important; }`);
+        }
+        if (Number.isFinite(sidebarWidth)) {
+            rules.push(`${S.UI_TWEAK_SIDEBAR_WIDTH_TARGET} { width: ${sidebarWidth}px !important; min-width: ${sidebarWidth}px !important; }`);
+        }
+        if (hideGems) {
+            rules.push(`${S.UI_TWEAK_GEMS_ENTRY} { display: none !important; }`);
+        }
+        return rules;
+    },
+
+    getSelectorHealthReport() {
+        const checks = [
+            { id: 'sidebar', label: 'Sidebar', ok: !!this.getSidebar() },
+            { id: 'sidebar-overflow', label: 'Sidebar overflow', ok: !!this.getSidebarOverflowContainer() },
+            { id: 'input-area', label: 'Input area', ok: !!this.getInputArea() },
+            { id: 'input-editor', label: 'Input editor', ok: !!this.getInputEditor() },
+            { id: 'input-actions', label: 'Input actions', ok: !!this.getInputTrailingActions() },
+            { id: 'send-button', label: 'Send button', ok: !!this.getSendButton() },
+            { id: 'chat-header', label: 'Chat header', ok: !!this.getChatHeader() },
+            { id: 'model-switch', label: 'Model switch', ok: !!this.getModelSwitch() },
+            { id: 'chat-links', label: 'Sidebar chat links', ok: this.getChatLinkCount() > 0, detail: String(this.getChatLinkCount()) }
+        ];
+        const passed = checks.filter(check => check.ok).length;
+        return {
+            ready: this.isReady(),
+            passed,
+            total: checks.length,
+            failed: checks.filter(check => !check.ok).map(check => check.id),
+            checks
+        };
     }
 };

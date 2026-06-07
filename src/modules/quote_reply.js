@@ -58,7 +58,8 @@ export const QuoteReplyModule = {
 
             // Skip if selection is in our panel or in the editor
             if (el.closest('#' + PANEL_ID)) return;
-            if (el.closest('.ql-editor')) return;
+            if (GeminiAdapter.isInsideInputEditor(el)) return;
+            if (!GeminiAdapter.isInsideChatContent(el)) return;
 
             const text = sel.toString().trim();
             if (!text || text.length < 2) return;
