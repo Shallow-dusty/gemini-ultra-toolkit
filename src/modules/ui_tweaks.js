@@ -73,7 +73,7 @@ export const UITweaksModule = {
         const hint = document.createElement('div');
         hint.id = HINT_ID;
         hint.className = 'gc-send-hint';
-        hint.textContent = 'Ctrl+Enter \u21B5';
+        hint.textContent = NativeUI.t('Ctrl+Enter \u21B5', 'Ctrl+Enter \u21B5');
         inputArea.appendChild(hint);
     },
 

@@ -239,4 +239,15 @@ describe('app smoke checks', () => {
         assert.doesNotMatch(batchDelete, /selectAll\.textContent = 'Select All'/);
         assert.doesNotMatch(batchDelete, /deselectAll\.textContent = 'Deselect All'/);
     });
+
+    it('keeps quote and UI tweaks native labels localized', () => {
+        const quoteReply = read('src/modules/quote_reply.js');
+        const uiTweaks = read('src/modules/ui_tweaks.js');
+
+        assert.match(quoteReply, /NativeUI\.t\('\\uD83D\\uDCAC 引用', '\\uD83D\\uDCAC Quote'\)/);
+        assert.doesNotMatch(quoteReply, /textContent = '\\uD83D\\uDCAC Quote'/);
+
+        assert.match(uiTweaks, /NativeUI\.t\('Ctrl\+Enter \\u21B5', 'Ctrl\+Enter \\u21B5'\)/);
+        assert.doesNotMatch(uiTweaks, /textContent = 'Ctrl\+Enter \\u21B5'/);
+    });
 });

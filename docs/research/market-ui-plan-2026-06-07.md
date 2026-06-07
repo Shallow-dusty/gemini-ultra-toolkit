@@ -9,7 +9,7 @@ mutable, so refresh this file before any major release or store submission.
 - Local git state is mutable; run `git status --short --branch` before release,
   push, or store submission instead of treating this snapshot as live git truth.
 - Local verification on 2026-06-08:
-  - `npm test` passed: 242 tests, `lib/` at 100% c8 coverage.
+  - `npm test` passed: 243 tests, `lib/` at 100% c8 coverage.
   - `npm run build` passed for userscript and extension outputs; generated
     userscript size was ~468.2 kb after HTML transcript export, adapter probe
     export, pinned context packets, and broader i18n hardening.

@@ -73,7 +73,7 @@ export const QuoteReplyModule = {
 
         const fab = document.createElement('div');
         fab.className = 'gc-quote-fab';
-        fab.textContent = '\uD83D\uDCAC Quote';
+        fab.textContent = NativeUI.t('\uD83D\uDCAC 引用', '\uD83D\uDCAC Quote');
 
         // Position near cursor, clamped to viewport
         const fabW = 90;

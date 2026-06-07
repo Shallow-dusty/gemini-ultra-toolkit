@@ -9414,7 +9414,7 @@ ${part}`).join("\n\n---\n\n");
           this._removeFab();
           const fab = document.createElement("div");
           fab.className = "gc-quote-fab";
-          fab.textContent = "💬 Quote";
+          fab.textContent = NativeUI.t("💬 引用", "💬 Quote");
           const fabW = 90;
           const fabH = 30;
           let left = Math.min(x + 8, window.innerWidth - fabW - 10);
@@ -9552,7 +9552,7 @@ ${part}`).join("\n\n---\n\n");
           const hint = document.createElement("div");
           hint.id = HINT_ID;
           hint.className = "gc-send-hint";
-          hint.textContent = "Ctrl+Enter ↵";
+          hint.textContent = NativeUI.t("Ctrl+Enter ↵", "Ctrl+Enter ↵");
           inputArea.appendChild(hint);
         },
         removeNativeUI() {

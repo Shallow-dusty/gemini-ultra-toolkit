@@ -18,7 +18,7 @@ Updated: 2026-06-08 — v12.0 released; selected-chat export, local folder undo,
 
 Last verified locally on 2026-06-08:
 
-- `npm test` — 242 passing tests; `lib/` remains at 100% c8 coverage.
+- `npm test` — 243 passing tests; `lib/` remains at 100% c8 coverage.
 - `npm run build` — userscript and extension builds complete (~468.2 kb
   userscript after selected-chat export, URL filtering, prompt-delete undo,
   folder undo, local folder/notes import-export, local context-reference

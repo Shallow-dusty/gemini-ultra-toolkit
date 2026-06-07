@@ -74,8 +74,8 @@ Implemented protections:
 - `:focus-visible` styles exist for panel, modal, and native-injected controls.
 - `prefers-reduced-motion: reduce` guards exist for panel and native injected styles.
 - Main panel, settings, dashboard, debug, calibration, and post-v12 workflow
-  labels in Export, Chat Notes, Message Queue, Prompt Vault, Folders, and Batch
-  Delete now use `NativeUI.t()` for key paths.
+  labels in Export, Chat Notes, Message Queue, Prompt Vault, Folders, Batch
+  Delete, Quote Reply, and UI Tweaks now use `NativeUI.t()` for key paths.
 
 Residual checks:
 
