@@ -2,9 +2,11 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const {
     buildPromptVariables,
+    composePromptContent,
     findPromptByShortcut,
     getQuickMenuSections,
     markPromptUsed,
+    normalizeChainSteps,
     normalizePrompt,
     normalizePromptList,
     normalizeShortcut,
@@ -54,7 +56,8 @@ describe('prompt_vault_tools', () => {
             usedCount: '2.8',
             createdAt: '',
             updatedAt: '',
-            lastUsedAt: null
+            lastUsedAt: null,
+            chainSteps: 'step two\n---\nstep three'
         }, 4, { nowIso });
 
         assert.equal(normalized.id, 'p_4');
@@ -67,6 +70,7 @@ describe('prompt_vault_tools', () => {
         assert.equal(normalized.createdAt, nowIso);
         assert.equal(normalized.updatedAt, nowIso);
         assert.equal(normalized.lastUsedAt, '');
+        assert.deepEqual(normalized.chainSteps, ['step two', 'step three']);
     });
 
     it('drops invalid prompt-list entries and handles non-arrays', () => {
@@ -83,6 +87,12 @@ describe('prompt_vault_tools', () => {
         assert.equal(normalizeShortcut('/Ask Gemini++'), 'ask-gemini');
         assert.equal(normalizeShortcut('', 'Long Prompt Name'), 'long-prompt-name');
         assert.equal(normalizeShortcut('A'.repeat(40)), 'a'.repeat(32));
+    });
+
+    it('normalizes prompt-chain steps from strings, arrays, and objects', () => {
+        assert.deepEqual(normalizeChainSteps('one\n---\ntwo\n\n---\n'), ['one', 'two']);
+        assert.deepEqual(normalizeChainSteps([' one ', { content: 'two' }, '', null]), ['one', 'two']);
+        assert.equal(normalizeChainSteps(Array.from({ length: 20 }, (_, i) => `step ${i}`)).length, 12);
     });
 
     it('sorts favorites, recents, usage counts, and names deterministically', () => {
@@ -134,6 +144,23 @@ describe('prompt_vault_tools', () => {
         );
 
         assert.equal(rendered, 'On 2026-06-08 at 09:30 in Architecture Notes using pro: selected {{missing}} ');
+    });
+
+    it('composes single prompts and multi-step prompt chains', () => {
+        const single = composePromptContent({ name: 'Single', content: 'Hello {{model}}' }, { model: 'pro' });
+        assert.equal(single, 'Hello pro');
+
+        const chain = composePromptContent({
+            name: 'Chain',
+            content: 'Plan {{date}}',
+            chainSteps: ['Draft {{selected_text}}', 'Review']
+        }, {
+            date: '2026-06-08',
+            selected_text: 'scope'
+        });
+
+        assert.equal(chain, 'Step 1\nPlan 2026-06-08\n\n---\n\nStep 2\nDraft scope\n\n---\n\nStep 3\nReview');
+        assert.equal(composePromptContent({ name: 'Empty', content: '' }), '');
     });
 
     it('falls back for dynamic prompt variables when context is missing', () => {

@@ -9,7 +9,7 @@ mutable, so refresh this file before any major release or store submission.
 - Local git state is mutable; run `git status --short --branch` before release,
   push, or store submission instead of treating this snapshot as live git truth.
 - Local verification on 2026-06-08:
-  - `npm test` passed: 157 tests, `lib/` at 100% c8 coverage.
+  - `npm test` passed: 159 tests, `lib/` at 100% c8 coverage.
   - `npm run build` passed for userscript and extension outputs.
 - 2026-06-08 follow-up: `brace-expansion` was updated from `5.0.5` to
   `5.0.6`; `npm audit --audit-level=moderate` now reports 0 vulnerabilities.
@@ -83,9 +83,9 @@ Direct competitive gap:
 
 - Primer++ already covers counter, folders, prompt vault, default model, batch
   delete, quote reply, UI tweaks, heatmap, and export.
-- Primer++ is behind the top competitors on message queue, prompt chains,
-  per-chat notes, bulk export, PDF/DOCX export, pinned messages, image gallery,
-  undo/trash, and cross-device sync.
+- Primer++ is behind the top competitors on message queue, per-chat notes, bulk
+  export, PDF/DOCX export, pinned messages, image gallery, undo/trash, and
+  cross-device sync.
 - Primer++ has a stronger local-first story than products that disclose
   analytics, cloud sync, or in-app purchases. Keep this as a product boundary,
   not an afterthought.
@@ -124,13 +124,13 @@ Codex CLI/TUI.
   - Plan: ship selected-chat bulk export in JSON/Markdown/TXT before PDF/DOCX.
 - Prompt workflow
   - Primer++ v12: Prompt Vault, quick insert, import/export, favorites, recent
-    ranking, slash shortcuts, and template variables.
+    ranking, slash shortcuts, template variables, and local prompt chains.
   - Market signal: SPG has library, chains, slash commands; TFG has library and
     prompt enhancer.
   - Adjacent signal: mature ChatGPT extensions treat prompt management as a
     platform feature.
-  - Plan: finish prompt chains and broader prompt automation after the
-    local-first vault metadata upgrade.
+  - Plan: move next to broader prompt automation such as message queue safety
+    and chain-aware execution controls.
 - Send control
   - Primer++ v12: Ctrl+Enter tweak and default model.
   - Market signal: SPG has smart queue and shortcuts; TFG has shortcuts and
@@ -248,7 +248,7 @@ boundary.
    - avoid auto-sending while model/tool mode is ambiguous.
 2. Prompt vault upgrade:
    - ~~slash shortcut insertion;~~ done after this planning snapshot;
-   - prompt chains;
+   - ~~prompt chains;~~ done after this planning snapshot;
    - ~~variable placeholders;~~ done after this planning snapshot;
    - ~~recent prompts and favorites;~~ done after this planning snapshot;
    - compatible import/export for prompt metadata.

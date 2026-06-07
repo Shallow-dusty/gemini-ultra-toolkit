@@ -5990,6 +5990,7 @@
       var MAX_NAME_LENGTH = 80;
       var MAX_CATEGORY_LENGTH = 40;
       var MAX_SHORTCUT_LENGTH = 32;
+      var MAX_CHAIN_STEPS = 12;
       function toText(value) {
         if (value === null || value === void 0) return "";
         return String(value);
@@ -6007,6 +6008,10 @@
         if (!Number.isFinite(count) || count <= 0) return 0;
         return Math.floor(count);
       }
+      function normalizeChainSteps(value) {
+        const rawSteps = Array.isArray(value) ? value : toText(value).split(/\n\s*---+\s*\n/g);
+        return rawSteps.map((step) => step && typeof step === "object" ? step.content : step).map((step) => toText(step).trim()).filter(Boolean).slice(0, MAX_CHAIN_STEPS);
+      }
       function normalizePrompt2(raw, index = 0, opts = {}) {
         const source = raw && typeof raw === "object" ? raw : {};
         const nowIso = opts.nowIso || (/* @__PURE__ */ new Date()).toISOString();
@@ -6021,6 +6026,7 @@
           category,
           shortcut: normalizeShortcut(source.shortcut, name),
           favorite: source.favorite === true,
+          chainSteps: normalizeChainSteps(source.chainSteps || source.chain),
           createdAt,
           updatedAt: cleanText(source.updatedAt, createdAt),
           usedCount: normalizeUsedCount(source.usedCount),
@@ -6084,6 +6090,13 @@
           return value === null || value === void 0 ? "" : String(value);
         });
       }
+      function composePromptContent2(prompt, variables = {}) {
+        const normalized = normalizePrompt2(prompt);
+        const parts = [normalized.content, ...normalized.chainSteps].map((part) => renderPromptTemplate2(part, variables)).filter(Boolean);
+        if (parts.length <= 1) return parts[0] || "";
+        return parts.map((part, index) => `Step ${index + 1}
+${part}`).join("\n\n---\n\n");
+      }
       function findPromptByShortcut2(prompts, command) {
         const shortcut = normalizeShortcut(command);
         if (!shortcut) return null;
@@ -6103,10 +6116,12 @@
       }
       module.exports = {
         buildPromptVariables: buildPromptVariables2,
+        composePromptContent: composePromptContent2,
         findPromptByShortcut: findPromptByShortcut2,
         getQuickMenuSections: getQuickMenuSections2,
         markPromptUsed: markPromptUsed2,
         normalizePrompt: normalizePrompt2,
+        normalizeChainSteps,
         normalizePromptList: normalizePromptList2,
         normalizeShortcut,
         renderPromptTemplate: renderPromptTemplate2,
@@ -6233,7 +6248,8 @@
                 const item = document.createElement("div");
                 item.className = "gc-dropdown-item";
                 item.style.fontSize = "12px";
-                item.textContent = p.shortcut ? `${p.name}  /${p.shortcut}` : p.name;
+                const chainLabel = p.chainSteps?.length ? `  chain:${p.chainSteps.length + 1}` : "";
+                item.textContent = `${p.name}${p.shortcut ? "  /" + p.shortcut : ""}${chainLabel}`;
                 item.title = p.content.substring(0, 80);
                 item.onclick = (e) => {
                   e.stopPropagation();
@@ -6282,7 +6298,7 @@
           } catch (e) {
           }
         },
-        addPrompt(name, content, category, shortcut) {
+        addPrompt(name, content, category, shortcut, chainSteps = []) {
           const nowIso = (/* @__PURE__ */ new Date()).toISOString();
           this._prompts.push((0, import_prompt_vault_tools.normalizePrompt)({
             id: "p_" + Date.now(),
@@ -6290,6 +6306,7 @@
             content: content || "",
             category: category || "General",
             shortcut,
+            chainSteps,
             createdAt: nowIso,
             updatedAt: nowIso
           }, this._prompts.length, { nowIso }));
@@ -6363,7 +6380,9 @@
         insertPrompt(content, promptId = null) {
           const editor = GeminiAdapter.getInputEditor();
           if (!editor) return;
-          const resolvedContent = (0, import_prompt_vault_tools.renderPromptTemplate)(content, this._getTemplateVariables());
+          const prompt = this._prompts.find((pr) => pr.id === promptId) || this._prompts.find((pr) => pr.content === content);
+          const variables = this._getTemplateVariables();
+          const resolvedContent = prompt ? (0, import_prompt_vault_tools.composePromptContent)(prompt, variables) : (0, import_prompt_vault_tools.renderPromptTemplate)(content, variables);
           editor.focus();
           const sel = window.getSelection();
           const range = document.createRange();
@@ -6385,7 +6404,6 @@
             editor.appendChild(p);
             editor.dispatchEvent(new Event("input", { bubbles: true }));
           }
-          const prompt = this._prompts.find((pr) => pr.id === promptId) || this._prompts.find((pr) => pr.content === content);
           if (prompt) {
             this._prompts = (0, import_prompt_vault_tools.markPromptUsed)(this._prompts, prompt.id);
             this._save();
@@ -6396,13 +6414,13 @@
           return {
             zh: {
               rant: "每次打开 Gemini 都要重新敲一遍“你是一个资深架构师...”，Google 觉得你的手指不需要休息。ChatGPT 2023 年就有 Custom Instructions 了，Gemini 表示：我们不一样，我们让用户每次都从零开始，这叫“新鲜感”。",
-              features: "输入框旁添加 💎 按钮，点击弹出提示词快捷菜单，一键插入常用提示词。支持分类管理、收藏、slash 快捷命令、模板变量和使用统计。",
-              guide: "1. 点击输入框旁的 💎 → 2. 选择提示词插入 → 3. 可为提示词设置 /review 这样的快捷命令，在输入框精确输入后按 Tab 展开"
+              features: "输入框旁添加 💎 按钮，点击弹出提示词快捷菜单，一键插入常用提示词。支持分类管理、收藏、slash 快捷命令、模板变量、多步 prompt chain 和使用统计。",
+              guide: "1. 点击输入框旁的 💎 → 2. 选择提示词插入 → 3. 可为提示词设置 /review 快捷命令，或用 --- 分隔多个 chain step 后一次插入"
             },
             en: {
               rant: "Every time you open Gemini you retype 'You are a senior architect...' because Google thinks your fingers need exercise. ChatGPT had Custom Instructions in 2023. Gemini says: we're different, we let users start from scratch every time. It's called 'freshness'.",
-              features: "Adds a 💎 button near the input box. Click to open a prompt quick menu and insert saved prompts with one click. Supports categories, favorites, slash shortcuts, template variables, and usage stats.",
-              guide: "1. Click 💎 near the input box → 2. Select a prompt to insert → 3. Optionally give a prompt a shortcut like /review, type it exactly in the composer, then press Tab to expand it"
+              features: "Adds a 💎 button near the input box. Click to open a prompt quick menu and insert saved prompts with one click. Supports categories, favorites, slash shortcuts, template variables, multi-step prompt chains, and usage stats.",
+              guide: "1. Click 💎 near the input box → 2. Select a prompt to insert → 3. Optionally give a prompt a /review shortcut, or separate chain steps with --- to insert a multi-step prompt packet"
             }
           };
         },
@@ -6447,7 +6465,8 @@
               row.title = p.content.length > 100 ? p.content.slice(0, 100) + "..." : p.content;
               const nameEl = document.createElement("span");
               nameEl.style.cssText = "flex: 1; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;";
-              nameEl.textContent = p.shortcut ? `${p.name}  /${p.shortcut}` : p.name;
+              const chainLabel = p.chainSteps?.length ? `  chain:${p.chainSteps.length + 1}` : "";
+              nameEl.textContent = `${p.name}${p.shortcut ? "  /" + p.shortcut : ""}${chainLabel}`;
               const actions = document.createElement("div");
               actions.style.cssText = "display: flex; gap: 4px; opacity: 0;";
               row.onmouseenter = () => actions.style.opacity = "1";
@@ -6549,6 +6568,7 @@
                     category: p.category || "General",
                     shortcut: p.shortcut,
                     favorite: p.favorite,
+                    chainSteps: p.chainSteps,
                     createdAt: p.createdAt,
                     updatedAt: p.updatedAt,
                     usedCount: p.usedCount || 0,
@@ -6612,6 +6632,10 @@
           shortcutInput.style.cssText = "width: 100%; margin-bottom: 8px; padding: 8px; box-sizing: border-box;";
           shortcutInput.placeholder = "Slash shortcut (e.g. /review)";
           shortcutInput.value = existing?.shortcut ? "/" + existing.shortcut : "";
+          const chainArea = document.createElement("textarea");
+          chainArea.style.cssText = "width: 100%; height: 96px; padding: 8px; font-size: 12px; border-radius: 6px; border: 1px solid var(--border, rgba(255,255,255,0.1)); background: var(--input-bg, rgba(255,255,255,0.05)); color: var(--text-main, #fff); resize: vertical; box-sizing: border-box; font-family: inherit; margin-bottom: 8px;";
+          chainArea.placeholder = "Optional chain steps. Separate each step with ---";
+          chainArea.value = existing?.chainSteps?.length ? existing.chainSteps.join("\n---\n") : "";
           const contentArea = document.createElement("textarea");
           contentArea.style.cssText = "width: 100%; height: 120px; padding: 8px; font-size: 12px; border-radius: 6px; border: 1px solid var(--border, rgba(255,255,255,0.1)); background: var(--input-bg, rgba(255,255,255,0.05)); color: var(--text-main, #fff); resize: vertical; box-sizing: border-box; font-family: inherit;";
           contentArea.placeholder = "Enter your prompt template...";
@@ -6625,11 +6649,12 @@
             const content = contentArea.value.trim();
             const category = catInput.value.trim() || "General";
             const shortcut = shortcutInput.value.trim();
+            const chainSteps = chainArea.value.split(/\n\s*---+\s*\n/g).map((step) => step.trim()).filter(Boolean);
             if (!content) return;
             if (existing) {
-              this.updatePrompt(existing.id, { name, content, category, shortcut });
+              this.updatePrompt(existing.id, { name, content, category, shortcut, chainSteps });
             } else {
-              this.addPrompt(name, content, category, shortcut);
+              this.addPrompt(name, content, category, shortcut, chainSteps);
             }
             closeOverlay();
             PanelUI.renderDetailsPane();
@@ -6638,6 +6663,7 @@
           body.appendChild(catInput);
           body.appendChild(shortcutInput);
           body.appendChild(contentArea);
+          body.appendChild(chainArea);
           body.appendChild(saveBtn);
           modal.appendChild(header);
           modal.appendChild(body);

@@ -9,6 +9,7 @@ import { GeminiAdapter } from '../adapters/gemini.js';
 import { formatLocalDate } from '../../lib/date_utils.js';
 import {
     buildPromptVariables,
+    composePromptContent,
     findPromptByShortcut,
     getQuickMenuSections,
     markPromptUsed,
@@ -121,7 +122,8 @@ export const PromptVaultModule = {
                     const item = document.createElement('div');
                     item.className = 'gc-dropdown-item';
                     item.style.fontSize = '12px';
-                    item.textContent = p.shortcut ? `${p.name}  /${p.shortcut}` : p.name;
+                    const chainLabel = p.chainSteps?.length ? `  chain:${p.chainSteps.length + 1}` : '';
+                    item.textContent = `${p.name}${p.shortcut ? '  /' + p.shortcut : ''}${chainLabel}`;
                     item.title = p.content.substring(0, 80);
                     item.onclick = (e) => {
                         e.stopPropagation();
@@ -172,7 +174,7 @@ export const PromptVaultModule = {
         try { GM_setValue(this._getStorageKey(), this._prompts); } catch (e) { /* silent */ }
     },
 
-    addPrompt(name, content, category, shortcut) {
+    addPrompt(name, content, category, shortcut, chainSteps = []) {
         const nowIso = new Date().toISOString();
         this._prompts.push(normalizePrompt({
             id: 'p_' + Date.now(),
@@ -180,6 +182,7 @@ export const PromptVaultModule = {
             content: content || '',
             category: category || 'General',
             shortcut,
+            chainSteps,
             createdAt: nowIso,
             updatedAt: nowIso
         }, this._prompts.length, { nowIso }));
@@ -250,7 +253,12 @@ export const PromptVaultModule = {
     insertPrompt(content, promptId = null) {
         const editor = GeminiAdapter.getInputEditor();
         if (!editor) return;
-        const resolvedContent = renderPromptTemplate(content, this._getTemplateVariables());
+        const prompt = this._prompts.find(pr => pr.id === promptId) ||
+            this._prompts.find(pr => pr.content === content);
+        const variables = this._getTemplateVariables();
+        const resolvedContent = prompt
+            ? composePromptContent(prompt, variables)
+            : renderPromptTemplate(content, variables);
         editor.focus();
         // Place cursor at end
         const sel = window.getSelection();
@@ -276,8 +284,6 @@ export const PromptVaultModule = {
             editor.dispatchEvent(new Event('input', { bubbles: true }));
         }
         // Update usage stats
-        const prompt = this._prompts.find(pr => pr.id === promptId) ||
-            this._prompts.find(pr => pr.content === content);
         if (prompt) {
             this._prompts = markPromptUsed(this._prompts, prompt.id);
             this._save();
@@ -289,13 +295,13 @@ export const PromptVaultModule = {
         return {
             zh: {
                 rant: '\u6BCF\u6B21\u6253\u5F00 Gemini \u90FD\u8981\u91CD\u65B0\u6572\u4E00\u904D\u201C\u4F60\u662F\u4E00\u4E2A\u8D44\u6DF1\u67B6\u6784\u5E08...\u201D\uFF0CGoogle \u89C9\u5F97\u4F60\u7684\u624B\u6307\u4E0D\u9700\u8981\u4F11\u606F\u3002ChatGPT 2023 \u5E74\u5C31\u6709 Custom Instructions \u4E86\uFF0CGemini \u8868\u793A\uFF1A\u6211\u4EEC\u4E0D\u4E00\u6837\uFF0C\u6211\u4EEC\u8BA9\u7528\u6237\u6BCF\u6B21\u90FD\u4ECE\u96F6\u5F00\u59CB\uFF0C\u8FD9\u53EB\u201C\u65B0\u9C9C\u611F\u201D\u3002',
-                features: '\u8F93\u5165\u6846\u65C1\u6DFB\u52A0 \uD83D\uDC8E \u6309\u94AE\uFF0C\u70B9\u51FB\u5F39\u51FA\u63D0\u793A\u8BCD\u5FEB\u6377\u83DC\u5355\uFF0C\u4E00\u952E\u63D2\u5165\u5E38\u7528\u63D0\u793A\u8BCD\u3002\u652F\u6301\u5206\u7C7B\u7BA1\u7406\u3001\u6536\u85CF\u3001slash \u5FEB\u6377\u547D\u4EE4\u3001\u6A21\u677F\u53D8\u91CF\u548C\u4F7F\u7528\u7EDF\u8BA1\u3002',
-                guide: '1. \u70B9\u51FB\u8F93\u5165\u6846\u65C1\u7684 \uD83D\uDC8E \u2192 2. \u9009\u62E9\u63D0\u793A\u8BCD\u63D2\u5165 \u2192 3. \u53EF\u4E3A\u63D0\u793A\u8BCD\u8BBE\u7F6E /review \u8FD9\u6837\u7684\u5FEB\u6377\u547D\u4EE4\uFF0C\u5728\u8F93\u5165\u6846\u7CBE\u786E\u8F93\u5165\u540E\u6309 Tab \u5C55\u5F00'
+                features: '\u8F93\u5165\u6846\u65C1\u6DFB\u52A0 \uD83D\uDC8E \u6309\u94AE\uFF0C\u70B9\u51FB\u5F39\u51FA\u63D0\u793A\u8BCD\u5FEB\u6377\u83DC\u5355\uFF0C\u4E00\u952E\u63D2\u5165\u5E38\u7528\u63D0\u793A\u8BCD\u3002\u652F\u6301\u5206\u7C7B\u7BA1\u7406\u3001\u6536\u85CF\u3001slash \u5FEB\u6377\u547D\u4EE4\u3001\u6A21\u677F\u53D8\u91CF\u3001\u591A\u6B65 prompt chain \u548C\u4F7F\u7528\u7EDF\u8BA1\u3002',
+                guide: '1. \u70B9\u51FB\u8F93\u5165\u6846\u65C1\u7684 \uD83D\uDC8E \u2192 2. \u9009\u62E9\u63D0\u793A\u8BCD\u63D2\u5165 \u2192 3. \u53EF\u4E3A\u63D0\u793A\u8BCD\u8BBE\u7F6E /review \u5FEB\u6377\u547D\u4EE4\uFF0C\u6216\u7528 --- \u5206\u9694\u591A\u4E2A chain step \u540E\u4E00\u6B21\u63D2\u5165'
             },
             en: {
                 rant: "Every time you open Gemini you retype 'You are a senior architect...' because Google thinks your fingers need exercise. ChatGPT had Custom Instructions in 2023. Gemini says: we're different, we let users start from scratch every time. It's called 'freshness'.",
-                features: 'Adds a \uD83D\uDC8E button near the input box. Click to open a prompt quick menu and insert saved prompts with one click. Supports categories, favorites, slash shortcuts, template variables, and usage stats.',
-                guide: '1. Click \uD83D\uDC8E near the input box \u2192 2. Select a prompt to insert \u2192 3. Optionally give a prompt a shortcut like /review, type it exactly in the composer, then press Tab to expand it'
+                features: 'Adds a \uD83D\uDC8E button near the input box. Click to open a prompt quick menu and insert saved prompts with one click. Supports categories, favorites, slash shortcuts, template variables, multi-step prompt chains, and usage stats.',
+                guide: '1. Click \uD83D\uDC8E near the input box \u2192 2. Select a prompt to insert \u2192 3. Optionally give a prompt a /review shortcut, or separate chain steps with --- to insert a multi-step prompt packet'
             }
         };
     },
@@ -347,7 +353,8 @@ export const PromptVaultModule = {
 
                 const nameEl = document.createElement('span');
                 nameEl.style.cssText = 'flex: 1; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
-                nameEl.textContent = p.shortcut ? `${p.name}  /${p.shortcut}` : p.name;
+                const chainLabel = p.chainSteps?.length ? `  chain:${p.chainSteps.length + 1}` : '';
+                nameEl.textContent = `${p.name}${p.shortcut ? '  /' + p.shortcut : ''}${chainLabel}`;
 
                 const actions = document.createElement('div');
                 actions.style.cssText = 'display: flex; gap: 4px; opacity: 0;';
@@ -452,6 +459,7 @@ export const PromptVaultModule = {
                                 category: p.category || 'General',
                                 shortcut: p.shortcut,
                                 favorite: p.favorite,
+                                chainSteps: p.chainSteps,
                                 createdAt: p.createdAt,
                                 updatedAt: p.updatedAt,
                                 usedCount: p.usedCount || 0,
@@ -518,6 +526,11 @@ export const PromptVaultModule = {
         shortcutInput.placeholder = 'Slash shortcut (e.g. /review)';
         shortcutInput.value = existing?.shortcut ? '/' + existing.shortcut : '';
 
+        const chainArea = document.createElement('textarea');
+        chainArea.style.cssText = 'width: 100%; height: 96px; padding: 8px; font-size: 12px; border-radius: 6px; border: 1px solid var(--border, rgba(255,255,255,0.1)); background: var(--input-bg, rgba(255,255,255,0.05)); color: var(--text-main, #fff); resize: vertical; box-sizing: border-box; font-family: inherit; margin-bottom: 8px;';
+        chainArea.placeholder = 'Optional chain steps. Separate each step with ---';
+        chainArea.value = existing?.chainSteps?.length ? existing.chainSteps.join('\n---\n') : '';
+
         const contentArea = document.createElement('textarea');
         contentArea.style.cssText = 'width: 100%; height: 120px; padding: 8px; font-size: 12px; border-radius: 6px; border: 1px solid var(--border, rgba(255,255,255,0.1)); background: var(--input-bg, rgba(255,255,255,0.05)); color: var(--text-main, #fff); resize: vertical; box-sizing: border-box; font-family: inherit;';
         contentArea.placeholder = 'Enter your prompt template...';
@@ -532,11 +545,15 @@ export const PromptVaultModule = {
             const content = contentArea.value.trim();
             const category = catInput.value.trim() || 'General';
             const shortcut = shortcutInput.value.trim();
+            const chainSteps = chainArea.value
+                .split(/\n\s*---+\s*\n/g)
+                .map(step => step.trim())
+                .filter(Boolean);
             if (!content) return;
             if (existing) {
-                this.updatePrompt(existing.id, { name, content, category, shortcut });
+                this.updatePrompt(existing.id, { name, content, category, shortcut, chainSteps });
             } else {
-                this.addPrompt(name, content, category, shortcut);
+                this.addPrompt(name, content, category, shortcut, chainSteps);
             }
             closeOverlay();
             PanelUI.renderDetailsPane();
@@ -546,6 +563,7 @@ export const PromptVaultModule = {
         body.appendChild(catInput);
         body.appendChild(shortcutInput);
         body.appendChild(contentArea);
+        body.appendChild(chainArea);
         body.appendChild(saveBtn);
         modal.appendChild(header);
         modal.appendChild(body);
