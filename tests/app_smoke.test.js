@@ -293,4 +293,19 @@ describe('app smoke checks', () => {
         assert.doesNotMatch(exportModule, /GM_setValue/);
         assert.doesNotMatch(exportModule, /getSendButton|sendBtn\.click/);
     });
+
+    it('keeps DOCX transcript export dependency-free and reachable', () => {
+        const exportModule = read('src/modules/export.js');
+        const transcriptTools = read('lib/chat_transcript_export.js');
+        const pkg = JSON.parse(read('package.json'));
+
+        assert.match(transcriptTools, /exportTranscriptDOCX/);
+        assert.match(transcriptTools, /exportBulkTranscriptDOCX/);
+        assert.match(transcriptTools, /createDocxPackage/);
+        assert.match(exportModule, /exportCurrentChatDOCX/);
+        assert.match(exportModule, /exportSelectedChatsDOCX/);
+        assert.match(exportModule, /application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document/);
+        assert.equal(pkg.dependencies, undefined);
+        assert.doesNotMatch(transcriptTools, /require\('docx'\)|require\('jszip'\)|require\('jspdf'\)|require\('pdf-lib'\)/);
+    });
 });

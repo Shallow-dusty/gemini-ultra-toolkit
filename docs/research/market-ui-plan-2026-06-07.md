@@ -9,9 +9,9 @@ mutable, so refresh this file before any major release or store submission.
 - Local git state is mutable; run `git status --short --branch` before release,
   push, or store submission instead of treating this snapshot as live git truth.
 - Local verification on 2026-06-08:
-  - `npm test` passed: 251 tests, `lib/` at 100% c8 coverage.
+  - `npm test` passed: 254 tests, `lib/` at 100% c8 coverage.
   - `npm run build` passed for userscript and extension outputs; generated
-    userscript size was ~487.9 kb after HTML transcript export, adapter probe
+    userscript size was ~499.3 kb after HTML/DOCX transcript export, adapter probe
     export, pinned context packets, prompt context packets, selected text
     packets, transcript snippet packets, rich response probe counts, and broader
     i18n hardening.
@@ -87,7 +87,7 @@ Direct competitive gap:
 
 - Primer++ already covers counter, folders, prompt vault, default model, batch
   delete, quote reply, UI tweaks, heatmap, and export.
-- Primer++ still trails the top competitors on PDF/DOCX export, image gallery,
+- Primer++ still trails the top competitors on PDF export, image gallery,
   server-side trash/restore, cross-device sync, and deeper queue automation.
   Post-planning selected-chat export, local message queue, per-chat notes,
   local undo for prompts/folders, local JSON import/export for prompts,
@@ -131,15 +131,16 @@ Codex CLI/TUI.
 - Export
   - Primer++ v12 plus post-planning implementation: usage export in
     JSON/CSV/Markdown and current visible conversation transcript export in
-    JSON/Markdown/TXT/HTML, plus selected-sidebar chat export in
-    JSON/Markdown/TXT/HTML through a navigation-and-visible-DOM capture
-    workflow.
+    JSON/Markdown/TXT/HTML/DOCX, plus selected-sidebar chat export in
+    JSON/Markdown/TXT/HTML/DOCX through a navigation-and-visible-DOM capture
+    workflow. DOCX is generated as a dependency-free OpenXML package.
   - Market signal: SPG has PDF/DOCX/TXT/MD; TFG has
     PDF/HTML/Markdown/TXT/CSV.
   - Gemini signal: Gemini built-ins remain limited for power export workflows.
   - Plan: repeat live Gemini smoke coverage for selected-chat export before
-    release claims; consider PDF/DOCX only after dependency and bundle-size
-    review.
+    release claims; PDF remains deferred after dependency and bundle-size
+    review (`jspdf` ~30 MB, `pdf-lib` ~19 MB, `html2pdf.js` ~10.9 MB unpacked
+    in the npm registry at review time).
 - Prompt workflow
   - Primer++ v12 plus post-planning implementation: Prompt Vault, quick insert,
     versioned metadata import/export, favorites, recent ranking, slash
@@ -308,7 +309,9 @@ boundary.
 4. Bulk export upgrade:
    - ~~export selected chats in JSON/Markdown/TXT/HTML first~~ done with a
      selected-sidebar navigation workflow; live smoke still pending;
-   - add PDF/DOCX only after a dependency and bundle-size review.
+   - ~~add DOCX only after a dependency and bundle-size review;~~ done with a
+     dependency-free OpenXML package;
+   - PDF remains deferred after the dependency and bundle-size review.
 5. Undo/trash safety for local operations:
    - ~~undo folder moves/deletes~~ done with a one-step local restore action;
    - ~~undo local prompt deletes~~ done with a Prompt Vault one-step restore

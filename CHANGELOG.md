@@ -5,6 +5,7 @@
 ### Unreleased
 
 - **Transcript snippet packets**: Export can insert bounded packets from the current visible transcript or explicitly selected chat transcripts, without storing transcript snippets or auto-sending.
+- **DOCX transcript export**: current-chat and selected-chat transcript exports now include dependency-free DOCX downloads built as escaped, no-macro OpenXML packages.
 - **Rich response probe counts**: adapter probe exports now include structural counts for rendered rich-response zones such as code, tables, media candidates, links, and citation candidates without exporting content or URLs.
 - **Selected text packets**: Quote Reply can insert the current visible text selection as an explicit local snippet packet, without storing snippets or reading hidden transcripts.
 - **Prompt context packets**: Prompt Vault can insert an explicit local packet from selected saved prompts, rendering template variables locally without reading Gemini transcripts or auto-sending.

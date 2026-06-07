@@ -1,10 +1,12 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const {
+    exportBulkTranscriptDOCX,
     exportBulkTranscriptHTML,
     exportBulkTranscriptJSON,
     exportBulkTranscriptMarkdown,
     exportBulkTranscriptText,
+    exportTranscriptDOCX,
     exportTranscriptHTML,
     exportTranscriptJSON,
     exportTranscriptMarkdown,
@@ -16,6 +18,18 @@ const {
 
 describe('chat_transcript_export', () => {
     const nowIso = '2026-06-08T00:00:00.000Z';
+
+    function getDocxText(bytes) {
+        assert.ok(bytes instanceof Uint8Array);
+        assert.equal(bytes[0], 0x50);
+        assert.equal(bytes[1], 0x4b);
+        const text = Buffer.from(bytes).toString('utf8');
+        assert.ok(text.includes('[Content_Types].xml'));
+        assert.ok(text.includes('_rels/.rels'));
+        assert.ok(text.includes('word/document.xml'));
+        assert.ok(text.includes('PK\u0005\u0006'));
+        return text;
+    }
 
     it('normalizes messages and drops empty entries', () => {
         assert.equal(normalizeMessage(null), null);
@@ -146,6 +160,32 @@ describe('chat_transcript_export', () => {
         const empty = exportTranscriptHTML({ title: 'Empty', messages: [] }, { nowIso });
         assert.ok(empty.includes('No visible messages captured.'));
         assert.doesNotMatch(empty, /<dt>Source<\/dt>/);
+    });
+
+    it('exports dependency-free DOCX packages for current transcripts', () => {
+        const docx = exportTranscriptDOCX({
+            chatId: 'c&1',
+            title: 'Chat <unsafe>',
+            href: '/app/c1?x=<tag>',
+            messages: [
+                { role: 'user', text: 'Question\nSecond line' },
+                { role: 'model', text: '<script>alert("x")</script>\nAnswer with \'quote\'' }
+            ]
+        }, { nowIso });
+        const text = getDocxText(docx);
+
+        assert.ok(text.includes('Chat &lt;unsafe&gt;'));
+        assert.ok(text.includes('c&amp;1'));
+        assert.ok(text.includes('/app/c1?x=&lt;tag&gt;'));
+        assert.ok(text.includes('1. User'));
+        assert.ok(text.includes('Question'));
+        assert.ok(text.includes('Second line'));
+        assert.ok(text.includes('&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;'));
+        assert.ok(text.includes('Answer with &apos;quote&apos;'));
+
+        const empty = getDocxText(exportTranscriptDOCX({ title: 'Empty', messages: [] }, { nowIso }));
+        assert.ok(empty.includes('No visible messages captured.'));
+        assert.doesNotMatch(empty, /Source: /);
     });
 
     it('normalizes selected-chat bulk exports with statuses and counts', () => {
@@ -296,6 +336,35 @@ describe('chat_transcript_export', () => {
         assert.ok(html.includes('No visible messages captured.'));
 
         const empty = exportBulkTranscriptHTML({ chats: [] }, { nowIso });
+        assert.ok(empty.includes('No chats selected.'));
+    });
+
+    it('exports dependency-free DOCX packages for selected-chat bulk transcripts', () => {
+        const docx = exportBulkTranscriptDOCX({
+            chats: [
+                {
+                    chatId: 'c1',
+                    title: 'One <alpha>',
+                    href: '/app/c1',
+                    messages: [{ role: 'assistant', text: 'Answer & details' }]
+                },
+                { chatId: 'c2', title: 'Two', status: 'failed', error: 'Timed <out>', messages: [] },
+                { title: 'Three', messages: [] }
+            ]
+        }, { nowIso });
+        const text = getDocxText(docx);
+
+        assert.ok(text.includes('Gemini Selected Chat Export'));
+        assert.ok(text.includes('Chats: '));
+        assert.ok(text.includes('1. One &lt;alpha&gt;'));
+        assert.ok(text.includes('Status: '));
+        assert.ok(text.includes('exported'));
+        assert.ok(text.includes('Answer &amp; details'));
+        assert.ok(text.includes('Timed &lt;out&gt;'));
+        assert.ok(text.includes('Transcript export failed.'));
+        assert.ok(text.includes('No visible messages captured.'));
+
+        const empty = getDocxText(exportBulkTranscriptDOCX({ chats: [] }, { nowIso }));
         assert.ok(empty.includes('No chats selected.'));
     });
 });

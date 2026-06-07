@@ -37,7 +37,7 @@ WHAT IT ADDS
 
 • Folders — group sidebar chats into folders with drag-and-drop, color coding, pinning, batch move, one-step local undo, JSON import/export, and optional auto-classify rules (regex or keyword).
 
-• Export — export usage reports, the current visible chat transcript, or selected sidebar chats to JSON / Markdown / TXT / HTML, and insert bounded transcript packets into the composer.
+• Export — export usage reports, the current visible chat transcript, or selected sidebar chats to JSON / Markdown / TXT / HTML / DOCX, and insert bounded transcript packets into the composer.
 
 • Prompt Vault — save frequently used prompts, organize by tag, one-click insert into the composer, queue prompt chains step by step, and undo local prompt deletes. Import / export your library as JSON.
 

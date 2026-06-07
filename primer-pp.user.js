@@ -2434,6 +2434,16 @@
         };
         return toText(value).replace(/[&<>"']/g, (char) => replacements[char]);
       }
+      function escapeXML(value) {
+        const replacements = {
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&apos;"
+        };
+        return toText(value).replace(/[&<>"']/g, (char) => replacements[char]);
+      }
       function normalizeRole(value) {
         const role = cleanText(value).toLowerCase();
         if (role === "user" || role === "assistant" || role === "model" || role === "system") return role;
@@ -2547,6 +2557,213 @@
           "</article>"
         ].join("\n");
       }
+      var CRC32_TABLE = (() => {
+        const table = new Uint32Array(256);
+        for (let i = 0; i < 256; i++) {
+          let value = i;
+          for (let bit = 0; bit < 8; bit++) {
+            value = value & 1 ? 3988292384 ^ value >>> 1 : value >>> 1;
+          }
+          table[i] = value >>> 0;
+        }
+        return table;
+      })();
+      function encodeUTF8(value) {
+        return new TextEncoder().encode(toText(value));
+      }
+      function crc32(bytes) {
+        let crc = 4294967295;
+        for (let i = 0; i < bytes.length; i++) {
+          crc = CRC32_TABLE[(crc ^ bytes[i]) & 255] ^ crc >>> 8;
+        }
+        return (crc ^ 4294967295) >>> 0;
+      }
+      function writeUInt16LE(target, offset, value) {
+        target[offset] = value & 255;
+        target[offset + 1] = value >>> 8 & 255;
+      }
+      function writeUInt32LE(target, offset, value) {
+        target[offset] = value & 255;
+        target[offset + 1] = value >>> 8 & 255;
+        target[offset + 2] = value >>> 16 & 255;
+        target[offset + 3] = value >>> 24 & 255;
+      }
+      function concatUint8Arrays(parts) {
+        const total = parts.reduce((sum, part) => sum + part.length, 0);
+        const out = new Uint8Array(total);
+        let offset = 0;
+        parts.forEach((part) => {
+          out.set(part, offset);
+          offset += part.length;
+        });
+        return out;
+      }
+      function createZip(entries) {
+        const localParts = [];
+        const centralParts = [];
+        let localOffset = 0;
+        const flags = 2048;
+        const method = 0;
+        const dosTime = 0;
+        const dosDate = 33;
+        entries.forEach((entry) => {
+          const nameBytes = encodeUTF8(entry.name);
+          const dataBytes = encodeUTF8(entry.content);
+          const crc = crc32(dataBytes);
+          const localHeader = new Uint8Array(30 + nameBytes.length);
+          writeUInt32LE(localHeader, 0, 67324752);
+          writeUInt16LE(localHeader, 4, 20);
+          writeUInt16LE(localHeader, 6, flags);
+          writeUInt16LE(localHeader, 8, method);
+          writeUInt16LE(localHeader, 10, dosTime);
+          writeUInt16LE(localHeader, 12, dosDate);
+          writeUInt32LE(localHeader, 14, crc);
+          writeUInt32LE(localHeader, 18, dataBytes.length);
+          writeUInt32LE(localHeader, 22, dataBytes.length);
+          writeUInt16LE(localHeader, 26, nameBytes.length);
+          writeUInt16LE(localHeader, 28, 0);
+          localHeader.set(nameBytes, 30);
+          localParts.push(localHeader, dataBytes);
+          const centralHeader = new Uint8Array(46 + nameBytes.length);
+          writeUInt32LE(centralHeader, 0, 33639248);
+          writeUInt16LE(centralHeader, 4, 20);
+          writeUInt16LE(centralHeader, 6, 20);
+          writeUInt16LE(centralHeader, 8, flags);
+          writeUInt16LE(centralHeader, 10, method);
+          writeUInt16LE(centralHeader, 12, dosTime);
+          writeUInt16LE(centralHeader, 14, dosDate);
+          writeUInt32LE(centralHeader, 16, crc);
+          writeUInt32LE(centralHeader, 20, dataBytes.length);
+          writeUInt32LE(centralHeader, 24, dataBytes.length);
+          writeUInt16LE(centralHeader, 28, nameBytes.length);
+          writeUInt16LE(centralHeader, 30, 0);
+          writeUInt16LE(centralHeader, 32, 0);
+          writeUInt16LE(centralHeader, 34, 0);
+          writeUInt16LE(centralHeader, 36, 0);
+          writeUInt32LE(centralHeader, 38, 0);
+          writeUInt32LE(centralHeader, 42, localOffset);
+          centralHeader.set(nameBytes, 46);
+          centralParts.push(centralHeader);
+          localOffset += localHeader.length + dataBytes.length;
+        });
+        const centralSize = centralParts.reduce((sum, part) => sum + part.length, 0);
+        const end = new Uint8Array(22);
+        writeUInt32LE(end, 0, 101010256);
+        writeUInt16LE(end, 4, 0);
+        writeUInt16LE(end, 6, 0);
+        writeUInt16LE(end, 8, entries.length);
+        writeUInt16LE(end, 10, entries.length);
+        writeUInt32LE(end, 12, centralSize);
+        writeUInt32LE(end, 16, localOffset);
+        writeUInt16LE(end, 20, 0);
+        return concatUint8Arrays([...localParts, ...centralParts, end]);
+      }
+      function renderDocxRun(text, opts = {}) {
+        const props = opts.bold ? "<w:rPr><w:b/></w:rPr>" : "";
+        return `<w:r>${props}<w:t xml:space="preserve">${escapeXML(text)}</w:t></w:r>`;
+      }
+      function renderDocxParagraph(text, opts = {}) {
+        return `<w:p>${renderDocxRun(text, opts)}</w:p>`;
+      }
+      function pushDocxParagraph(paragraphs, text, opts = {}) {
+        paragraphs.push(renderDocxParagraph(text, opts));
+      }
+      function pushDocxMeta(paragraphs, label, value) {
+        const text = cleanText(value);
+        if (!text) return;
+        paragraphs.push(`<w:p>${renderDocxRun(`${label}: `, { bold: true })}${renderDocxRun(text)}</w:p>`);
+      }
+      function pushDocxMultilineText(paragraphs, text) {
+        toText(text).split(/\r?\n/).forEach((line) => pushDocxParagraph(paragraphs, line));
+      }
+      function getDocxDocument(paragraphs) {
+        return [
+          '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+          '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">',
+          "<w:body>",
+          paragraphs.join(""),
+          '<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr>',
+          "</w:body>",
+          "</w:document>"
+        ].join("");
+      }
+      function createDocxPackage(documentXml) {
+        return createZip([
+          {
+            name: "[Content_Types].xml",
+            content: [
+              '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+              '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">',
+              '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>',
+              '<Default Extension="xml" ContentType="application/xml"/>',
+              '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>',
+              "</Types>"
+            ].join("")
+          },
+          {
+            name: "_rels/.rels",
+            content: [
+              '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+              '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">',
+              '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>',
+              "</Relationships>"
+            ].join("")
+          },
+          {
+            name: "word/document.xml",
+            content: documentXml
+          }
+        ]);
+      }
+      function buildTranscriptDocxParagraphs(transcript) {
+        const paragraphs = [];
+        pushDocxParagraph(paragraphs, transcript.title, { bold: true });
+        pushDocxMeta(paragraphs, "Chat ID", transcript.chatId || "unknown");
+        pushDocxMeta(paragraphs, "Exported", transcript.exportedAt);
+        pushDocxMeta(paragraphs, "Source", transcript.href);
+        pushDocxParagraph(paragraphs, "");
+        if (transcript.messages.length === 0) {
+          pushDocxParagraph(paragraphs, "No visible messages captured.");
+          return paragraphs;
+        }
+        transcript.messages.forEach((message, index) => {
+          pushDocxParagraph(paragraphs, `${index + 1}. ${getRoleLabel(message.role)}`, { bold: true });
+          pushDocxMultilineText(paragraphs, message.text);
+          pushDocxParagraph(paragraphs, "");
+        });
+        return paragraphs;
+      }
+      function buildBulkDocxParagraphs(bulkExport) {
+        const paragraphs = [];
+        pushDocxParagraph(paragraphs, "Gemini Selected Chat Export", { bold: true });
+        pushDocxMeta(paragraphs, "Exported", bulkExport.exportedAt);
+        pushDocxMeta(paragraphs, "Chats", String(bulkExport.chatCount));
+        pushDocxMeta(paragraphs, "Exported chats", String(bulkExport.exportedCount));
+        pushDocxMeta(paragraphs, "Failed chats", String(bulkExport.failedCount));
+        pushDocxParagraph(paragraphs, "");
+        if (bulkExport.chats.length === 0) {
+          pushDocxParagraph(paragraphs, "No chats selected.");
+          return paragraphs;
+        }
+        bulkExport.chats.forEach((chat) => {
+          pushDocxParagraph(paragraphs, `${chat.order}. ${chat.title}`, { bold: true });
+          pushDocxMeta(paragraphs, "Chat ID", chat.chatId || "unknown");
+          pushDocxMeta(paragraphs, "Status", chat.status);
+          pushDocxMeta(paragraphs, "Source", chat.href);
+          pushDocxMeta(paragraphs, "Error", chat.error);
+          if (chat.messages.length === 0) {
+            pushDocxParagraph(paragraphs, chat.status === "failed" ? "Transcript export failed." : "No visible messages captured.");
+            pushDocxParagraph(paragraphs, "");
+            return;
+          }
+          chat.messages.forEach((message, index) => {
+            pushDocxParagraph(paragraphs, `${index + 1}. ${getRoleLabel(message.role)}`, { bold: true });
+            pushDocxMultilineText(paragraphs, message.text);
+            pushDocxParagraph(paragraphs, "");
+          });
+        });
+        return paragraphs;
+      }
       function exportTranscriptJSON2(transcript, opts = {}) {
         return JSON.stringify(normalizeTranscript(transcript, opts), null, 2);
       }
@@ -2609,6 +2826,10 @@
           "</main>"
         ].join("\n");
         return getHTMLDocument(data.title, body);
+      }
+      function exportTranscriptDOCX2(transcript, opts = {}) {
+        const data = normalizeTranscript(transcript, opts);
+        return createDocxPackage(getDocxDocument(buildTranscriptDocxParagraphs(data)));
       }
       function exportBulkTranscriptJSON2(bulkExport, opts = {}) {
         return JSON.stringify(normalizeBulkTranscriptExport(bulkExport, opts), null, 2);
@@ -2721,11 +2942,17 @@
         ].join("\n");
         return getHTMLDocument("Gemini Selected Chat Export", body);
       }
+      function exportBulkTranscriptDOCX2(bulkExport, opts = {}) {
+        const data = normalizeBulkTranscriptExport(bulkExport, opts);
+        return createDocxPackage(getDocxDocument(buildBulkDocxParagraphs(data)));
+      }
       module.exports = {
+        exportBulkTranscriptDOCX: exportBulkTranscriptDOCX2,
         exportBulkTranscriptHTML: exportBulkTranscriptHTML2,
         exportBulkTranscriptJSON: exportBulkTranscriptJSON2,
         exportBulkTranscriptMarkdown: exportBulkTranscriptMarkdown2,
         exportBulkTranscriptText: exportBulkTranscriptText2,
+        exportTranscriptDOCX: exportTranscriptDOCX2,
         exportTranscriptHTML: exportTranscriptHTML2,
         exportTranscriptJSON: exportTranscriptJSON2,
         exportTranscriptMarkdown: exportTranscriptMarkdown2,
@@ -2990,6 +3217,7 @@
             { icon: "edit", text: NativeUI.t("对话 Markdown", "Chat Markdown"), action: () => this.exportCurrentChatMarkdown() },
             { icon: "file-text", text: NativeUI.t("对话 TXT", "Chat TXT"), action: () => this.exportCurrentChatText() },
             { icon: "file-text", text: NativeUI.t("对话 HTML", "Chat HTML"), action: () => this.exportCurrentChatHTML() },
+            { icon: "file-text", text: NativeUI.t("对话 DOCX", "Chat DOCX"), action: () => this.exportCurrentChatDOCX() },
             { icon: "package", text: NativeUI.t("对话上下文包", "Chat Packet"), action: () => this._insertCurrentTranscriptPacket() }
           ];
           items.forEach((item) => {
@@ -3282,6 +3510,8 @@
             this._download((0, import_chat_transcript_export.exportTranscriptMarkdown)(transcript), `${this._getChatFilePrefix()}.chat.md`, "text/markdown");
           } else if (format === "html") {
             this._download((0, import_chat_transcript_export.exportTranscriptHTML)(transcript), `${this._getChatFilePrefix()}.chat.html`, "text/html");
+          } else if (format === "docx") {
+            this._download((0, import_chat_transcript_export.exportTranscriptDOCX)(transcript), `${this._getChatFilePrefix()}.chat.docx`, "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
           } else {
             this._download((0, import_chat_transcript_export.exportTranscriptText)(transcript), `${this._getChatFilePrefix()}.chat.txt`, "text/plain");
           }
@@ -3297,6 +3527,9 @@
         },
         exportCurrentChatHTML() {
           this._downloadCurrentTranscript("html");
+        },
+        exportCurrentChatDOCX() {
+          this._downloadCurrentTranscript("docx");
         },
         async _collectSelectedTranscripts() {
           if (this._bulkExporting) return null;
@@ -3353,6 +3586,8 @@
             this._download((0, import_chat_transcript_export.exportBulkTranscriptMarkdown)(bulkExport), `${this._getBulkFilePrefix()}.md`, "text/markdown");
           } else if (format === "html") {
             this._download((0, import_chat_transcript_export.exportBulkTranscriptHTML)(bulkExport), `${this._getBulkFilePrefix()}.html`, "text/html");
+          } else if (format === "docx") {
+            this._download((0, import_chat_transcript_export.exportBulkTranscriptDOCX)(bulkExport), `${this._getBulkFilePrefix()}.docx`, "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
           } else {
             this._download((0, import_chat_transcript_export.exportBulkTranscriptText)(bulkExport), `${this._getBulkFilePrefix()}.txt`, "text/plain");
           }
@@ -3383,6 +3618,9 @@
         },
         exportSelectedChatsHTML() {
           return this._downloadSelectedTranscripts("html");
+        },
+        exportSelectedChatsDOCX() {
+          return this._downloadSelectedTranscripts("docx");
         },
         _panelButton(label, onClick, opts = {}) {
           const btn = document.createElement("button");
@@ -3416,6 +3654,7 @@
             this._panelButton("MD", () => this.exportCurrentChatMarkdown()),
             this._panelButton("TXT", () => this.exportCurrentChatText()),
             this._panelButton("HTML", () => this.exportCurrentChatHTML()),
+            this._panelButton("DOCX", () => this.exportCurrentChatDOCX()),
             this._panelButton(NativeUI.t("包", "Packet"), () => this._insertCurrentTranscriptPacket())
           ]));
           const bulkTitle = document.createElement("div");
@@ -3495,6 +3734,7 @@
               this._panelButton("MD", () => this.exportSelectedChatsMarkdown(), { disabled }),
               this._panelButton("TXT", () => this.exportSelectedChatsText(), { disabled }),
               this._panelButton("HTML", () => this.exportSelectedChatsHTML(), { disabled }),
+              this._panelButton("DOCX", () => this.exportSelectedChatsDOCX(), { disabled }),
               this._panelButton(NativeUI.t("包", "Packet"), () => this._insertSelectedTranscriptPacket(), { disabled })
             ]));
           }
@@ -3504,13 +3744,13 @@
           return {
             zh: {
               rant: "2026 年了，Google 最引以为傲的 AI 产品居然不支持导出对话。你跟 Gemini 讨论了三天的架构方案，结果想保存一份？不好意思，请手动复制粘贴 300 条消息。产品经理是不是觉得用户的对话像阅后即焚的 Snapchat？",
-              features: "在聊天标题旁添加导出按钮，可导出用量报告、当前可见对话，或在导出面板多选侧栏对话并导出为 JSON/Markdown/TXT/HTML。",
-              guide: "当前对话：打开对话 → 点击标题右侧导出按钮。多选对话：打开悬浮面板导出标签 → 选择对话 → 选择 JSON / MD / TXT / HTML。"
+              features: "在聊天标题旁添加导出按钮，可导出用量报告、当前可见对话，或在导出面板多选侧栏对话并导出为 JSON/Markdown/TXT/HTML/DOCX。",
+              guide: "当前对话：打开对话 → 点击标题右侧导出按钮。多选对话：打开悬浮面板导出标签 → 选择对话 → 选择 JSON / MD / TXT / HTML / DOCX。"
             },
             en: {
               rant: "It's 2026. Google's flagship AI product doesn't let you export conversations. You spent three days discussing architecture with Gemini and want to save it? Sorry, please manually copy-paste 300 messages. Does the PM think conversations are Snapchats?",
-              features: "Adds a 📤 export button next to the chat title. Export usage reports, the current visible conversation, or selected sidebar chats to JSON/Markdown/TXT/HTML.",
-              guide: "Current chat: open a conversation → click the title export button. Selected chats: open the Export panel tab → select chats → choose JSON / MD / TXT / HTML."
+              features: "Adds a 📤 export button next to the chat title. Export usage reports, the current visible conversation, or selected sidebar chats to JSON/Markdown/TXT/HTML/DOCX.",
+              guide: "Current chat: open a conversation → click the title export button. Selected chats: open the Export panel tab → select chats → choose JSON / MD / TXT / HTML / DOCX."
             }
           };
         },
@@ -3550,6 +3790,13 @@
           chatHtmlBtn.appendChild(document.createTextNode(" " + NativeUI.t("导出当前对话 HTML", "Export Current Chat HTML")));
           chatHtmlBtn.onclick = () => this.exportCurrentChatHTML();
           container.appendChild(chatHtmlBtn);
+          const chatDocxBtn = document.createElement("button");
+          chatDocxBtn.className = "settings-btn";
+          chatDocxBtn.style.cssText = "display:flex;align-items:center;gap:6px;";
+          chatDocxBtn.appendChild(createIcon("download", 14));
+          chatDocxBtn.appendChild(document.createTextNode(" " + NativeUI.t("导出当前对话 DOCX", "Export Current Chat DOCX")));
+          chatDocxBtn.onclick = () => this.exportCurrentChatDOCX();
+          container.appendChild(chatDocxBtn);
         }
       };
     }

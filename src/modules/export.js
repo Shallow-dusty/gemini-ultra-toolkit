@@ -5,10 +5,12 @@ import { PanelUI } from '../panel_ui.js';
 import { CounterModule } from './counter.js';
 import { exportCSV, exportMarkdown } from '../../lib/export_formatter.js';
 import {
+    exportBulkTranscriptDOCX,
     exportBulkTranscriptHTML,
     exportBulkTranscriptJSON,
     exportBulkTranscriptMarkdown,
     exportBulkTranscriptText,
+    exportTranscriptDOCX,
     exportTranscriptHTML,
     exportTranscriptJSON,
     exportTranscriptMarkdown,
@@ -98,6 +100,7 @@ export const ExportModule = {
             { icon: 'edit', text: NativeUI.t('对话 Markdown', 'Chat Markdown'), action: () => this.exportCurrentChatMarkdown() },
             { icon: 'file-text', text: NativeUI.t('对话 TXT', 'Chat TXT'), action: () => this.exportCurrentChatText() },
             { icon: 'file-text', text: NativeUI.t('对话 HTML', 'Chat HTML'), action: () => this.exportCurrentChatHTML() },
+            { icon: 'file-text', text: NativeUI.t('对话 DOCX', 'Chat DOCX'), action: () => this.exportCurrentChatDOCX() },
             { icon: 'package', text: NativeUI.t('对话上下文包', 'Chat Packet'), action: () => this._insertCurrentTranscriptPacket() }
         ];
 
@@ -424,6 +427,8 @@ export const ExportModule = {
             this._download(exportTranscriptMarkdown(transcript), `${this._getChatFilePrefix()}.chat.md`, 'text/markdown');
         } else if (format === 'html') {
             this._download(exportTranscriptHTML(transcript), `${this._getChatFilePrefix()}.chat.html`, 'text/html');
+        } else if (format === 'docx') {
+            this._download(exportTranscriptDOCX(transcript), `${this._getChatFilePrefix()}.chat.docx`, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
         } else {
             this._download(exportTranscriptText(transcript), `${this._getChatFilePrefix()}.chat.txt`, 'text/plain');
         }
@@ -443,6 +448,10 @@ export const ExportModule = {
 
     exportCurrentChatHTML() {
         this._downloadCurrentTranscript('html');
+    },
+
+    exportCurrentChatDOCX() {
+        this._downloadCurrentTranscript('docx');
     },
 
     async _collectSelectedTranscripts() {
@@ -509,6 +518,8 @@ export const ExportModule = {
             this._download(exportBulkTranscriptMarkdown(bulkExport), `${this._getBulkFilePrefix()}.md`, 'text/markdown');
         } else if (format === 'html') {
             this._download(exportBulkTranscriptHTML(bulkExport), `${this._getBulkFilePrefix()}.html`, 'text/html');
+        } else if (format === 'docx') {
+            this._download(exportBulkTranscriptDOCX(bulkExport), `${this._getBulkFilePrefix()}.docx`, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
         } else {
             this._download(exportBulkTranscriptText(bulkExport), `${this._getBulkFilePrefix()}.txt`, 'text/plain');
         }
@@ -546,6 +557,10 @@ export const ExportModule = {
         return this._downloadSelectedTranscripts('html');
     },
 
+    exportSelectedChatsDOCX() {
+        return this._downloadSelectedTranscripts('docx');
+    },
+
     _panelButton(label, onClick, opts = {}) {
         const btn = document.createElement('button');
         btn.className = 'settings-btn';
@@ -581,6 +596,7 @@ export const ExportModule = {
             this._panelButton('MD', () => this.exportCurrentChatMarkdown()),
             this._panelButton('TXT', () => this.exportCurrentChatText()),
             this._panelButton('HTML', () => this.exportCurrentChatHTML()),
+            this._panelButton('DOCX', () => this.exportCurrentChatDOCX()),
             this._panelButton(NativeUI.t('包', 'Packet'), () => this._insertCurrentTranscriptPacket())
         ]));
 
@@ -667,6 +683,7 @@ export const ExportModule = {
                 this._panelButton('MD', () => this.exportSelectedChatsMarkdown(), { disabled }),
                 this._panelButton('TXT', () => this.exportSelectedChatsText(), { disabled }),
                 this._panelButton('HTML', () => this.exportSelectedChatsHTML(), { disabled }),
+                this._panelButton('DOCX', () => this.exportSelectedChatsDOCX(), { disabled }),
                 this._panelButton(NativeUI.t('包', 'Packet'), () => this._insertSelectedTranscriptPacket(), { disabled })
             ]));
         }
@@ -678,13 +695,13 @@ export const ExportModule = {
         return {
             zh: {
                 rant: '2026 \u5E74\u4E86\uFF0CGoogle \u6700\u5F15\u4EE5\u4E3A\u50B2\u7684 AI \u4EA7\u54C1\u5C45\u7136\u4E0D\u652F\u6301\u5BFC\u51FA\u5BF9\u8BDD\u3002\u4F60\u8DDF Gemini \u8BA8\u8BBA\u4E86\u4E09\u5929\u7684\u67B6\u6784\u65B9\u6848\uFF0C\u7ED3\u679C\u60F3\u4FDD\u5B58\u4E00\u4EFD\uFF1F\u4E0D\u597D\u610F\u601D\uFF0C\u8BF7\u624B\u52A8\u590D\u5236\u7C98\u8D34 300 \u6761\u6D88\u606F\u3002\u4EA7\u54C1\u7ECF\u7406\u662F\u4E0D\u662F\u89C9\u5F97\u7528\u6237\u7684\u5BF9\u8BDD\u50CF\u9605\u540E\u5373\u711A\u7684 Snapchat\uFF1F',
-                features: '在聊天标题旁添加导出按钮，可导出用量报告、当前可见对话，或在导出面板多选侧栏对话并导出为 JSON/Markdown/TXT/HTML。',
-                guide: '当前对话：打开对话 → 点击标题右侧导出按钮。多选对话：打开悬浮面板导出标签 → 选择对话 → 选择 JSON / MD / TXT / HTML。'
+                features: '在聊天标题旁添加导出按钮，可导出用量报告、当前可见对话，或在导出面板多选侧栏对话并导出为 JSON/Markdown/TXT/HTML/DOCX。',
+                guide: '当前对话：打开对话 → 点击标题右侧导出按钮。多选对话：打开悬浮面板导出标签 → 选择对话 → 选择 JSON / MD / TXT / HTML / DOCX。'
             },
             en: {
                 rant: "It's 2026. Google's flagship AI product doesn't let you export conversations. You spent three days discussing architecture with Gemini and want to save it? Sorry, please manually copy-paste 300 messages. Does the PM think conversations are Snapchats?",
-                features: 'Adds a \uD83D\uDCE4 export button next to the chat title. Export usage reports, the current visible conversation, or selected sidebar chats to JSON/Markdown/TXT/HTML.',
-                guide: 'Current chat: open a conversation \u2192 click the title export button. Selected chats: open the Export panel tab \u2192 select chats \u2192 choose JSON / MD / TXT / HTML.'
+                features: 'Adds a \uD83D\uDCE4 export button next to the chat title. Export usage reports, the current visible conversation, or selected sidebar chats to JSON/Markdown/TXT/HTML/DOCX.',
+                guide: 'Current chat: open a conversation \u2192 click the title export button. Selected chats: open the Export panel tab \u2192 select chats \u2192 choose JSON / MD / TXT / HTML / DOCX.'
             }
         };
     },
@@ -729,5 +746,13 @@ export const ExportModule = {
         chatHtmlBtn.appendChild(document.createTextNode(' ' + NativeUI.t('导出当前对话 HTML', 'Export Current Chat HTML')));
         chatHtmlBtn.onclick = () => this.exportCurrentChatHTML();
         container.appendChild(chatHtmlBtn);
+
+        const chatDocxBtn = document.createElement('button');
+        chatDocxBtn.className = 'settings-btn';
+        chatDocxBtn.style.cssText = 'display:flex;align-items:center;gap:6px;';
+        chatDocxBtn.appendChild(createIcon('download', 14));
+        chatDocxBtn.appendChild(document.createTextNode(' ' + NativeUI.t('导出当前对话 DOCX', 'Export Current Chat DOCX')));
+        chatDocxBtn.onclick = () => this.exportCurrentChatDOCX();
+        container.appendChild(chatDocxBtn);
     }
 };

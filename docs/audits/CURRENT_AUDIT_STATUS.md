@@ -1,6 +1,6 @@
 # Current Audit Status
 
-Updated: 2026-06-08 — covers v12.0 plus post-release dependency-audit repair, local folder undo, local data portability, local context references, pinned context packets, prompt context packets, selected text packets, transcript snippet packets, rich response probe counts, HTML transcript export, adapter probe export, and i18n hardening.
+Updated: 2026-06-08 — covers v12.0 plus post-release dependency-audit repair, local folder undo, local data portability, local context references, pinned context packets, prompt context packets, selected text packets, transcript snippet packets, rich response probe counts, HTML/DOCX transcript export, adapter probe export, and i18n hardening.
 
 This is the maintained audit summary for v12.0. v12 inherits all v11 protections and adds a `src/adapters/gemini.js` abstraction layer for DOM coupling (see ROADMAP.md). Reviewed across 5 self-audit passes plus 3 independent agent reviews (architecture / generic code / userscript-specific). No `critical` findings; all `important` items addressed before release. v11.0 baseline below remains the audit reference for shared logic.
 
@@ -23,6 +23,9 @@ Implemented protections:
 - HTML transcript downloads escape transcript text and metadata into standalone
   static documents; they do not add scripts or change the explicit-export
   capture boundary.
+- DOCX transcript downloads escape transcript text and metadata into
+  dependency-free, no-macro OpenXML packages; they do not add remote resources
+  or change the explicit-export capture boundary.
 - Adapter probe exports are limited to selector/model/sidebar/input/header
   health counts, booleans, and canonical tool-mode labels. They do not dump
   local storage, sidebar titles, or transcript bodies.
