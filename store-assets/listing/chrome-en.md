@@ -37,7 +37,7 @@ WHAT IT ADDS
 
 • Folders — group sidebar chats into folders with drag-and-drop, color coding, pinning, batch move, one-step local undo, JSON import/export, and optional auto-classify rules (regex or keyword).
 
-• Export — export usage reports, the current visible chat transcript, or selected sidebar chats to JSON / Markdown / TXT / HTML.
+• Export — export usage reports, the current visible chat transcript, or selected sidebar chats to JSON / Markdown / TXT / HTML, and insert bounded transcript packets into the composer.
 
 • Prompt Vault — save frequently used prompts, organize by tag, one-click insert into the composer, queue prompt chains step by step, and undo local prompt deletes. Import / export your library as JSON.
 
@@ -61,7 +61,7 @@ PRIVACY & DATA
 
 • All data is stored in chrome.storage.local on your device.
 • Nothing is uploaded — not to the developer, not to any analytics service, not anywhere.
-• Prompt text is read or stored only when you explicitly save it to Prompt Vault or add it to Message Queue. Visible Gemini conversation text is read only when you explicitly export the current chat or selected chats. Chat Notes context insertion uses saved local title/link/ID/note data only.
+• Prompt text is read or stored only when you explicitly save it to Prompt Vault or add it to Message Queue. Visible Gemini conversation text is read only when you explicitly export the current chat or selected chats, or insert a bounded transcript packet. Chat Notes context insertion uses saved local title/link/ID/note data only.
 • Only host permission requested: https://gemini.google.com/*.
 • Full privacy policy: https://github.com/Shallow-dusty/primer-pp/blob/main/PRIVACY.md
 
@@ -120,7 +120,7 @@ Adds a single "Reset Panel Position" item to the extension toolbar icon's right-
 ### Host permission: `https://gemini.google.com/*`
 
 ```
-The extension's content script only runs on Google Gemini at https://gemini.google.com/*, which is the single web app it enhances. The script reads sidebar chat titles, the currently selected model, the signed-in account label, and message-send events so the in-page floating panel can show daily counts, manage folders, and inject quick-insert prompts or explicit local Chat Notes references. When the user explicitly exports a transcript, it reads the visible current or selected chat content to write a local download. It does not request <all_urls> or any other host permission.
+The extension's content script only runs on Google Gemini at https://gemini.google.com/*, which is the single web app it enhances. The script reads sidebar chat titles, the currently selected model, the signed-in account label, and message-send events so the in-page floating panel can show daily counts, manage folders, and inject quick-insert prompts or explicit local Chat Notes references. When the user explicitly exports a transcript or inserts a transcript packet, it reads the visible current or selected chat content to write a local download or insert bounded text into the composer. It does not request <all_urls> or any other host permission.
 ```
 
 ### Remote code use

@@ -9,11 +9,11 @@ mutable, so refresh this file before any major release or store submission.
 - Local git state is mutable; run `git status --short --branch` before release,
   push, or store submission instead of treating this snapshot as live git truth.
 - Local verification on 2026-06-08:
-  - `npm test` passed: 248 tests, `lib/` at 100% c8 coverage.
+  - `npm test` passed: 251 tests, `lib/` at 100% c8 coverage.
   - `npm run build` passed for userscript and extension outputs; generated
-    userscript size was ~479.2 kb after HTML transcript export, adapter probe
+    userscript size was ~485.7 kb after HTML transcript export, adapter probe
     export, pinned context packets, prompt context packets, selected text
-    packets, and broader i18n hardening.
+    packets, transcript snippet packets, and broader i18n hardening.
 - 2026-06-08 follow-up: `brace-expansion` was updated from `5.0.5` to
   `5.0.6`; `npm audit --audit-level=moderate` now reports 0 vulnerabilities.
 - Live Gemini DOM verification was not refreshed: no Chrome DevTools Protocol
@@ -90,9 +90,9 @@ Direct competitive gap:
   server-side trash/restore, cross-device sync, and deeper queue automation.
   Post-planning selected-chat export, local message queue, per-chat notes,
   local undo for prompts/folders, local JSON import/export for prompts,
-  folders, and notes, explicit local Chat Notes reference insertion, and
-  visible pinned-note context packets now cover the first parity slice for
-  those gaps.
+  folders, and notes, explicit local Chat Notes reference insertion, visible
+  pinned-note context packets, prompt packets, selected text packets, and
+  transcript snippet packets now cover the first parity slice for those gaps.
 - Primer++ has a stronger local-first story than products that disclose
   analytics, cloud sync, or in-app purchases. Keep this as a product boundary,
   not an afterthought.
@@ -164,8 +164,9 @@ Codex CLI/TUI.
 - Notes/references
   - Primer++ v12 plus post-planning implementation: quote reply plus local
     per-chat notes and pins with JSON import/export, and explicit local
-    reference insertion for saved titles, links, chat IDs, notes, and visible
-    pinned-note context packets.
+    reference insertion for saved titles, links, chat IDs, notes, visible
+    pinned-note context packets, prompt packets, selected text packets, and
+    transcript snippet packets.
   - Market signal: SPG has notes/chat referencing; TFG has pinned messages.
   - Gemini signal: Gemini renamed past chats to memories and adds app
     connections.
@@ -324,7 +325,9 @@ Goal: differentiate from generic folder/export extensions.
    - selected saved prompts now package into explicit local prompt packets;
    - current visible text selections now package into explicit local snippet
      packets through Quote Reply;
-   - create reusable bundles from exported transcript snippets;
+   - ~~create reusable bundles from exported transcript snippets;~~ Export can
+     insert bounded packets from the current visible transcript or explicitly
+     selected chat transcripts;
    - insert them into Gemini via explicit user action.
 2. Chat referencing without server storage:
    - ~~insert a local chat reference or note into the composer;~~ done as an

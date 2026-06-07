@@ -14,6 +14,10 @@ import {
     exportTranscriptMarkdown,
     exportTranscriptText
 } from '../../lib/chat_transcript_export.js';
+import {
+    formatBulkTranscriptSnippetPacket,
+    formatTranscriptSnippetPacket
+} from '../../lib/context_packet_tools.js';
 import { createIcon } from '../icons.js';
 import { GeminiAdapter } from '../adapters/gemini.js';
 
@@ -93,7 +97,8 @@ export const ExportModule = {
             { icon: 'file-text', text: NativeUI.t('对话 JSON', 'Chat JSON'), action: () => this.exportCurrentChatJSON() },
             { icon: 'edit', text: NativeUI.t('对话 Markdown', 'Chat Markdown'), action: () => this.exportCurrentChatMarkdown() },
             { icon: 'file-text', text: NativeUI.t('对话 TXT', 'Chat TXT'), action: () => this.exportCurrentChatText() },
-            { icon: 'file-text', text: NativeUI.t('对话 HTML', 'Chat HTML'), action: () => this.exportCurrentChatHTML() }
+            { icon: 'file-text', text: NativeUI.t('对话 HTML', 'Chat HTML'), action: () => this.exportCurrentChatHTML() },
+            { icon: 'package', text: NativeUI.t('对话上下文包', 'Chat Packet'), action: () => this._insertCurrentTranscriptPacket() }
         ];
 
         items.forEach(item => {
@@ -357,6 +362,55 @@ export const ExportModule = {
         };
     },
 
+    _insertTextIntoEditor(text) {
+        const editor = GeminiAdapter.getInputEditor();
+        if (!editor) {
+            NativeUI.showToast(NativeUI.t('未找到 Gemini 输入框', 'Gemini input box not found'));
+            return false;
+        }
+
+        editor.focus();
+        const before = 'value' in editor ? editor.value : editor.textContent;
+        const inputEvent = new InputEvent('beforeinput', {
+            inputType: 'insertText',
+            data: text,
+            bubbles: true,
+            cancelable: true,
+            composed: true
+        });
+        const accepted = editor.dispatchEvent(inputEvent);
+        const after = 'value' in editor ? editor.value : editor.textContent;
+        if (accepted && after !== before) return true;
+
+        if ('value' in editor) {
+            const start = Number.isInteger(editor.selectionStart) ? editor.selectionStart : editor.value.length;
+            const end = Number.isInteger(editor.selectionEnd) ? editor.selectionEnd : editor.value.length;
+            editor.value = editor.value.slice(0, start) + text + editor.value.slice(end);
+            editor.selectionStart = editor.selectionEnd = start + text.length;
+        } else {
+            const p = document.createElement('p');
+            p.textContent = text;
+            editor.appendChild(p);
+        }
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+        return true;
+    },
+
+    _insertCurrentTranscriptPacket() {
+        const transcript = this._getCurrentTranscript();
+        const packet = formatTranscriptSnippetPacket(transcript, {
+            label: 'Current Gemini transcript snippet packet'
+        });
+        if (!packet) {
+            NativeUI.showToast(NativeUI.t('没有可插入的可见对话消息', 'No visible chat messages to insert'));
+            return;
+        }
+        if (this._insertTextIntoEditor(packet)) {
+            NativeUI.showToast(NativeUI.t('对话上下文包已插入', 'Chat packet inserted'));
+            Logger.info('Current transcript packet inserted', { messages: transcript.messages.length });
+        }
+    },
+
     _downloadCurrentTranscript(format) {
         const transcript = this._getCurrentTranscript();
         if (transcript.messages.length === 0) {
@@ -460,6 +514,22 @@ export const ExportModule = {
         }
     },
 
+    async _insertSelectedTranscriptPacket() {
+        const bulkExport = await this._collectSelectedTranscripts();
+        if (!bulkExport) return;
+        const packet = formatBulkTranscriptSnippetPacket(bulkExport, {
+            label: 'Selected Gemini transcript snippet packet'
+        });
+        if (!packet) {
+            NativeUI.showToast(NativeUI.t('没有可插入的已选对话消息', 'No selected chat messages to insert'));
+            return;
+        }
+        if (this._insertTextIntoEditor(packet)) {
+            NativeUI.showToast(NativeUI.t('已选对话上下文包已插入', 'Selected chat packet inserted'));
+            Logger.info('Selected transcript packet inserted', { chats: bulkExport.chats.length });
+        }
+    },
+
     exportSelectedChatsJSON() {
         return this._downloadSelectedTranscripts('json');
     },
@@ -510,7 +580,8 @@ export const ExportModule = {
             this._panelButton('JSON', () => this.exportCurrentChatJSON()),
             this._panelButton('MD', () => this.exportCurrentChatMarkdown()),
             this._panelButton('TXT', () => this.exportCurrentChatText()),
-            this._panelButton('HTML', () => this.exportCurrentChatHTML())
+            this._panelButton('HTML', () => this.exportCurrentChatHTML()),
+            this._panelButton(NativeUI.t('包', 'Packet'), () => this._insertCurrentTranscriptPacket())
         ]));
 
         const bulkTitle = document.createElement('div');
@@ -595,7 +666,8 @@ export const ExportModule = {
                 this._panelButton('JSON', () => this.exportSelectedChatsJSON(), { disabled }),
                 this._panelButton('MD', () => this.exportSelectedChatsMarkdown(), { disabled }),
                 this._panelButton('TXT', () => this.exportSelectedChatsText(), { disabled }),
-                this._panelButton('HTML', () => this.exportSelectedChatsHTML(), { disabled })
+                this._panelButton('HTML', () => this.exportSelectedChatsHTML(), { disabled }),
+                this._panelButton(NativeUI.t('包', 'Packet'), () => this._insertSelectedTranscriptPacket(), { disabled })
             ]));
         }
 

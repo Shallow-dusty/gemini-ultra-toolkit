@@ -2692,8 +2692,173 @@
     }
   });
 
+  // lib/context_packet_tools.js
+  var require_context_packet_tools = __commonJS({
+    "lib/context_packet_tools.js"(exports, module) {
+      var {
+        normalizeBulkTranscriptExport,
+        normalizeTranscript
+      } = require_chat_transcript_export();
+      var MAX_TITLE_LENGTH = 120;
+      var MAX_NOTE_LENGTH = 1200;
+      var MAX_HREF_LENGTH = 600;
+      var MAX_SNIPPET_LENGTH = 2400;
+      var MAX_TRANSCRIPT_CHATS = 4;
+      var MAX_TRANSCRIPT_MESSAGES = 12;
+      var MAX_TRANSCRIPT_MESSAGE_LENGTH = 1200;
+      var TRANSCRIPT_ROLE_LABELS = {
+        user: "User",
+        assistant: "Gemini",
+        model: "Gemini",
+        system: "System"
+      };
+      function toText(value) {
+        if (value === null || value === void 0) return "";
+        return String(value);
+      }
+      function cleanText(value, fallback = "") {
+        const text = toText(value).trim();
+        return text || fallback;
+      }
+      function normalizeHref(value) {
+        const href = cleanText(value, "").slice(0, MAX_HREF_LENGTH);
+        if (!href) return "";
+        return /^(javascript|data|vbscript):/i.test(href) ? "" : href;
+      }
+      function normalizeContextReference(raw) {
+        if (!raw || typeof raw !== "object") return null;
+        const source = raw;
+        const chatId = cleanText(source.chatId || source.id, "");
+        const note = cleanText(source.note, "").slice(0, MAX_NOTE_LENGTH);
+        const title = cleanText(source.title, chatId || (note ? "Untitled chat" : "")).slice(0, MAX_TITLE_LENGTH);
+        const href = normalizeHref(source.href);
+        if (!chatId && !title && !note) return null;
+        return { chatId, title, href, note };
+      }
+      function normalizeTextSnippet(raw) {
+        const source = raw && typeof raw === "object" ? raw : { text: raw };
+        const text = cleanText(source.text || source.snippet, "").slice(0, MAX_SNIPPET_LENGTH);
+        if (!text) return null;
+        const title = cleanText(source.title, "Visible selection").slice(0, MAX_TITLE_LENGTH);
+        const href = normalizeHref(source.href);
+        return { title, href, text };
+      }
+      function formatTextSnippetPacket2(raw, opts = {}) {
+        const snippet = normalizeTextSnippet(raw);
+        if (!snippet) return "";
+        const label = cleanText(opts.label, "Gemini visible text snippet");
+        const lines = [
+          `[${label}]`,
+          `Source: ${snippet.title}`
+        ];
+        if (snippet.href) lines.push(`Link: ${snippet.href}`);
+        lines.push("Snippet:");
+        lines.push(snippet.text);
+        return lines.join("\n");
+      }
+      function truncateTranscriptText(value) {
+        const text = cleanText(value, "");
+        if (text.length <= MAX_TRANSCRIPT_MESSAGE_LENGTH) return text;
+        return text.slice(0, MAX_TRANSCRIPT_MESSAGE_LENGTH - 3).trimEnd() + "...";
+      }
+      function getTranscriptRoleLabel(role) {
+        return TRANSCRIPT_ROLE_LABELS[role] || "Message";
+      }
+      function normalizeTranscriptSnippet(raw, opts = {}) {
+        const transcript = normalizeTranscript(raw, opts);
+        const messages = transcript.messages.slice(0, MAX_TRANSCRIPT_MESSAGES).map((message) => ({
+          ...message,
+          text: truncateTranscriptText(message.text)
+        }));
+        if (messages.length === 0) return null;
+        return {
+          ...transcript,
+          messages,
+          totalMessages: transcript.messages.length
+        };
+      }
+      function formatTranscriptSnippetPacket2(raw, opts = {}) {
+        const transcript = normalizeTranscriptSnippet(raw, opts);
+        if (!transcript) return "";
+        const label = cleanText(opts.label, "Gemini transcript snippet packet");
+        const lines = [
+          `[${label}]`,
+          `Title: ${transcript.title}`
+        ];
+        if (transcript.href) lines.push(`Link: ${transcript.href}`);
+        if (transcript.chatId) lines.push(`Chat ID: ${transcript.chatId}`);
+        lines.push(`Messages included: ${transcript.messages.length} of ${transcript.totalMessages}`);
+        lines.push("Transcript snippets:");
+        transcript.messages.forEach((message, index) => {
+          lines.push("");
+          lines.push(`${index + 1}. ${getTranscriptRoleLabel(message.role)}:`);
+          lines.push(message.text);
+        });
+        return lines.join("\n");
+      }
+      function formatBulkTranscriptSnippetPacket2(raw, opts = {}) {
+        const bulk = normalizeBulkTranscriptExport(raw, opts);
+        const eligibleChats = bulk.chats.filter((chat) => chat.status === "exported" && chat.messages.length > 0);
+        const chats = eligibleChats.slice(0, MAX_TRANSCRIPT_CHATS);
+        if (chats.length === 0) return "";
+        const label = cleanText(opts.label, "Gemini selected transcript snippet packet");
+        const sections = chats.map((chat, index) => formatTranscriptSnippetPacket2(chat, {
+          ...opts,
+          label: `${index + 1}. ${chat.title}`,
+          nowIso: chat.exportedAt
+        }));
+        return [
+          `[${label}]`,
+          `Exported: ${bulk.exportedAt}`,
+          `Chats included: ${chats.length} of ${eligibleChats.length}`,
+          "",
+          sections.join("\n\n")
+        ].join("\n");
+      }
+      function formatContextReference2(raw, opts = {}) {
+        const ref = normalizeContextReference(raw);
+        if (!ref) return "";
+        const label = cleanText(opts.label, "Gemini chat reference");
+        const lines = [
+          `[${label}]`,
+          `Title: ${ref.title}`
+        ];
+        if (ref.href) lines.push(`Link: ${ref.href}`);
+        if (ref.chatId) lines.push(`Chat ID: ${ref.chatId}`);
+        if (ref.note && opts.includeNote !== false) {
+          lines.push("Local note:");
+          lines.push(ref.note);
+        }
+        return lines.join("\n");
+      }
+      function formatContextPacket2(items, opts = {}) {
+        const refs = (Array.isArray(items) ? items : [items]).map(normalizeContextReference).filter(Boolean);
+        if (refs.length === 0) return "";
+        if (refs.length === 1) return formatContextReference2(refs[0], opts);
+        const label = cleanText(opts.label, "Gemini context packet");
+        const sections = refs.map((ref, index) => {
+          return formatContextReference2(ref, {
+            ...opts,
+            label: `${index + 1}. ${ref.title}`
+          });
+        });
+        return [`[${label}]`, ...sections].join("\n\n");
+      }
+      module.exports = {
+        formatBulkTranscriptSnippetPacket: formatBulkTranscriptSnippetPacket2,
+        formatContextPacket: formatContextPacket2,
+        formatContextReference: formatContextReference2,
+        formatTextSnippetPacket: formatTextSnippetPacket2,
+        formatTranscriptSnippetPacket: formatTranscriptSnippetPacket2,
+        normalizeTextSnippet,
+        normalizeTranscriptSnippet,
+        normalizeContextReference
+      };
+    }
+  });
+
   // src/modules/export.js
-  var import_export_formatter, import_chat_transcript_export, ExportModule;
+  var import_export_formatter, import_chat_transcript_export, import_context_packet_tools, ExportModule;
   var init_export = __esm({
     "src/modules/export.js"() {
       init_logger();
@@ -2703,6 +2868,7 @@
       init_counter();
       import_export_formatter = __toESM(require_export_formatter());
       import_chat_transcript_export = __toESM(require_chat_transcript_export());
+      import_context_packet_tools = __toESM(require_context_packet_tools());
       init_icons();
       init_gemini();
       ExportModule = {
@@ -2778,7 +2944,8 @@
             { icon: "file-text", text: NativeUI.t("对话 JSON", "Chat JSON"), action: () => this.exportCurrentChatJSON() },
             { icon: "edit", text: NativeUI.t("对话 Markdown", "Chat Markdown"), action: () => this.exportCurrentChatMarkdown() },
             { icon: "file-text", text: NativeUI.t("对话 TXT", "Chat TXT"), action: () => this.exportCurrentChatText() },
-            { icon: "file-text", text: NativeUI.t("对话 HTML", "Chat HTML"), action: () => this.exportCurrentChatHTML() }
+            { icon: "file-text", text: NativeUI.t("对话 HTML", "Chat HTML"), action: () => this.exportCurrentChatHTML() },
+            { icon: "package", text: NativeUI.t("对话上下文包", "Chat Packet"), action: () => this._insertCurrentTranscriptPacket() }
           ];
           items.forEach((item) => {
             const el = document.createElement("div");
@@ -3013,6 +3180,51 @@
             messages: GeminiAdapter.getCurrentConversationMessages()
           };
         },
+        _insertTextIntoEditor(text) {
+          const editor = GeminiAdapter.getInputEditor();
+          if (!editor) {
+            NativeUI.showToast(NativeUI.t("未找到 Gemini 输入框", "Gemini input box not found"));
+            return false;
+          }
+          editor.focus();
+          const before = "value" in editor ? editor.value : editor.textContent;
+          const inputEvent = new InputEvent("beforeinput", {
+            inputType: "insertText",
+            data: text,
+            bubbles: true,
+            cancelable: true,
+            composed: true
+          });
+          const accepted = editor.dispatchEvent(inputEvent);
+          const after = "value" in editor ? editor.value : editor.textContent;
+          if (accepted && after !== before) return true;
+          if ("value" in editor) {
+            const start = Number.isInteger(editor.selectionStart) ? editor.selectionStart : editor.value.length;
+            const end = Number.isInteger(editor.selectionEnd) ? editor.selectionEnd : editor.value.length;
+            editor.value = editor.value.slice(0, start) + text + editor.value.slice(end);
+            editor.selectionStart = editor.selectionEnd = start + text.length;
+          } else {
+            const p = document.createElement("p");
+            p.textContent = text;
+            editor.appendChild(p);
+          }
+          editor.dispatchEvent(new Event("input", { bubbles: true }));
+          return true;
+        },
+        _insertCurrentTranscriptPacket() {
+          const transcript = this._getCurrentTranscript();
+          const packet = (0, import_context_packet_tools.formatTranscriptSnippetPacket)(transcript, {
+            label: "Current Gemini transcript snippet packet"
+          });
+          if (!packet) {
+            NativeUI.showToast(NativeUI.t("没有可插入的可见对话消息", "No visible chat messages to insert"));
+            return;
+          }
+          if (this._insertTextIntoEditor(packet)) {
+            NativeUI.showToast(NativeUI.t("对话上下文包已插入", "Chat packet inserted"));
+            Logger.info("Current transcript packet inserted", { messages: transcript.messages.length });
+          }
+        },
         _downloadCurrentTranscript(format) {
           const transcript = this._getCurrentTranscript();
           if (transcript.messages.length === 0) {
@@ -3100,6 +3312,21 @@
             this._download((0, import_chat_transcript_export.exportBulkTranscriptText)(bulkExport), `${this._getBulkFilePrefix()}.txt`, "text/plain");
           }
         },
+        async _insertSelectedTranscriptPacket() {
+          const bulkExport = await this._collectSelectedTranscripts();
+          if (!bulkExport) return;
+          const packet = (0, import_context_packet_tools.formatBulkTranscriptSnippetPacket)(bulkExport, {
+            label: "Selected Gemini transcript snippet packet"
+          });
+          if (!packet) {
+            NativeUI.showToast(NativeUI.t("没有可插入的已选对话消息", "No selected chat messages to insert"));
+            return;
+          }
+          if (this._insertTextIntoEditor(packet)) {
+            NativeUI.showToast(NativeUI.t("已选对话上下文包已插入", "Selected chat packet inserted"));
+            Logger.info("Selected transcript packet inserted", { chats: bulkExport.chats.length });
+          }
+        },
         exportSelectedChatsJSON() {
           return this._downloadSelectedTranscripts("json");
         },
@@ -3143,7 +3370,8 @@
             this._panelButton("JSON", () => this.exportCurrentChatJSON()),
             this._panelButton("MD", () => this.exportCurrentChatMarkdown()),
             this._panelButton("TXT", () => this.exportCurrentChatText()),
-            this._panelButton("HTML", () => this.exportCurrentChatHTML())
+            this._panelButton("HTML", () => this.exportCurrentChatHTML()),
+            this._panelButton(NativeUI.t("包", "Packet"), () => this._insertCurrentTranscriptPacket())
           ]));
           const bulkTitle = document.createElement("div");
           bulkTitle.className = "section-title";
@@ -3221,7 +3449,8 @@
               this._panelButton("JSON", () => this.exportSelectedChatsJSON(), { disabled }),
               this._panelButton("MD", () => this.exportSelectedChatsMarkdown(), { disabled }),
               this._panelButton("TXT", () => this.exportSelectedChatsText(), { disabled }),
-              this._panelButton("HTML", () => this.exportSelectedChatsHTML(), { disabled })
+              this._panelButton("HTML", () => this.exportSelectedChatsHTML(), { disabled }),
+              this._panelButton(NativeUI.t("包", "Packet"), () => this._insertSelectedTranscriptPacket(), { disabled })
             ]));
           }
           container.appendChild(section);
@@ -9474,98 +9703,8 @@ ${part}`).join("\n\n---\n\n");
     }
   });
 
-  // lib/context_packet_tools.js
-  var require_context_packet_tools = __commonJS({
-    "lib/context_packet_tools.js"(exports, module) {
-      var MAX_TITLE_LENGTH = 120;
-      var MAX_NOTE_LENGTH = 1200;
-      var MAX_HREF_LENGTH = 600;
-      var MAX_SNIPPET_LENGTH = 2400;
-      function toText(value) {
-        if (value === null || value === void 0) return "";
-        return String(value);
-      }
-      function cleanText(value, fallback = "") {
-        const text = toText(value).trim();
-        return text || fallback;
-      }
-      function normalizeHref(value) {
-        const href = cleanText(value, "").slice(0, MAX_HREF_LENGTH);
-        if (!href) return "";
-        return /^(javascript|data|vbscript):/i.test(href) ? "" : href;
-      }
-      function normalizeContextReference(raw) {
-        if (!raw || typeof raw !== "object") return null;
-        const source = raw;
-        const chatId = cleanText(source.chatId || source.id, "");
-        const note = cleanText(source.note, "").slice(0, MAX_NOTE_LENGTH);
-        const title = cleanText(source.title, chatId || (note ? "Untitled chat" : "")).slice(0, MAX_TITLE_LENGTH);
-        const href = normalizeHref(source.href);
-        if (!chatId && !title && !note) return null;
-        return { chatId, title, href, note };
-      }
-      function normalizeTextSnippet(raw) {
-        const source = raw && typeof raw === "object" ? raw : { text: raw };
-        const text = cleanText(source.text || source.snippet, "").slice(0, MAX_SNIPPET_LENGTH);
-        if (!text) return null;
-        const title = cleanText(source.title, "Visible selection").slice(0, MAX_TITLE_LENGTH);
-        const href = normalizeHref(source.href);
-        return { title, href, text };
-      }
-      function formatTextSnippetPacket2(raw, opts = {}) {
-        const snippet = normalizeTextSnippet(raw);
-        if (!snippet) return "";
-        const label = cleanText(opts.label, "Gemini visible text snippet");
-        const lines = [
-          `[${label}]`,
-          `Source: ${snippet.title}`
-        ];
-        if (snippet.href) lines.push(`Link: ${snippet.href}`);
-        lines.push("Snippet:");
-        lines.push(snippet.text);
-        return lines.join("\n");
-      }
-      function formatContextReference2(raw, opts = {}) {
-        const ref = normalizeContextReference(raw);
-        if (!ref) return "";
-        const label = cleanText(opts.label, "Gemini chat reference");
-        const lines = [
-          `[${label}]`,
-          `Title: ${ref.title}`
-        ];
-        if (ref.href) lines.push(`Link: ${ref.href}`);
-        if (ref.chatId) lines.push(`Chat ID: ${ref.chatId}`);
-        if (ref.note && opts.includeNote !== false) {
-          lines.push("Local note:");
-          lines.push(ref.note);
-        }
-        return lines.join("\n");
-      }
-      function formatContextPacket2(items, opts = {}) {
-        const refs = (Array.isArray(items) ? items : [items]).map(normalizeContextReference).filter(Boolean);
-        if (refs.length === 0) return "";
-        if (refs.length === 1) return formatContextReference2(refs[0], opts);
-        const label = cleanText(opts.label, "Gemini context packet");
-        const sections = refs.map((ref, index) => {
-          return formatContextReference2(ref, {
-            ...opts,
-            label: `${index + 1}. ${ref.title}`
-          });
-        });
-        return [`[${label}]`, ...sections].join("\n\n");
-      }
-      module.exports = {
-        formatContextPacket: formatContextPacket2,
-        formatContextReference: formatContextReference2,
-        formatTextSnippetPacket: formatTextSnippetPacket2,
-        normalizeTextSnippet,
-        normalizeContextReference
-      };
-    }
-  });
-
   // src/modules/quote_reply.js
-  var import_context_packet_tools, QuoteReplyModule;
+  var import_context_packet_tools2, QuoteReplyModule;
   var init_quote_reply = __esm({
     "src/modules/quote_reply.js"() {
       init_constants();
@@ -9573,7 +9712,7 @@ ${part}`).join("\n\n---\n\n");
       init_native_ui();
       init_gemini();
       init_icons();
-      import_context_packet_tools = __toESM(require_context_packet_tools());
+      import_context_packet_tools2 = __toESM(require_context_packet_tools());
       QuoteReplyModule = {
         id: "quote-reply",
         name: NativeUI.t("引用回复", "Quote Reply"),
@@ -9742,7 +9881,7 @@ ${part}`).join("\n\n---\n\n");
           } catch {
             title = document.title || "";
           }
-          const packet = (0, import_context_packet_tools.formatTextSnippetPacket)({
+          const packet = (0, import_context_packet_tools2.formatTextSnippetPacket)({
             title,
             href: window.location.href,
             text
@@ -10153,7 +10292,7 @@ ${part}`).join("\n\n---\n\n");
   });
 
   // src/modules/chat_notes.js
-  var import_date_utils5, import_context_packet_tools2, import_chat_notes_store, ChatNotesModule;
+  var import_date_utils5, import_context_packet_tools3, import_chat_notes_store, ChatNotesModule;
   var init_chat_notes = __esm({
     "src/modules/chat_notes.js"() {
       init_core();
@@ -10163,7 +10302,7 @@ ${part}`).join("\n\n---\n\n");
       init_icons();
       init_gemini();
       import_date_utils5 = __toESM(require_date_utils());
-      import_context_packet_tools2 = __toESM(require_context_packet_tools());
+      import_context_packet_tools3 = __toESM(require_context_packet_tools());
       import_chat_notes_store = __toESM(require_chat_notes_store());
       ChatNotesModule = {
         id: "chat-notes",
@@ -10233,14 +10372,14 @@ ${part}`).join("\n\n---\n\n");
           return true;
         },
         _insertContextReference(note) {
-          const text = (0, import_context_packet_tools2.formatContextReference)(note);
+          const text = (0, import_context_packet_tools3.formatContextReference)(note);
           if (!text) return;
           if (this._insertTextIntoEditor(text)) {
             NativeUI.showToast(NativeUI.t("上下文引用已插入", "Context reference inserted"));
           }
         },
         _insertPinnedContextPacket(notes) {
-          const text = (0, import_context_packet_tools2.formatContextPacket)(notes.slice(0, 8), {
+          const text = (0, import_context_packet_tools3.formatContextPacket)(notes.slice(0, 8), {
             label: "Pinned Gemini context packet"
           });
           if (!text) return;

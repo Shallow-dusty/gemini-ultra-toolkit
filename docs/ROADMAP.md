@@ -1,6 +1,6 @@
 # Roadmap
 
-Updated: 2026-06-08 (post-v12 planning refresh + local data portability + local context references + pinned context packets + prompt context packets + selected text packets + quota window framing + prompt-chain queueing + HTML transcript export + adapter probe export + i18n hardening).
+Updated: 2026-06-08 (post-v12 planning refresh + local data portability + local context references + pinned context packets + prompt context packets + selected text packets + transcript snippet packets + quota window framing + prompt-chain queueing + HTML transcript export + adapter probe export + i18n hardening).
 
 This is the maintained roadmap. It replaces the old full feature brainstorming document, which mixed implemented features, speculative ideas, and stale project naming.
 
@@ -27,7 +27,8 @@ Implemented modules:
   batch move, auto-classify rules, and one-step local undo for folder
   moves/deletes, plus versioned JSON import/export.
 - Export: JSON/CSV/Markdown usage export, current visible conversation
-  transcript export, and selected-sidebar chat export in JSON/Markdown/TXT/HTML.
+  transcript export, selected-sidebar chat export in JSON/Markdown/TXT/HTML,
+  and explicit bounded transcript snippet packets.
 - Prompt Vault: saved prompts, quick insert, import/export, favorites, recent
   ranking, slash shortcuts, template variables, local prompt chains, and
   versioned metadata import/export, plus local prompt-delete undo and
@@ -126,9 +127,10 @@ Prioritize local-first workflow parity with direct Gemini competitors:
 - Local context references: Chat Notes can format saved local titles, links,
   chat IDs, notes, and visible pinned-note packets into the composer on explicit
   user action. Prompt Vault can insert selected saved prompts as explicit local
-  prompt packets, and Quote Reply can insert the current visible text selection
-  as a snippet packet. These paths are not hidden transcript reads and do not
-  mirror Gemini memories.
+  prompt packets, Quote Reply can insert the current visible text selection as a
+  snippet packet, and Export can insert bounded packets from the current visible
+  transcript or explicitly selected chat transcripts. These paths are not hidden
+  transcript reads and do not mirror Gemini memories.
 - Tool-mode awareness for Canvas, Deep Research, Image, Video, Audio Overview,
   Spark, or equivalent Gemini modes so automations can disable themselves
   safely. Canonical label/state matching is covered by unit tests; visible

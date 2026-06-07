@@ -271,4 +271,21 @@ describe('app smoke checks', () => {
         assert.match(quoteReply, /Selected Gemini text snippet/);
         assert.doesNotMatch(quoteReply, /getCurrentConversationMessages/);
     });
+
+    it('keeps Export transcript packets explicit, bounded, and insert-only', () => {
+        const exportModule = read('src/modules/export.js');
+        const packetTools = read('lib/context_packet_tools.js');
+
+        assert.match(exportModule, /formatTranscriptSnippetPacket/);
+        assert.match(exportModule, /formatBulkTranscriptSnippetPacket/);
+        assert.match(exportModule, /_insertCurrentTranscriptPacket/);
+        assert.match(exportModule, /_insertSelectedTranscriptPacket/);
+        assert.match(exportModule, /Current Gemini transcript snippet packet/);
+        assert.match(exportModule, /Selected Gemini transcript snippet packet/);
+        assert.match(packetTools, /MAX_TRANSCRIPT_CHATS = 4/);
+        assert.match(packetTools, /MAX_TRANSCRIPT_MESSAGES = 12/);
+        assert.match(packetTools, /MAX_TRANSCRIPT_MESSAGE_LENGTH = 1200/);
+        assert.doesNotMatch(exportModule, /GM_setValue/);
+        assert.doesNotMatch(exportModule, /getSendButton|sendBtn\.click/);
+    });
 });

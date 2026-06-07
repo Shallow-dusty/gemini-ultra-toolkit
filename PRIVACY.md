@@ -8,7 +8,7 @@ _Last updated: 2026-06-08 (v12.0 post-release local data and context-packet upda
 
 - **All data stays on your device.** Nothing is uploaded, telemetered, analyzed, or shared.
 - **No network requests** are made by the extension beyond what the Gemini page itself does. The extension does not contact any server, including the developer's.
-- **Conversation text is read only when you explicitly export transcripts.** The extension does not continuously read or upload chat bodies.
+- **Conversation text is read only when you explicitly export transcripts or insert transcript packets.** The extension does not continuously read or upload chat bodies.
 - **Chat Notes context insertion uses only local metadata and notes.** It can insert saved titles, links, chat IDs, your local note text, or a packet of visible pinned notes into the composer after you click the action; it does not read hidden transcript bodies.
 - **No account, no sign-up, no tracking ID.**
 - **You are the operator and the only audience.** Export your data anytime, delete it anytime.
@@ -39,7 +39,7 @@ To do its job, the content script (`content.js`) reads:
 - The currently selected model (Flash / Pro / Thinking) from Gemini's mode picker.
 - Sidebar chat link titles and URLs, so it can render folder markers and counts.
 - Page-level UI state needed by individual features (e.g., whether a message just sent successfully, so the counter can increment).
-- Visible conversation messages only when you explicitly use the Export module's current-chat or selected-chat transcript export.
+- Visible conversation messages only when you explicitly use the Export module's current-chat or selected-chat transcript export, or when you explicitly insert a bounded transcript packet into the composer.
 - Saved Chat Notes metadata and note text when you explicitly insert a local context reference or pinned-note packet into the composer.
 
 The extension **does not** continuously read or store:
@@ -70,7 +70,7 @@ You can verify all of the above by reading the source: <https://github.com/Shall
 
 ## Exporting and deleting your data
 
-- **Export**: the Export module produces files written via the browser's download flow. Usage exports contain local counters. Transcript exports contain visible conversation text captured only after you click an export action; selected-chat export navigates selected sidebar chats and records failed/empty captures instead of fabricating content.
+- **Export**: the Export module produces files written via the browser's download flow. Usage exports contain local counters. Transcript exports contain visible conversation text captured only after you click an export action; selected-chat export navigates selected sidebar chats and records failed/empty captures instead of fabricating content. Transcript packet insertion uses the same explicit visible-capture boundary, writes only into the Gemini composer, and does not auto-send.
 - **Delete**: removing the extension from `chrome://extensions/` (or uninstalling the userscript) clears its storage on next browser restart. To wipe earlier, open DevTools on a Gemini tab and run `chrome.storage.local.clear()` (extension) or use Tampermonkey's storage panel (userscript).
 
 ## Children's privacy

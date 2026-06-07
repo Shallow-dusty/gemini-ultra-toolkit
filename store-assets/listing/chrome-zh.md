@@ -35,7 +35,7 @@ Primer++ for Gemini™ 是一款非官方、开源的 Google Gemini 网页版增
 
 • 文件夹 Folders — 把侧边栏对话分组到自建文件夹，支持拖拽排序、颜色标记、置顶、批量移动、一步本地撤销、JSON 导入 / 导出，以及可选的自动归类规则（正则或关键词）。
 
-• 导出 Export — 将使用报告、当前可见对话记录，或侧边栏中选中的对话导出为 JSON / Markdown / TXT / HTML。
+• 导出 Export — 将使用报告、当前可见对话记录，或侧边栏中选中的对话导出为 JSON / Markdown / TXT / HTML，也可把有长度限制的对话片段包插入输入框。
 
 • Prompt 库 Prompt Vault — 收藏常用 prompt，按标签整理，一键插入到输入框，也可把 prompt chain 分步加入队列，并可撤销本地 prompt 删除。库可以 JSON 格式导入 / 导出。
 
@@ -59,7 +59,7 @@ Primer++ for Gemini™ 是一款非官方、开源的 Google Gemini 网页版增
 
 • 所有数据存放在你设备本地的 chrome.storage.local 中。
 • 任何数据都不会上传 — 不传给开发者，不传给任何分析服务，不传给任何地方。
-• 只有当你明确保存到 Prompt Vault 或加入 Message Queue 时，prompt 文本才会被读取并保存在本地。只有当你明确导出当前对话或选中对话记录时，可见的 Gemini 对话文本才会被读取。Chat Notes 的上下文插入只使用本地保存的标题 / 链接 / ID / 笔记。
+• 只有当你明确保存到 Prompt Vault 或加入 Message Queue 时，prompt 文本才会被读取并保存在本地。只有当你明确导出当前对话、选中对话记录，或插入有长度限制的对话片段包时，可见的 Gemini 对话文本才会被读取。Chat Notes 的上下文插入只使用本地保存的标题 / 链接 / ID / 笔记。
 • 唯一申请的 host 权限：https://gemini.google.com/*。
 • 完整隐私政策：https://github.com/Shallow-dusty/primer-pp/blob/main/PRIVACY.md
 
@@ -110,7 +110,7 @@ Primer++ for Gemini™ 是非官方社区项目。Gemini™ 是 Google LLC 的�
 ### Host 权限：`https://gemini.google.com/*`
 
 ```
-扩展的内容脚本只在 Google Gemini（https://gemini.google.com/*）上运行 — 这是它增强的唯一网页应用。脚本读取侧边栏对话标题、当前选中的模型、当前登录的账号标签、以及消息发送事件，以便页面内悬浮面板能展示每日计数、管理文件夹、快速插入 prompt 或用户明确选择的本地 Chat Notes 引用。当用户明确导出对话记录时，脚本会读取当前或选中对话的可见内容并写入本地下载文件。扩展未申请 <all_urls> 或任何其他 host 权限。
+扩展的内容脚本只在 Google Gemini（https://gemini.google.com/*）上运行 — 这是它增强的唯一网页应用。脚本读取侧边栏对话标题、当前选中的模型、当前登录的账号标签、以及消息发送事件，以便页面内悬浮面板能展示每日计数、管理文件夹、快速插入 prompt 或用户明确选择的本地 Chat Notes 引用。当用户明确导出对话记录或插入对话片段包时，脚本会读取当前或选中对话的可见内容，并写入本地下载文件或把有长度限制的文本插入输入框。扩展未申请 <all_urls> 或任何其他 host 权限。
 ```
 
 ### 远程代码
