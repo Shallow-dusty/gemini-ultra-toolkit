@@ -23,7 +23,7 @@ _在 Chrome Web Store Developer Dashboard 添加"中文（简体）"翻译时使
 ## 详细描述
 
 ```
-Primer++ for Gemini™ 是一款非官方、开源的 Google Gemini 网页版增强扩展，为 gemini.google.com 添加八个相互独立的实用模块，把它变成一个你能真正追踪与组织的工作空间。所有数据都在你的浏览器里本地处理；不需要账号，不上传任何遥测，不做云端同步。
+Primer++ for Gemini™ 是一款非官方、开源的 Google Gemini 网页版增强扩展，为 gemini.google.com 添加多个相互独立的实用模块，把它变成一个你能真正追踪与组织的工作空间。所有数据都在你的浏览器里本地处理；不需要账号，不上传任何遥测，不做云端同步。
 
 ═══════════════════════════════════════
 功能模块
@@ -34,6 +34,8 @@ Primer++ for Gemini™ 是一款非官方、开源的 Google Gemini 网页版增
 • 热力图 Dashboard — 类似 GitHub 的全年使用热力图，可下钻查看单日明细与各模型占比。
 
 • 文件夹 Folders — 把侧边栏对话分组到自建文件夹，支持拖拽排序、颜色标记、置顶、批量移动，以及可选的自动归类规则（正则或关键词）。
+
+• 导出 Export — 将使用报告、当前可见对话记录，或侧边栏中选中的对话导出为 JSON / Markdown / TXT。
 
 • Prompt 库 Prompt Vault — 收藏常用 prompt，按标签整理，一键插入到输入框。库可以 JSON 格式导入 / 导出。
 
@@ -57,7 +59,7 @@ Primer++ for Gemini™ 是一款非官方、开源的 Google Gemini 网页版增
 
 • 所有数据存放在你设备本地的 chrome.storage.local 中。
 • 任何数据都不会上传 — 不传给开发者，不传给任何分析服务，不传给任何地方。
-• 只有当你明确保存到 Prompt Vault 或加入 Message Queue 时，prompt 文本才会被读取并保存在本地。只有当你明确导出当前对话记录时，可见的 Gemini 回复文本才会被读取。
+• 只有当你明确保存到 Prompt Vault 或加入 Message Queue 时，prompt 文本才会被读取并保存在本地。只有当你明确导出当前对话或选中对话记录时，可见的 Gemini 对话文本才会被读取。
 • 唯一申请的 host 权限：https://gemini.google.com/*。
 • 完整隐私政策：https://github.com/Shallow-dusty/primer-pp/blob/main/PRIVACY.md
 
@@ -108,7 +110,7 @@ Primer++ for Gemini™ 是非官方社区项目。Gemini™ 是 Google LLC 的�
 ### Host 权限：`https://gemini.google.com/*`
 
 ```
-扩展的内容脚本只在 Google Gemini（https://gemini.google.com/*）上运行 — 这是它增强的唯一网页应用。脚本读取侧边栏对话标题、当前选中的模型、当前登录的账号标签、以及消息发送事件，以便页面内悬浮面板能展示每日计数、管理文件夹、快速插入 prompt。扩展未申请 <all_urls> 或任何其他 host 权限。
+扩展的内容脚本只在 Google Gemini（https://gemini.google.com/*）上运行 — 这是它增强的唯一网页应用。脚本读取侧边栏对话标题、当前选中的模型、当前登录的账号标签、以及消息发送事件，以便页面内悬浮面板能展示每日计数、管理文件夹、快速插入 prompt。当用户明确导出对话记录时，脚本会读取当前或选中对话的可见内容并写入本地下载文件。扩展未申请 <all_urls> 或任何其他 host 权限。
 ```
 
 ### 远程代码

@@ -2241,6 +2241,38 @@
           messages
         };
       }
+      function normalizeBulkStatus(value, messages) {
+        const status = cleanText(value).toLowerCase();
+        if (status === "exported" || status === "empty" || status === "failed" || status === "skipped") return status;
+        return messages.length > 0 ? "exported" : "empty";
+      }
+      function normalizeBulkTranscriptExport(raw, opts = {}) {
+        const source = raw && typeof raw === "object" ? raw : {};
+        const exportedAt = cleanText(opts.nowIso) || cleanText(source.exportedAt) || (/* @__PURE__ */ new Date()).toISOString();
+        const rawChats = Array.isArray(source.chats) ? source.chats : [];
+        const chats = rawChats.map((chat, index) => {
+          const chatSource = chat && typeof chat === "object" ? chat : {};
+          const transcript = normalizeTranscript(chatSource, {
+            nowIso: cleanText(chatSource.exportedAt) || exportedAt
+          });
+          return {
+            ...transcript,
+            status: normalizeBulkStatus(chatSource.status, transcript.messages),
+            error: cleanText(chatSource.error),
+            selectedTitle: cleanText(chatSource.selectedTitle),
+            order: index + 1
+          };
+        });
+        return {
+          app: cleanText(source.app) || "Primer++ for Gemini",
+          format: "selected-chat-transcripts",
+          exportedAt,
+          chatCount: chats.length,
+          exportedCount: chats.filter((chat) => chat.status === "exported").length,
+          failedCount: chats.filter((chat) => chat.status === "failed").length,
+          chats
+        };
+      }
       function getRoleLabel(role) {
         if (role === "user") return "User";
         if (role === "assistant" || role === "model") return "Gemini";
@@ -2293,11 +2325,92 @@
         });
         return lines.join("\n").trimEnd() + "\n";
       }
+      function exportBulkTranscriptJSON2(bulkExport, opts = {}) {
+        return JSON.stringify(normalizeBulkTranscriptExport(bulkExport, opts), null, 2);
+      }
+      function appendBulkChatMarkdown(lines, chat) {
+        lines.push(`## ${chat.order}. ${chat.title}`);
+        lines.push("");
+        lines.push(`- Chat ID: ${chat.chatId || "unknown"}`);
+        lines.push(`- Status: ${chat.status}`);
+        if (chat.href) lines.push(`- Source: ${chat.href}`);
+        if (chat.error) lines.push(`- Error: ${chat.error}`);
+        lines.push("");
+        if (chat.messages.length === 0) {
+          lines.push(chat.status === "failed" ? "_Transcript export failed._" : "_No visible messages captured._");
+          lines.push("");
+          return;
+        }
+        chat.messages.forEach((message, index) => {
+          lines.push(`### ${index + 1}. ${getRoleLabel(message.role)}`);
+          lines.push("");
+          lines.push(message.text);
+          lines.push("");
+        });
+      }
+      function exportBulkTranscriptMarkdown2(bulkExport, opts = {}) {
+        const data = normalizeBulkTranscriptExport(bulkExport, opts);
+        const lines = [
+          "# Gemini Selected Chat Export",
+          "",
+          `- Exported: ${data.exportedAt}`,
+          `- Chats: ${data.chatCount}`,
+          `- Exported chats: ${data.exportedCount}`,
+          `- Failed chats: ${data.failedCount}`,
+          ""
+        ];
+        if (data.chats.length === 0) {
+          lines.push("_No chats selected._");
+          lines.push("");
+          return lines.join("\n");
+        }
+        data.chats.forEach((chat) => appendBulkChatMarkdown(lines, chat));
+        return lines.join("\n");
+      }
+      function appendBulkChatText(lines, chat) {
+        lines.push(`${chat.order}. ${chat.title}`);
+        lines.push(`Chat ID: ${chat.chatId || "unknown"}`);
+        lines.push(`Status: ${chat.status}`);
+        if (chat.href) lines.push(`Source: ${chat.href}`);
+        if (chat.error) lines.push(`Error: ${chat.error}`);
+        lines.push("");
+        if (chat.messages.length === 0) {
+          lines.push(chat.status === "failed" ? "Transcript export failed." : "No visible messages captured.");
+          lines.push("");
+          return;
+        }
+        chat.messages.forEach((message, index) => {
+          lines.push(`${index + 1}. ${getRoleLabel(message.role)}`);
+          lines.push(message.text);
+          lines.push("");
+        });
+      }
+      function exportBulkTranscriptText2(bulkExport, opts = {}) {
+        const data = normalizeBulkTranscriptExport(bulkExport, opts);
+        const lines = [
+          "Gemini Selected Chat Export",
+          `Exported: ${data.exportedAt}`,
+          `Chats: ${data.chatCount}`,
+          `Exported chats: ${data.exportedCount}`,
+          `Failed chats: ${data.failedCount}`,
+          ""
+        ];
+        if (data.chats.length === 0) {
+          lines.push("No chats selected.");
+          return lines.join("\n") + "\n";
+        }
+        data.chats.forEach((chat) => appendBulkChatText(lines, chat));
+        return lines.join("\n").trimEnd() + "\n";
+      }
       module.exports = {
+        exportBulkTranscriptJSON: exportBulkTranscriptJSON2,
+        exportBulkTranscriptMarkdown: exportBulkTranscriptMarkdown2,
+        exportBulkTranscriptText: exportBulkTranscriptText2,
         exportTranscriptJSON: exportTranscriptJSON2,
         exportTranscriptMarkdown: exportTranscriptMarkdown2,
         exportTranscriptText: exportTranscriptText2,
         normalizeMessage,
+        normalizeBulkTranscriptExport,
         normalizeTranscript
       };
     }
@@ -2310,6 +2423,7 @@
       init_logger();
       init_core();
       init_native_ui();
+      init_panel_ui();
       init_counter();
       import_export_formatter = __toESM(require_export_formatter());
       import_chat_transcript_export = __toESM(require_chat_transcript_export());
@@ -2321,14 +2435,25 @@
         description: NativeUI.t("JSON / CSV / Markdown 多格式导出", "Export in JSON / CSV / Markdown"),
         iconId: "download",
         defaultEnabled: true,
+        _bulkSelected: /* @__PURE__ */ new Set(),
+        _bulkSelectedMeta: {},
+        _bulkExporting: false,
+        _bulkCancelRequested: false,
+        _bulkProgress: { current: 0, total: 0, title: "" },
         init() {
           Logger.info("ExportModule initialized");
         },
         destroy() {
           this.removeNativeUI();
+          this._clearBulkSelection();
+          this._bulkExporting = false;
+          this._bulkCancelRequested = false;
           Logger.info("ExportModule destroyed");
         },
         onUserChange() {
+          this._clearBulkSelection();
+          this._bulkExporting = false;
+          this._bulkCancelRequested = false;
         },
         // --- Native UI: Export button next to chat title ---
         injectNativeUI() {
@@ -2426,6 +2551,149 @@
           const chatId = Core.getChatId() || "current-chat";
           return `${this._getFilePrefix()}-${chatId}`;
         },
+        _getBulkFilePrefix() {
+          return `${this._getFilePrefix()}-selected-chats`;
+        },
+        _cloneChatMeta(chat) {
+          return {
+            id: chat?.id || "",
+            title: chat?.title || "Untitled",
+            href: chat?.href || "",
+            element: chat?.element || null
+          };
+        },
+        _rememberBulkChat(chat) {
+          if (!chat?.id) return;
+          this._bulkSelectedMeta[chat.id] = this._cloneChatMeta(chat);
+        },
+        _toggleBulkChat(chat) {
+          if (!chat?.id) return;
+          this._rememberBulkChat(chat);
+          if (this._bulkSelected.has(chat.id)) {
+            this._bulkSelected.delete(chat.id);
+          } else {
+            this._bulkSelected.add(chat.id);
+          }
+        },
+        _selectVisibleBulkChats(chats) {
+          chats.forEach((chat) => {
+            this._rememberBulkChat(chat);
+            this._bulkSelected.add(chat.id);
+          });
+        },
+        _clearBulkSelection() {
+          this._bulkSelected.clear();
+          this._bulkSelectedMeta = {};
+        },
+        _getSelectedBulkChats() {
+          const visible = Core.scanSidebarChats(true);
+          const byId = /* @__PURE__ */ new Map();
+          visible.forEach((chat) => {
+            this._rememberBulkChat(chat);
+            byId.set(chat.id, this._cloneChatMeta(chat));
+          });
+          return Array.from(this._bulkSelected).map((id) => byId.get(id) || this._bulkSelectedMeta[id]).filter((chat) => chat?.id);
+        },
+        _resolveBulkChatForNavigation(chat) {
+          const visible = Core.scanSidebarChats(true);
+          const match = visible.find((item) => item.id === chat.id);
+          if (!match) return chat;
+          const resolved = this._cloneChatMeta(match);
+          resolved.title = chat.title || resolved.title;
+          this._rememberBulkChat(resolved);
+          return resolved;
+        },
+        _absoluteChatHref(chat) {
+          const href = chat?.href || "";
+          if (!href) return "";
+          try {
+            return new URL(href, location.origin).href;
+          } catch {
+            return "";
+          }
+        },
+        async _waitForChatReady(chatId, timeout = 12e3) {
+          const start = Date.now();
+          let lastSignature = "";
+          let stableMs = 0;
+          while (Date.now() - start < timeout) {
+            const currentId = Core.getChatId();
+            if (currentId === chatId) {
+              const messages = GeminiAdapter.getCurrentConversationMessages();
+              if (messages.length > 0) {
+                const signature = messages.map((message) => `${message.role}:${message.text.length}`).join("|");
+                if (signature === lastSignature) {
+                  stableMs += 250;
+                } else {
+                  lastSignature = signature;
+                  stableMs = 0;
+                }
+                if (stableMs >= 500) return true;
+              } else if (Date.now() - start > 1500 && GeminiAdapter.getChatTitleText()) {
+                return true;
+              }
+            }
+            await Core.sleep(250);
+          }
+          return Core.getChatId() === chatId;
+        },
+        async _navigateToBulkChat(chat) {
+          if (Core.getChatId() !== chat.id) {
+            if (!chat.element || typeof chat.element.click !== "function") {
+              throw new Error("Chat row is not available for in-page navigation");
+            }
+            chat.element.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }));
+            await Core.sleep(100);
+            chat.element.click();
+          }
+          const loaded = await this._waitForChatReady(chat.id);
+          if (!loaded) throw new Error("Timed out waiting for chat to render");
+        },
+        _getCurrentChatReference() {
+          const id = Core.getChatId();
+          if (!id) return null;
+          const visible = Core.scanSidebarChats(true);
+          const match = visible.find((chat) => chat.id === id);
+          if (match) return this._cloneChatMeta(match);
+          return {
+            id,
+            title: GeminiAdapter.getChatTitleText() || id,
+            href: location.href,
+            element: null
+          };
+        },
+        async _restoreOriginalChat(originalChat) {
+          if (!originalChat?.id || Core.getChatId() === originalChat.id) return;
+          const visible = Core.scanSidebarChats(true);
+          const match = visible.find((chat) => chat.id === originalChat.id);
+          if (!match?.element || typeof match.element.click !== "function") return;
+          match.element.click();
+          await this._waitForChatReady(originalChat.id, 6e3);
+        },
+        _captureBulkTranscript(chat, exportedAt) {
+          const messages = GeminiAdapter.getCurrentConversationMessages();
+          return {
+            chatId: chat.id,
+            selectedTitle: chat.title,
+            title: GeminiAdapter.getChatTitleText() || chat.title || "Gemini conversation",
+            href: location.href,
+            exportedAt,
+            status: messages.length > 0 ? "exported" : "empty",
+            messages
+          };
+        },
+        _failedBulkTranscript(chat, exportedAt, error) {
+          return {
+            chatId: chat.id,
+            selectedTitle: chat.title,
+            title: chat.title || "Gemini conversation",
+            href: this._absoluteChatHref(chat),
+            exportedAt,
+            status: "failed",
+            error: error?.message || String(error),
+            messages: []
+          };
+        },
         exportJSON() {
           const cm = CounterModule;
           if (!cm?.state) return;
@@ -2491,17 +2759,192 @@
         exportCurrentChatText() {
           this._downloadCurrentTranscript("text");
         },
+        async _collectSelectedTranscripts() {
+          if (this._bulkExporting) return null;
+          const selected = this._getSelectedBulkChats();
+          if (selected.length === 0) {
+            NativeUI.showToast(NativeUI.t("请选择要导出的对话", "Select chats to export"));
+            return null;
+          }
+          const exportedAt = (/* @__PURE__ */ new Date()).toISOString();
+          const originalChat = this._getCurrentChatReference();
+          const transcripts = [];
+          this._bulkExporting = true;
+          this._bulkCancelRequested = false;
+          this._bulkProgress = { current: 0, total: selected.length, title: "" };
+          PanelUI.renderDetailsPane();
+          try {
+            for (let i = 0; i < selected.length; i++) {
+              if (this._bulkCancelRequested) break;
+              const chat = this._resolveBulkChatForNavigation(selected[i]);
+              this._bulkProgress = { current: i + 1, total: selected.length, title: chat.title };
+              PanelUI.renderDetailsPane();
+              try {
+                await this._navigateToBulkChat(chat);
+                transcripts.push(this._captureBulkTranscript(chat, exportedAt));
+              } catch (error) {
+                Logger.warn("Selected chat export failed", { chatId: chat.id, error: String(error) });
+                transcripts.push(this._failedBulkTranscript(chat, exportedAt, error));
+              }
+              await Core.sleep(300);
+            }
+            if (this._bulkCancelRequested) {
+              NativeUI.showToast(NativeUI.t("已取消导出", "Export canceled"));
+              return null;
+            }
+            return {
+              app: "Primer++ for Gemini",
+              exportedAt,
+              chats: transcripts
+            };
+          } finally {
+            await this._restoreOriginalChat(originalChat);
+            this._bulkExporting = false;
+            this._bulkCancelRequested = false;
+            this._bulkProgress = { current: 0, total: 0, title: "" };
+            PanelUI.renderDetailsPane();
+          }
+        },
+        async _downloadSelectedTranscripts(format) {
+          const bulkExport = await this._collectSelectedTranscripts();
+          if (!bulkExport) return;
+          if (format === "json") {
+            this._download((0, import_chat_transcript_export.exportBulkTranscriptJSON)(bulkExport), `${this._getBulkFilePrefix()}.json`, "application/json");
+          } else if (format === "markdown") {
+            this._download((0, import_chat_transcript_export.exportBulkTranscriptMarkdown)(bulkExport), `${this._getBulkFilePrefix()}.md`, "text/markdown");
+          } else {
+            this._download((0, import_chat_transcript_export.exportBulkTranscriptText)(bulkExport), `${this._getBulkFilePrefix()}.txt`, "text/plain");
+          }
+        },
+        exportSelectedChatsJSON() {
+          return this._downloadSelectedTranscripts("json");
+        },
+        exportSelectedChatsMarkdown() {
+          return this._downloadSelectedTranscripts("markdown");
+        },
+        exportSelectedChatsText() {
+          return this._downloadSelectedTranscripts("text");
+        },
+        _panelButton(label, onClick, opts = {}) {
+          const btn = document.createElement("button");
+          btn.className = "settings-btn";
+          btn.style.cssText = opts.style || "width:auto;flex:1;padding:5px 6px;font-size:10px;margin-top:0;";
+          btn.textContent = label;
+          btn.disabled = !!opts.disabled;
+          if (btn.disabled) {
+            btn.style.opacity = "0.45";
+            btn.style.cursor = "not-allowed";
+          } else {
+            btn.onclick = onClick;
+          }
+          return btn;
+        },
+        _buttonRow(buttons) {
+          const row = document.createElement("div");
+          row.style.cssText = "display:flex;gap:4px;margin-top:6px;";
+          buttons.forEach((button) => row.appendChild(button));
+          return row;
+        },
+        renderToDetailsPane(container) {
+          const section = document.createElement("div");
+          section.className = "gf-section";
+          const currentTitle = document.createElement("div");
+          currentTitle.className = "section-title";
+          currentTitle.textContent = "Current Chat";
+          section.appendChild(currentTitle);
+          section.appendChild(this._buttonRow([
+            this._panelButton("JSON", () => this.exportCurrentChatJSON()),
+            this._panelButton("MD", () => this.exportCurrentChatMarkdown()),
+            this._panelButton("TXT", () => this.exportCurrentChatText())
+          ]));
+          const bulkTitle = document.createElement("div");
+          bulkTitle.className = "section-title";
+          bulkTitle.style.cssText = "display:flex;justify-content:space-between;align-items:center;";
+          const bulkLabel = document.createElement("span");
+          bulkLabel.textContent = "Selected Chats";
+          const bulkCount = document.createElement("span");
+          bulkCount.textContent = String(this._bulkSelected.size);
+          bulkTitle.appendChild(bulkLabel);
+          bulkTitle.appendChild(bulkCount);
+          section.appendChild(bulkTitle);
+          const chats = Core.scanSidebarChats(true);
+          if (chats.length === 0) {
+            const empty = document.createElement("div");
+            empty.style.cssText = "font-size:11px;color:var(--text-sub);padding:8px 0;text-align:center;";
+            empty.textContent = NativeUI.t("未找到侧栏对话", "No sidebar chats found");
+            section.appendChild(empty);
+          } else {
+            const actions = this._buttonRow([
+              this._panelButton("All", () => {
+                this._selectVisibleBulkChats(chats);
+                PanelUI.renderDetailsPane();
+              }),
+              this._panelButton("Clear", () => {
+                this._clearBulkSelection();
+                PanelUI.renderDetailsPane();
+              }),
+              this._panelButton("Refresh", () => {
+                Core.invalidateSidebarCache();
+                PanelUI.renderDetailsPane();
+              })
+            ]);
+            section.appendChild(actions);
+            const list = document.createElement("div");
+            list.style.cssText = "max-height:160px;overflow-y:auto;margin-top:6px;border-top:1px solid var(--divider);border-bottom:1px solid var(--divider);";
+            chats.forEach((chat) => {
+              this._rememberBulkChat(chat);
+              const row = document.createElement("div");
+              row.style.cssText = "display:flex;align-items:center;gap:6px;padding:5px 2px;cursor:pointer;font-size:11px;color:var(--text-main);";
+              row.title = chat.title;
+              const check = document.createElement("div");
+              const checked = this._bulkSelected.has(chat.id);
+              check.style.cssText = `width:14px;height:14px;border-radius:3px;border:1px solid ${checked ? "var(--accent)" : "var(--text-sub)"};background:${checked ? "var(--accent)" : "transparent"};flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff;`;
+              check.textContent = checked ? "✓" : "";
+              const label = document.createElement("span");
+              label.style.cssText = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;";
+              label.textContent = chat.title;
+              row.onclick = (e) => {
+                e.stopPropagation();
+                this._toggleBulkChat(chat);
+                PanelUI.renderDetailsPane();
+              };
+              row.appendChild(check);
+              row.appendChild(label);
+              list.appendChild(row);
+            });
+            section.appendChild(list);
+          }
+          if (this._bulkExporting) {
+            const progress = document.createElement("div");
+            progress.style.cssText = "font-size:10px;color:var(--accent);margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+            progress.textContent = `Exporting ${this._bulkProgress.current}/${this._bulkProgress.total}: ${this._bulkProgress.title}`;
+            section.appendChild(progress);
+            section.appendChild(this._buttonRow([
+              this._panelButton("Cancel", () => {
+                this._bulkCancelRequested = true;
+              }, { style: "width:auto;flex:1;padding:5px 6px;font-size:10px;margin-top:0;color:#f28b82;" })
+            ]));
+          } else {
+            const disabled = this._bulkSelected.size === 0;
+            section.appendChild(this._buttonRow([
+              this._panelButton("JSON", () => this.exportSelectedChatsJSON(), { disabled }),
+              this._panelButton("MD", () => this.exportSelectedChatsMarkdown(), { disabled }),
+              this._panelButton("TXT", () => this.exportSelectedChatsText(), { disabled })
+            ]));
+          }
+          container.appendChild(section);
+        },
         getOnboarding() {
           return {
             zh: {
               rant: "2026 年了，Google 最引以为傲的 AI 产品居然不支持导出对话。你跟 Gemini 讨论了三天的架构方案，结果想保存一份？不好意思，请手动复制粘贴 300 条消息。产品经理是不是觉得用户的对话像阅后即焚的 Snapchat？",
-              features: "在聊天标题旁添加 📤 导出按钮，导出用量报告，或将当前可见对话导出为 JSON/Markdown/TXT。",
-              guide: "1. 打开任意对话 → 2. 点击标题右侧的 📤 按钮 → 3. 选择用量或当前对话格式 → 4. 文件自动下载"
+              features: "在聊天标题旁添加导出按钮，可导出用量报告、当前可见对话，或在导出面板多选侧栏对话并导出为 JSON/Markdown/TXT。",
+              guide: "当前对话：打开对话 → 点击标题右侧导出按钮。多选对话：打开悬浮面板导出标签 → 选择对话 → 选择 JSON / MD / TXT。"
             },
             en: {
               rant: "It's 2026. Google's flagship AI product doesn't let you export conversations. You spent three days discussing architecture with Gemini and want to save it? Sorry, please manually copy-paste 300 messages. Does the PM think conversations are Snapchats?",
-              features: "Adds a 📤 export button next to the chat title. Export usage reports, or export the current visible conversation to JSON/Markdown/TXT.",
-              guide: "1. Open any conversation → 2. Click 📤 next to the title → 3. Pick a usage or current-chat format → 4. File downloads automatically"
+              features: "Adds a 📤 export button next to the chat title. Export usage reports, the current visible conversation, or selected sidebar chats to JSON/Markdown/TXT.",
+              guide: "Current chat: open a conversation → click the title export button. Selected chats: open the Export panel tab → select chats → choose JSON / MD / TXT."
             }
           };
         },

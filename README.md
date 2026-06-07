@@ -10,7 +10,7 @@ Primer++ is an unofficial community extension. Gemini™ is a trademark of Googl
 |--------|-------------|
 | **Counter** | Track daily message counts per model (Flash/Thinking/Pro) with streak tracking and heatmap |
 | **Folders** | Organize conversations into folders with drag-and-drop |
-| **Export** | Export usage reports plus the current visible chat transcript |
+| **Export** | Export usage reports, the current visible chat transcript, or selected sidebar chats |
 | **Prompt Vault** | Save and quick-insert frequently used prompts |
 | **Message Queue** | Queue prompts locally with start/pause, cancel, and reorder controls |
 | **Default Model** | Auto-select your preferred model on page load |

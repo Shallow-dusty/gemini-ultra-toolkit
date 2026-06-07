@@ -23,8 +23,8 @@ Implemented modules:
 
 - Counter: daily usage, streaks, quota weighting, model breakdown, heatmap/dashboard.
 - Folders: sidebar markers, panel management, search, pinning, drag reorder, batch move, auto-classify rules.
-- Export: JSON/CSV/Markdown usage export plus current visible conversation
-  transcript export in JSON/Markdown/TXT.
+- Export: JSON/CSV/Markdown usage export, current visible conversation
+  transcript export, and selected-sidebar chat export in JSON/Markdown/TXT.
 - Prompt Vault: saved prompts, quick insert, import/export, favorites, recent
   ranking, slash shortcuts, template variables, local prompt chains, and
   versioned metadata import/export.
@@ -95,10 +95,10 @@ Prioritize local-first workflow parity with direct Gemini competitors:
   - ~~compatible import/export for prompt metadata~~ done after the market/UI
     planning snapshot.
 - ~~Per-chat local notes and pins.~~ Done after the market/UI planning snapshot.
-- Bulk export for selected chats in JSON/Markdown/TXT first; current visible
-  chat transcript export is done, but cross-chat selected export still needs a
-  navigation/smoke-tested workflow. PDF/DOCX only after dependency and
-  bundle-size review.
+- ~~Bulk export for selected chats in JSON/Markdown/TXT first.~~ Implemented
+  as a selected-sidebar workflow that navigates each selected chat and captures
+  visible transcript text; live Gemini smoke coverage is still due before
+  release claims. PDF/DOCX only after dependency and bundle-size review.
 - Tool-mode awareness for Canvas, Deep Research, Image, Video, Audio Overview,
   Spark, or equivalent Gemini modes so automations can disable themselves
   safely. Canonical label/state matching is covered by unit tests; visible

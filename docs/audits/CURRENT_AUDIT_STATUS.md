@@ -15,6 +15,9 @@ Implemented protections:
 - Regex edit flow validates patterns before storing them as regex rules.
 - Chat href fallback navigation uses `isValidChatHref()`.
 - Folder color values are validated before use in `cssText`.
+- Transcript export reads visible conversation text only after an explicit
+  user export action; selected-chat export records failed/empty captures rather
+  than treating sidebar titles as conversation content.
 - GM_* reads and writes are wrapped defensively in source paths that can run in Tampermonkey or the extension polyfill.
 - 2026-06-08: `npm audit --audit-level=moderate` reports 0 vulnerabilities
   after updating `brace-expansion` from `5.0.5` to `5.0.6`.

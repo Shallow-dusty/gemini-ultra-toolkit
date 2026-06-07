@@ -1,9 +1,13 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const {
+    exportBulkTranscriptJSON,
+    exportBulkTranscriptMarkdown,
+    exportBulkTranscriptText,
     exportTranscriptJSON,
     exportTranscriptMarkdown,
     exportTranscriptText,
+    normalizeBulkTranscriptExport,
     normalizeMessage,
     normalizeTranscript
 } = require('../lib/chat_transcript_export.js');
@@ -113,5 +117,124 @@ describe('chat_transcript_export', () => {
         const empty = exportTranscriptText({ href: '/app/c1', messages: [] }, { nowIso });
         assert.ok(empty.includes('Source: /app/c1'));
         assert.ok(empty.includes('No visible messages captured.'));
+    });
+
+    it('normalizes selected-chat bulk exports with statuses and counts', () => {
+        const bulk = normalizeBulkTranscriptExport({
+            app: ' Primer++ ',
+            exportedAt: 'saved-time',
+            chats: [
+                { chatId: ' c1 ', title: 'One', status: 'exported', messages: [{ text: 'Captured' }] },
+                { chatId: 'c2', title: 'Two', status: 'empty', messages: [] },
+                { chatId: 'c3', title: 'Three', status: 'failed', error: 'Timeout', messages: [] },
+                { chatId: 'c4', title: 'Four', status: 'skipped', messages: [] },
+                { chatId: 'c5', title: 'Five', status: 'unknown', selectedTitle: 'Sidebar Five', messages: [{ text: 'Fallback exported' }] },
+                { chatId: 'c6', title: 'Six', status: 'unknown', messages: [] },
+                'bad'
+            ]
+        });
+
+        assert.equal(bulk.app, 'Primer++');
+        assert.equal(bulk.format, 'selected-chat-transcripts');
+        assert.equal(bulk.exportedAt, 'saved-time');
+        assert.equal(bulk.chatCount, 7);
+        assert.equal(bulk.exportedCount, 2);
+        assert.equal(bulk.failedCount, 1);
+        assert.deepEqual(bulk.chats.map(chat => chat.status), [
+            'exported',
+            'empty',
+            'failed',
+            'skipped',
+            'exported',
+            'empty',
+            'empty'
+        ]);
+        assert.equal(bulk.chats[4].selectedTitle, 'Sidebar Five');
+        assert.equal(bulk.chats[6].title, 'Gemini conversation');
+        assert.equal(bulk.chats[0].order, 1);
+
+        const fallback = normalizeBulkTranscriptExport(null, { nowIso });
+        assert.equal(fallback.app, 'Primer++ for Gemini');
+        assert.equal(fallback.exportedAt, nowIso);
+        assert.deepEqual(fallback.chats, []);
+
+        const generatedTime = normalizeBulkTranscriptExport({ chats: {} });
+        assert.match(generatedTime.exportedAt, /^\d{4}-\d{2}-\d{2}T/);
+    });
+
+    it('exports selected-chat bulk JSON', () => {
+        const json = exportBulkTranscriptJSON({
+            chats: [
+                { chatId: 'c1', title: 'One', messages: [{ role: 'user', text: 'Question' }] }
+            ]
+        }, { nowIso });
+        const parsed = JSON.parse(json);
+
+        assert.equal(parsed.format, 'selected-chat-transcripts');
+        assert.equal(parsed.exportedAt, nowIso);
+        assert.equal(parsed.chatCount, 1);
+        assert.equal(parsed.chats[0].messages[0].text, 'Question');
+    });
+
+    it('exports selected-chat bulk markdown with empty and failed states', () => {
+        const markdown = exportBulkTranscriptMarkdown({
+            exportedAt: 'saved-time',
+            chats: [
+                {
+                    chatId: 'c1',
+                    title: 'One',
+                    href: '/app/c1',
+                    messages: [
+                        { role: 'user', text: 'Question' },
+                        { role: 'model', text: 'Answer' }
+                    ]
+                },
+                { chatId: 'c2', title: 'Two', status: 'failed', error: 'Timeout', messages: [] },
+                { title: 'Three', messages: [] }
+            ]
+        });
+
+        assert.match(markdown, /^# Gemini Selected Chat Export/);
+        assert.ok(markdown.includes('- Chats: 3'));
+        assert.ok(markdown.includes('- Failed chats: 1'));
+        assert.ok(markdown.includes('## 1. One'));
+        assert.ok(markdown.includes('- Source: /app/c1'));
+        assert.ok(markdown.includes('### 1. User'));
+        assert.ok(markdown.includes('### 2. Gemini'));
+        assert.ok(markdown.includes('- Chat ID: unknown'));
+        assert.ok(markdown.includes('- Error: Timeout'));
+        assert.ok(markdown.includes('_Transcript export failed._'));
+        assert.ok(markdown.includes('_No visible messages captured._'));
+
+        const empty = exportBulkTranscriptMarkdown({ chats: [] }, { nowIso });
+        assert.ok(empty.includes('_No chats selected._'));
+    });
+
+    it('exports selected-chat bulk plain text with trailing newline', () => {
+        const text = exportBulkTranscriptText({
+            chats: [
+                {
+                    chatId: 'c1',
+                    title: 'One',
+                    href: '/app/c1',
+                    messages: [{ role: 'assistant', text: 'Answer' }]
+                },
+                { chatId: 'c2', title: 'Two', status: 'failed', error: 'Timeout', messages: [] },
+                { title: 'Three', messages: [] }
+            ]
+        }, { nowIso });
+
+        assert.ok(text.startsWith('Gemini Selected Chat Export\nExported: 2026-06-08T00:00:00.000Z\n'));
+        assert.ok(text.includes('1. One\nChat ID: c1\nStatus: exported\nSource: /app/c1'));
+        assert.ok(text.includes('Chat ID: unknown'));
+        assert.ok(text.includes('1. Gemini\nAnswer'));
+        assert.ok(text.includes('Error: Timeout'));
+        assert.ok(text.includes('Transcript export failed.'));
+        assert.ok(text.includes('No visible messages captured.'));
+        assert.ok(text.endsWith('\n'));
+
+        const empty = exportBulkTranscriptText({ chats: [] }, { nowIso });
+        assert.ok(empty.includes('No chats selected.'));
+        assert.ok(empty.endsWith('\n'));
     });
 });

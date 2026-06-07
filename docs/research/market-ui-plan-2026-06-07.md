@@ -120,12 +120,14 @@ Codex CLI/TUI.
 - Export
   - Primer++ v12 plus post-planning implementation: usage export in
     JSON/CSV/Markdown and current visible conversation transcript export in
-    JSON/Markdown/TXT. Cross-chat selected export remains open.
+    JSON/Markdown/TXT, plus selected-sidebar chat export in JSON/Markdown/TXT
+    through a navigation-and-visible-DOM capture workflow.
   - Market signal: SPG has PDF/DOCX/TXT/MD; TFG has
     PDF/HTML/Markdown/TXT/CSV.
   - Gemini signal: Gemini built-ins remain limited for power export workflows.
-  - Plan: build selected-chat bulk export on top of the transcript formatter
-    before PDF/DOCX.
+  - Plan: repeat live Gemini smoke coverage for selected-chat export before
+    release claims; consider PDF/DOCX only after dependency and bundle-size
+    review.
 - Prompt workflow
   - Primer++ v12 plus post-planning implementation: Prompt Vault, quick insert,
     versioned metadata import/export, favorites, recent ranking, slash
@@ -269,7 +271,8 @@ boundary.
    - pin important messages/sections locally without modifying Gemini data;
    - expose quick navigation in the panel.
 4. Bulk export upgrade:
-   - export selected chats in JSON/Markdown/TXT first;
+   - ~~export selected chats in JSON/Markdown/TXT first~~ done with a
+     selected-sidebar navigation workflow; live smoke still pending;
    - add PDF/DOCX only after a dependency and bundle-size review.
 5. Undo/trash safety for local operations:
    - undo folder moves and local prompt deletes;

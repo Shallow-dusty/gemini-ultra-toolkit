@@ -25,7 +25,7 @@ Unofficial Gemini™ companion: daily counter, heatmap, quota tracker, folders, 
 > Form field cap: 16,000 characters. Markdown is **not** rendered — line breaks are preserved.
 
 ```
-Primer++ for Gemini™ is an unofficial, open-source companion extension for Google Gemini (gemini.google.com). It adds eight independent quality-of-life modules that turn the Gemini web app into a workspace you can actually track and organize. Everything runs locally in your browser; no account, no telemetry, no cloud sync.
+Primer++ for Gemini™ is an unofficial, open-source companion extension for Google Gemini (gemini.google.com). It adds independent quality-of-life modules that turn the Gemini web app into a workspace you can actually track and organize. Everything runs locally in your browser; no account, no telemetry, no cloud sync.
 
 ═══════════════════════════════════════
 WHAT IT ADDS
@@ -36,6 +36,8 @@ WHAT IT ADDS
 • Heatmap dashboard — GitHub-style year heatmap of your Gemini usage, plus per-model breakdown and per-day drill-down.
 
 • Folders — group sidebar chats into folders with drag-and-drop, color coding, pinning, batch move, and optional auto-classify rules (regex or keyword).
+
+• Export — export usage reports, the current visible chat transcript, or selected sidebar chats to JSON / Markdown / TXT.
 
 • Prompt Vault — save frequently used prompts, organize by tag, one-click insert into the composer. Import / export your library as JSON.
 
@@ -59,7 +61,7 @@ PRIVACY & DATA
 
 • All data is stored in chrome.storage.local on your device.
 • Nothing is uploaded — not to the developer, not to any analytics service, not anywhere.
-• Prompt text is read or stored only when you explicitly save it to Prompt Vault or add it to Message Queue. Visible Gemini response text is read only when you explicitly export the current chat transcript.
+• Prompt text is read or stored only when you explicitly save it to Prompt Vault or add it to Message Queue. Visible Gemini conversation text is read only when you explicitly export the current chat or selected chats.
 • Only host permission requested: https://gemini.google.com/*.
 • Full privacy policy: https://github.com/Shallow-dusty/primer-pp/blob/main/PRIVACY.md
 
@@ -118,7 +120,7 @@ Adds a single "Reset Panel Position" item to the extension toolbar icon's right-
 ### Host permission: `https://gemini.google.com/*`
 
 ```
-The extension's content script only runs on Google Gemini at https://gemini.google.com/*, which is the single web app it enhances. The script reads sidebar chat titles, the currently selected model, the signed-in account label, and message-send events so the in-page floating panel can show daily counts, manage folders, and inject quick-insert prompts. It does not request <all_urls> or any other host permission.
+The extension's content script only runs on Google Gemini at https://gemini.google.com/*, which is the single web app it enhances. The script reads sidebar chat titles, the currently selected model, the signed-in account label, and message-send events so the in-page floating panel can show daily counts, manage folders, and inject quick-insert prompts. When the user explicitly exports a transcript, it reads the visible current or selected chat content to write a local download. It does not request <all_urls> or any other host permission.
 ```
 
 ### Remote code use
@@ -141,7 +143,7 @@ Check **only** the following row (if any are applicable). All others: leave unch
 | Location | No |
 | Web history | No |
 | User activity | No (we count messages but never transmit) |
-| Website content | No (we read sidebar titles but never transmit) |
+| Website content | No (we read sidebar titles and explicit-export visible chat text, but never transmit) |
 
 Then check the three disclosure statements:
 

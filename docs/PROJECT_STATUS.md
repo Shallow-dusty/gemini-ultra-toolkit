@@ -1,6 +1,6 @@
 # Project Status
 
-Updated: 2026-06-08 — v12.0 released; Phase 0 release hygiene mostly repaired.
+Updated: 2026-06-08 — v12.0 released; selected-chat export added, live smoke still pending.
 
 ## Summary
 
@@ -18,8 +18,8 @@ Updated: 2026-06-08 — v12.0 released; Phase 0 release hygiene mostly repaired.
 
 Last verified locally on 2026-06-08:
 
-- `npm test` — 189 passing tests; `lib/` remains at 100% c8 coverage.
-- `npm run build` — userscript and extension builds complete (~394 kb userscript).
+- `npm test` — 193 passing tests; `lib/` remains at 100% c8 coverage.
+- `npm run build` — userscript and extension builds complete (~413.7 kb userscript after selected-chat export).
 - `npm audit --audit-level=moderate` — 0 vulnerabilities after updating
   `brace-expansion` from `5.0.5` to `5.0.6`.
 - **Real-browser smoke test** — last passed on 2026-05-21
