@@ -53,7 +53,7 @@ export const NativeUI = {
     // Zone → module IDs: which modules inject into which DOM zones
     _zoneModules: {
         sidebar: ['folders', 'batch-delete'],
-        input:   ['prompt-vault', 'ui-tweaks', 'default-model'],
+        input:   ['prompt-vault', 'ui-tweaks', 'default-model', 'message-queue'],
         header:  ['export'],
     },
 

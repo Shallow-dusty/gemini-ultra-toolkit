@@ -37,11 +37,15 @@ Primer++ for Gemini™ 是一款非官方、开源的 Google Gemini 网页版增
 
 • Prompt 库 Prompt Vault — 收藏常用 prompt，按标签整理，一键插入到输入框。库可以 JSON 格式导入 / 导出。
 
+• 消息队列 Message Queue — 在本地排队多个 prompt，并可从悬浮面板开始、暂停、取消或重排发送顺序。
+
 • 默认模型 Default Model — 打开新对话时自动切换到你常用的模型（Flash / Pro / Thinking）。
 
 • 批量删除 Batch Delete — 在侧边栏多选对话，一次确认后批量删除。
 
 • 引用回复 Quote Reply — 把任意对话里的选中文字带引用插入到下一条 prompt。
+
+• 对话笔记 Chat Notes — 为重要对话保存本地笔记和置顶标记。
 
 • 界面微调 UI Tweaks — 标签页标题与对话标题同步、自定义 Ctrl+Enter 行为、调整对话宽度、隐藏未使用的 Gems。
 
@@ -53,7 +57,7 @@ Primer++ for Gemini™ 是一款非官方、开源的 Google Gemini 网页版增
 
 • 所有数据存放在你设备本地的 chrome.storage.local 中。
 • 任何数据都不会上传 — 不传给开发者，不传给任何分析服务，不传给任何地方。
-• 扩展不会读取你的 prompt 内容，也不会读取 Gemini 的回复正文。它只读取侧边栏标题与你发送消息的事件。
+• 扩展不会读取 Gemini 的回复正文。只有当你明确保存到 Prompt Vault 或加入 Message Queue 时，prompt 文本才会被读取并保存在本地。
 • 唯一申请的 host 权限：https://gemini.google.com/*。
 • 完整隐私政策：https://github.com/Shallow-dusty/primer-pp/blob/main/PRIVACY.md
 
@@ -82,7 +86,7 @@ Primer++ for Gemini™ 是非官方社区项目。Gemini™ 是 Google LLC 的�
 ## 单一用途 Single Purpose
 
 ```
-通过本地化的效率工具增强 gemini.google.com 的 Gemini 网页版体验：使用计数、对话文件夹、收藏 prompt、批量操作。
+通过本地化的效率工具增强 gemini.google.com 的 Gemini 网页版体验：使用计数、对话文件夹、收藏 prompt、消息队列、对话笔记、批量操作。
 ```
 
 ---
@@ -92,7 +96,7 @@ Primer++ for Gemini™ 是非官方社区项目。Gemini™ 是 Google LLC 的�
 ### `storage`
 
 ```
-仅在用户设备本地保存偏好设置与按账号隔离的数据：每日消息计数（Counter 模块）、文件夹定义（Folders 模块）、收藏的 prompt（Prompt Vault 模块）、悬浮面板位置、当前主题、各模块启用状态。所有数据写入 chrome.storage.local，不传输到设备之外的任何地方。
+仅在用户设备本地保存偏好设置与按账号隔离的数据：每日消息计数（Counter 模块）、文件夹定义（Folders 模块）、收藏的 prompt（Prompt Vault 模块）、排队的 prompt（Message Queue 模块）、本地对话笔记和置顶标记（Chat Notes 模块）、悬浮面板位置、当前主题、各模块启用状态。所有数据写入 chrome.storage.local，不传输到设备之外的任何地方。
 ```
 
 ### `contextMenus`

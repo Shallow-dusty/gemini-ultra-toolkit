@@ -39,11 +39,15 @@ WHAT IT ADDS
 
 • Prompt Vault — save frequently used prompts, organize by tag, one-click insert into the composer. Import / export your library as JSON.
 
+• Message Queue — queue prompts locally, then start, pause, cancel, or reorder the send sequence from the floating panel.
+
 • Default Model — auto-select your preferred model (Flash / Pro / Thinking) when you open a fresh chat.
 
 • Batch Delete — multi-select chats in the sidebar and delete them in one confirmed pass.
 
 • Quote Reply — quote selected text from any chat into your next prompt, with attribution.
+
+• Chat Notes — save local notes and pins for important conversations.
 
 • UI Tweaks — sync the tab title with the chat title, customize Ctrl+Enter behavior, adjust chat width, hide unused Gems.
 
@@ -55,7 +59,7 @@ PRIVACY & DATA
 
 • All data is stored in chrome.storage.local on your device.
 • Nothing is uploaded — not to the developer, not to any analytics service, not anywhere.
-• The extension does NOT read the body of your prompts or Gemini's responses. It only reads sidebar titles and counts the messages you send.
+• The extension does NOT read Gemini's response body. Prompt text is read or stored only when you explicitly save it to Prompt Vault or add it to Message Queue.
 • Only host permission requested: https://gemini.google.com/*.
 • Full privacy policy: https://github.com/Shallow-dusty/primer-pp/blob/main/PRIVACY.md
 
@@ -90,7 +94,7 @@ Primer++ for Gemini™ is an unofficial community project. Gemini™ is a tradem
 > Required free-text field. Keep to one sentence.
 
 ```
-Enhance the Gemini web app at gemini.google.com with local-only productivity tools: usage counter, conversation folders, saved prompts, and bulk operations.
+Enhance the Gemini web app at gemini.google.com with local-only productivity tools: usage counter, conversation folders, saved prompts, message queue, notes, and bulk operations.
 ```
 
 ---
@@ -102,7 +106,7 @@ Enhance the Gemini web app at gemini.google.com with local-only productivity too
 ### `storage`
 
 ```
-Persists user preferences and per-account local data on the device only: daily message counts (for the Counter module), folder definitions (for the Folders module), saved prompts (for the Prompt Vault module), floating panel position, current theme, and which modules are enabled. All data is written to chrome.storage.local and never transmitted off the device.
+Persists user preferences and per-account local data on the device only: daily message counts (for Counter), folder definitions (for Folders), saved prompts (for Prompt Vault), queued prompts (for Message Queue), local chat notes and pins (for Chat Notes), floating panel position, current theme, and which modules are enabled. All data is written to chrome.storage.local and never transmitted off the device.
 ```
 
 ### `contextMenus`

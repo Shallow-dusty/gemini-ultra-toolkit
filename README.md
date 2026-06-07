@@ -12,10 +12,12 @@ Primer++ is an unofficial community extension. Gemini™ is a trademark of Googl
 | **Folders** | Organize conversations into folders with drag-and-drop |
 | **Export** | Export usage data as JSON, CSV, or Markdown reports |
 | **Prompt Vault** | Save and quick-insert frequently used prompts |
+| **Message Queue** | Queue prompts locally with start/pause, cancel, and reorder controls |
 | **Default Model** | Auto-select your preferred model on page load |
 | **Batch Delete** | Select and delete multiple conversations at once |
 | **Quote Reply** | Quote selected text into the input area |
 | **UI Tweaks** | Tab title updates, Ctrl+Enter send, layout customizations |
+| **Chat Notes** | Save local per-chat notes and pins |
 
 All modules can be individually enabled/disabled from the settings panel.
 
@@ -78,7 +80,7 @@ src/
 ├── main.js           # App entry point
 ├── core.js           # User/model detection, URL parsing
 ├── panel_ui.js       # Main floating panel + settings + dashboard
-├── modules/          # 8 feature modules
+├── modules/          # 10 feature modules
 └── platforms/
     └── extension/    # GM_* polyfill + extension entry + manifest
 lib/                  # Pure utility modules (CommonJS, 100% test coverage)

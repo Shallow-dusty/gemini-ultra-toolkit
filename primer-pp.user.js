@@ -398,6 +398,19 @@
     if (t.includes("flash") || t.includes("fast") || t.includes("快速") || t.includes("高速") || t.includes("빠른")) return "flash";
     return null;
   }
+  function matchToolModeLabel(text) {
+    const t = (text || "").toLowerCase();
+    if (t.includes("deep research")) return "Deep Research";
+    if (t.includes("canvas")) return "Canvas";
+    if (t.includes("spark")) return "Spark";
+    if (t.includes("audio overview")) return "Audio Overview";
+    if (/\bimage\b|imagen/.test(t)) return "Image";
+    if (/\bvideo\b|veo/.test(t)) return "Video";
+    return "";
+  }
+  function isActiveModeCandidate(el) {
+    return el.getAttribute("aria-pressed") === "true" || el.getAttribute("aria-current") === "true" || el.getAttribute("data-active") === "true" || el.classList?.contains("active") || el.classList?.contains("selected");
+  }
   var S, GeminiAdapter;
   var init_gemini = __esm({
     "src/adapters/gemini.js"() {
@@ -431,6 +444,7 @@
         INPUT_EDITOR_BY_ARIA: '[role="textbox"][aria-label="Enter a prompt for Gemini"]',
         INPUT_EDITOR_TARGET: 'textarea, div.ql-editor[contenteditable="true"], [role="textbox"][aria-label="Enter a prompt for Gemini"], [contenteditable="true"]',
         INPUT_TRAILING_ACTIONS: ".trailing-actions-wrapper",
+        TOOL_MODE_CANDIDATE: 'button, [role="button"], [aria-pressed="true"], [data-active="true"]',
         SEND_BUTTON: [
           'button[aria-label="Send message"]',
           // v12 primary
@@ -614,6 +628,22 @@
         /** prompt_vault inject point — wrapper that holds the trailing action buttons. */
         getInputTrailingActions() {
           return document.querySelector(S.INPUT_TRAILING_ACTIONS);
+        },
+        /**
+         * Conservative automation guard for tool/mode chips in the input area.
+         * Unknown Gemini DOM still returns inactive; this is a best-effort pause
+         * signal, not proof that every future tool surface is detected.
+         */
+        getActiveToolMode() {
+          const area = this.getInputArea();
+          if (!area) return { active: false, label: "" };
+          const candidates = area.querySelectorAll(S.TOOL_MODE_CANDIDATE);
+          for (const el of candidates) {
+            if (!isActiveModeCandidate(el)) continue;
+            const label = matchToolModeLabel(`${el.textContent || ""} ${el.getAttribute("aria-label") || ""}`);
+            if (label) return { active: true, label };
+          }
+          return { active: false, label: "" };
         },
         getSendButton() {
           return firstMatch(document, S.SEND_BUTTON);
@@ -1069,7 +1099,7 @@
         // Zone → module IDs: which modules inject into which DOM zones
         _zoneModules: {
           sidebar: ["folders", "batch-delete"],
-          input: ["prompt-vault", "ui-tweaks", "default-model"],
+          input: ["prompt-vault", "ui-tweaks", "default-model", "message-queue"],
           header: ["export"]
         },
         _clearRetryTimer() {
@@ -1370,6 +1400,11 @@
           "M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2",
           "M15 2H9a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z"
         ],
+        plus: ["M12 5v14", "M5 12h14"],
+        play: ["M5 5a2 2 0 0 1 3.01-1.72l10.99 7a2 2 0 0 1 0 3.44L8.01 20.72A2 2 0 0 1 5 19z"],
+        pause: ["M6 4h4v16H6z", "M14 4h4v16h-4z"],
+        "arrow-up": ["M12 19V5", "M5 12l7-7 7 7"],
+        "arrow-down": ["M12 5v14", "M19 12l-7 7-7-7"],
         search: [
           "M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z",
           "M21 21l-4.35-4.35"
@@ -3533,7 +3568,8 @@
         "batch-delete": "trash",
         "quote-reply": "quote",
         "ui-tweaks": "palette",
-        "chat-notes": "pin"
+        "chat-notes": "pin",
+        "message-queue": "package"
       };
       PanelUI = {
         _activeTab: "stats",
@@ -7848,6 +7884,573 @@ ${part}`).join("\n\n---\n\n");
     }
   });
 
+  // lib/message_queue_tools.js
+  var require_message_queue_tools = __commonJS({
+    "lib/message_queue_tools.js"(exports, module) {
+      var MAX_TITLE_LENGTH = 80;
+      var MAX_TEXT_LENGTH = 12e3;
+      var MAX_ERROR_LENGTH = 240;
+      var STATUSES = /* @__PURE__ */ new Set(["queued", "sending", "sent", "failed", "cancelled"]);
+      function toText(value) {
+        if (value === null || value === void 0) return "";
+        return String(value);
+      }
+      function cleanText(value) {
+        return toText(value).trim();
+      }
+      function limitedText(value, maxLength) {
+        return cleanText(value).slice(0, maxLength);
+      }
+      function nowIso(opts = {}) {
+        return cleanText(opts.nowIso) || (/* @__PURE__ */ new Date()).toISOString();
+      }
+      function deriveTitle(text) {
+        const firstLine = cleanText(text).split(/\r?\n/)[0];
+        return firstLine.slice(0, MAX_TITLE_LENGTH);
+      }
+      function normalizeStatus(value, opts = {}) {
+        const status = cleanText(value);
+        if (status === "sending" && opts.recoverSending) return "queued";
+        return STATUSES.has(status) ? status : "queued";
+      }
+      function normalizeQueueItem(raw, index = 0, opts = {}) {
+        const source = raw && typeof raw === "object" ? raw : {};
+        const text = limitedText(source.text === void 0 ? source.content : source.text, MAX_TEXT_LENGTH);
+        if (!text) return null;
+        const now = nowIso(opts);
+        const createdAt = cleanText(source.createdAt) || now;
+        const updatedAt = cleanText(source.updatedAt) || createdAt;
+        return {
+          id: cleanText(source.id) || `q_${index}`,
+          title: limitedText(source.title, MAX_TITLE_LENGTH) || deriveTitle(text),
+          text,
+          status: normalizeStatus(source.status, opts),
+          createdAt,
+          updatedAt,
+          sentAt: cleanText(source.sentAt),
+          error: limitedText(source.error, MAX_ERROR_LENGTH)
+        };
+      }
+      function normalizeQueueData2(raw, opts = {}) {
+        const source = raw && typeof raw === "object" ? raw : {};
+        const rawItems = Array.isArray(source.items) ? source.items : [];
+        const items = rawItems.map((item, index) => normalizeQueueItem(item, index, opts)).filter(Boolean);
+        const activeId = cleanText(source.activeId);
+        const activeExists = activeId && items.some((item) => item.id === activeId && item.status === "sending");
+        return {
+          paused: source.paused === false ? false : true,
+          activeId: activeExists ? activeId : "",
+          lastError: limitedText(source.lastError, MAX_ERROR_LENGTH),
+          items
+        };
+      }
+      function createQueueItem(text, opts = {}) {
+        const content = limitedText(text, MAX_TEXT_LENGTH);
+        if (!content) return null;
+        const now = nowIso(opts);
+        return {
+          id: cleanText(opts.id) || `q_${Date.now()}`,
+          title: limitedText(opts.title, MAX_TITLE_LENGTH) || deriveTitle(content),
+          text: content,
+          status: "queued",
+          createdAt: now,
+          updatedAt: now,
+          sentAt: "",
+          error: ""
+        };
+      }
+      function addQueueItem2(data, text, opts = {}) {
+        const state = normalizeQueueData2(data, opts);
+        const item = createQueueItem(text, opts);
+        if (!item) return state;
+        if (opts.position === "front") state.items.unshift(item);
+        else state.items.push(item);
+        state.lastError = "";
+        return state;
+      }
+      function updateQueueItem(data, id, updates = {}, opts = {}) {
+        const state = normalizeQueueData2(data, opts);
+        const item = state.items.find((entry) => entry.id === cleanText(id));
+        if (!item) return state;
+        const hasTitleUpdate = updates.title !== void 0;
+        const nextTitle = hasTitleUpdate ? limitedText(updates.title, MAX_TITLE_LENGTH) : "";
+        if (updates.text !== void 0) {
+          const text = limitedText(updates.text, MAX_TEXT_LENGTH);
+          if (text) {
+            item.text = text;
+            item.title = hasTitleUpdate ? nextTitle || deriveTitle(text) : item.title;
+          }
+        }
+        if (hasTitleUpdate && updates.text === void 0) {
+          item.title = nextTitle || deriveTitle(item.text);
+        }
+        item.updatedAt = nowIso(opts);
+        return state;
+      }
+      function removeQueueItem2(data, id, opts = {}) {
+        const state = normalizeQueueData2(data, opts);
+        const targetId = cleanText(id);
+        state.items = state.items.filter((item) => item.id !== targetId);
+        if (state.activeId === targetId) state.activeId = "";
+        return state;
+      }
+      function moveQueueItem2(data, id, direction, opts = {}) {
+        const state = normalizeQueueData2(data, opts);
+        const index = state.items.findIndex((item2) => item2.id === cleanText(id));
+        if (index === -1) return state;
+        const delta = direction === "up" ? -1 : direction === "down" ? 1 : Number(direction);
+        if (!Number.isFinite(delta) || delta === 0) return state;
+        const target = Math.max(0, Math.min(state.items.length - 1, index + delta));
+        if (target === index) return state;
+        const [item] = state.items.splice(index, 1);
+        state.items.splice(target, 0, item);
+        return state;
+      }
+      function setQueuePaused2(data, paused, opts = {}) {
+        const state = normalizeQueueData2(data, opts);
+        state.paused = paused === true;
+        if (opts.lastError !== void 0) {
+          state.lastError = limitedText(opts.lastError, MAX_ERROR_LENGTH);
+        }
+        return state;
+      }
+      function getNextQueuedItem2(data) {
+        return normalizeQueueData2(data).items.find((item) => item.status === "queued") || null;
+      }
+      function markQueueItemSending2(data, id, opts = {}) {
+        const state = normalizeQueueData2(data, opts);
+        const item = state.items.find((entry) => entry.id === cleanText(id));
+        if (!item) return state;
+        item.status = "sending";
+        item.error = "";
+        item.updatedAt = nowIso(opts);
+        state.paused = false;
+        state.activeId = item.id;
+        state.lastError = "";
+        return state;
+      }
+      function markQueueItemSent2(data, id, opts = {}) {
+        const state = normalizeQueueData2(data, opts);
+        const item = state.items.find((entry) => entry.id === cleanText(id));
+        if (!item) return state;
+        const now = nowIso(opts);
+        item.status = "sent";
+        item.sentAt = now;
+        item.updatedAt = now;
+        item.error = "";
+        if (state.activeId === item.id) state.activeId = "";
+        return state;
+      }
+      function markQueueItemFailed2(data, id, error, opts = {}) {
+        const state = normalizeQueueData2(data, opts);
+        const item = state.items.find((entry) => entry.id === cleanText(id));
+        if (!item) return state;
+        const message = limitedText(error, MAX_ERROR_LENGTH) || "Queue send failed";
+        item.status = opts.requeue === false ? "failed" : "queued";
+        item.error = message;
+        item.updatedAt = nowIso(opts);
+        state.paused = true;
+        state.lastError = message;
+        if (state.activeId === item.id) state.activeId = "";
+        return state;
+      }
+      function cancelQueueItem2(data, id, opts = {}) {
+        const state = normalizeQueueData2(data, opts);
+        const item = state.items.find((entry) => entry.id === cleanText(id));
+        if (!item) return state;
+        item.status = "cancelled";
+        item.updatedAt = nowIso(opts);
+        if (state.activeId === item.id) state.activeId = "";
+        return state;
+      }
+      function clearQueueHistory2(data, opts = {}) {
+        const state = normalizeQueueData2(data, opts);
+        state.items = state.items.filter((item) => !["sent", "cancelled"].includes(item.status));
+        return state;
+      }
+      function getQueueStats2(data) {
+        const state = normalizeQueueData2(data);
+        const stats = {
+          total: state.items.length,
+          queued: 0,
+          sending: 0,
+          sent: 0,
+          failed: 0,
+          cancelled: 0,
+          pending: 0,
+          paused: state.paused
+        };
+        for (const item of state.items) {
+          if (Object.prototype.hasOwnProperty.call(stats, item.status)) {
+            stats[item.status] += 1;
+          }
+        }
+        stats.pending = stats.queued + stats.sending;
+        return stats;
+      }
+      function evaluateQueueSafety2(context = {}) {
+        if (context.toolModeActive) {
+          const label = cleanText(context.toolModeLabel) || "unknown tool mode";
+          return { ok: false, reason: `Tool mode active: ${label}` };
+        }
+        if (context.editorReady === false) {
+          return { ok: false, reason: "Input editor unavailable" };
+        }
+        if (context.sendReady === false) {
+          return { ok: false, reason: "Send button unavailable" };
+        }
+        return { ok: true, reason: "" };
+      }
+      module.exports = {
+        addQueueItem: addQueueItem2,
+        cancelQueueItem: cancelQueueItem2,
+        clearQueueHistory: clearQueueHistory2,
+        createQueueItem,
+        evaluateQueueSafety: evaluateQueueSafety2,
+        getNextQueuedItem: getNextQueuedItem2,
+        getQueueStats: getQueueStats2,
+        markQueueItemFailed: markQueueItemFailed2,
+        markQueueItemSending: markQueueItemSending2,
+        markQueueItemSent: markQueueItemSent2,
+        moveQueueItem: moveQueueItem2,
+        normalizeQueueData: normalizeQueueData2,
+        normalizeQueueItem,
+        removeQueueItem: removeQueueItem2,
+        setQueuePaused: setQueuePaused2,
+        updateQueueItem
+      };
+    }
+  });
+
+  // src/modules/message_queue.js
+  var import_message_queue_tools, PROCESS_DELAY_MS, SEND_READY_DELAY_MS, MessageQueueModule;
+  var init_message_queue = __esm({
+    "src/modules/message_queue.js"() {
+      init_core();
+      init_logger();
+      init_native_ui();
+      init_panel_ui();
+      init_gemini();
+      init_icons();
+      import_message_queue_tools = __toESM(require_message_queue_tools());
+      PROCESS_DELAY_MS = 1600;
+      SEND_READY_DELAY_MS = 120;
+      MessageQueueModule = {
+        id: "message-queue",
+        name: NativeUI.t("消息队列", "Message Queue"),
+        description: NativeUI.t("本地排队发送 Prompt，支持暂停、取消和重排", "Queue prompts locally with pause, cancel, and reorder controls"),
+        iconId: "package",
+        defaultEnabled: false,
+        STORAGE_KEY: "gemini_message_queue",
+        data: { paused: true, activeId: "", lastError: "", items: [] },
+        _timer: null,
+        _processing: false,
+        _getStorageKey() {
+          const user = Core.getCurrentUser();
+          return user && user.includes("@") ? `${this.STORAGE_KEY}_${user}` : this.STORAGE_KEY;
+        },
+        init() {
+          this.loadData();
+          Logger.info("MessageQueueModule initialized", (0, import_message_queue_tools.getQueueStats)(this.data));
+        },
+        destroy() {
+          this.pauseQueue();
+          this.removeNativeUI();
+        },
+        onUserChange() {
+          this.pauseQueue();
+          this.loadData();
+          PanelUI.renderDetailsPane();
+        },
+        loadData() {
+          let saved;
+          try {
+            saved = GM_getValue(this._getStorageKey(), null);
+          } catch {
+            saved = null;
+          }
+          this.data = (0, import_message_queue_tools.normalizeQueueData)(saved, { recoverSending: true });
+          this.data.paused = true;
+          this._save();
+        },
+        _save() {
+          try {
+            GM_setValue(this._getStorageKey(), this.data);
+          } catch {
+          }
+        },
+        injectNativeUI() {
+          const BTN_ID = "gc-queue-native";
+          if (document.getElementById(BTN_ID)) return;
+          const trailing = GeminiAdapter.getInputTrailingActions();
+          if (!trailing) return;
+          const btn = document.createElement("button");
+          btn.id = BTN_ID;
+          btn.className = "gc-input-btn";
+          btn.title = NativeUI.t("加入发送队列", "Add to message queue");
+          btn.appendChild(createIcon("package", 16));
+          btn.onclick = (e) => {
+            e.stopPropagation();
+            this.queueCurrentInput();
+          };
+          trailing.insertBefore(btn, trailing.firstChild);
+        },
+        removeNativeUI() {
+          NativeUI.remove("gc-queue-native");
+        },
+        _getEditorText() {
+          const editor = GeminiAdapter.getInputEditor();
+          if (!editor) return "";
+          return (("value" in editor ? editor.value : editor.textContent) || "").trim();
+        },
+        _clearEditor(editor) {
+          if ("value" in editor) editor.value = "";
+          else editor.textContent = "";
+          editor.dispatchEvent(new Event("input", { bubbles: true }));
+        },
+        _insertEditorText(editor, text) {
+          this._clearEditor(editor);
+          editor.focus();
+          if ("value" in editor) {
+            editor.value = text;
+            editor.dispatchEvent(new Event("input", { bubbles: true }));
+            return;
+          }
+          const selection = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(editor);
+          range.collapse(false);
+          selection.removeAllRanges();
+          selection.addRange(range);
+          const inputEvent = new InputEvent("beforeinput", {
+            inputType: "insertText",
+            data: text,
+            bubbles: true,
+            cancelable: true,
+            composed: true
+          });
+          const accepted = editor.dispatchEvent(inputEvent);
+          if (!accepted || editor.textContent.trim() === "") {
+            const p = document.createElement("p");
+            p.textContent = text;
+            editor.appendChild(p);
+            editor.dispatchEvent(new Event("input", { bubbles: true }));
+          }
+        },
+        _delay(ms) {
+          return new Promise((resolve) => setTimeout(resolve, ms));
+        },
+        async _sendText(text) {
+          const editor = GeminiAdapter.getInputEditor();
+          if (!editor) return { ok: false, reason: "Input editor unavailable" };
+          this._insertEditorText(editor, text);
+          await this._delay(SEND_READY_DELAY_MS);
+          const sendBtn = GeminiAdapter.getSendButton();
+          if (!GeminiAdapter.isSendButtonElement(sendBtn)) {
+            return { ok: false, reason: "Send button unavailable" };
+          }
+          sendBtn.click();
+          return { ok: true, reason: "" };
+        },
+        _scheduleProcess(delay = PROCESS_DELAY_MS) {
+          if (this._timer) clearTimeout(this._timer);
+          if (this.data.paused) return;
+          this._timer = setTimeout(() => {
+            this._timer = null;
+            this._processNext();
+          }, delay);
+        },
+        async _processNext() {
+          if (this._processing || this.data.paused) return;
+          const item = (0, import_message_queue_tools.getNextQueuedItem)(this.data);
+          if (!item) {
+            PanelUI.renderDetailsPane();
+            return;
+          }
+          const toolMode = GeminiAdapter.getActiveToolMode();
+          const safety = (0, import_message_queue_tools.evaluateQueueSafety)({
+            toolModeActive: toolMode.active,
+            toolModeLabel: toolMode.label,
+            editorReady: !!GeminiAdapter.getInputEditor()
+          });
+          if (!safety.ok) {
+            this.data = (0, import_message_queue_tools.setQueuePaused)(this.data, true, { lastError: safety.reason });
+            this._save();
+            NativeUI.showToast(safety.reason);
+            PanelUI.renderDetailsPane();
+            return;
+          }
+          this._processing = true;
+          this.data = (0, import_message_queue_tools.markQueueItemSending)(this.data, item.id);
+          this._save();
+          PanelUI.renderDetailsPane();
+          const result = await this._sendText(item.text);
+          this._processing = false;
+          if (!result.ok) {
+            this.data = (0, import_message_queue_tools.markQueueItemFailed)(this.data, item.id, result.reason);
+            this._save();
+            NativeUI.showToast(result.reason);
+            PanelUI.renderDetailsPane();
+            return;
+          }
+          this.data = (0, import_message_queue_tools.markQueueItemSent)(this.data, item.id);
+          this._save();
+          PanelUI.renderDetailsPane();
+          this._scheduleProcess();
+        },
+        queueCurrentInput() {
+          const editor = GeminiAdapter.getInputEditor();
+          const text = this._getEditorText();
+          if (!text) {
+            NativeUI.showToast(NativeUI.t("输入框为空", "Input is empty"));
+            return;
+          }
+          this.data = (0, import_message_queue_tools.addQueueItem)(this.data, text);
+          this._save();
+          if (editor) this._clearEditor(editor);
+          NativeUI.showToast(NativeUI.t("已加入队列", "Added to queue"));
+          PanelUI.renderDetailsPane();
+        },
+        startQueue() {
+          const stats = (0, import_message_queue_tools.getQueueStats)(this.data);
+          if (stats.queued === 0) return;
+          this.data = (0, import_message_queue_tools.setQueuePaused)(this.data, false);
+          this._save();
+          PanelUI.renderDetailsPane();
+          this._scheduleProcess(50);
+        },
+        pauseQueue() {
+          if (this._timer) {
+            clearTimeout(this._timer);
+            this._timer = null;
+          }
+          this.data = (0, import_message_queue_tools.setQueuePaused)(this.data, true);
+          this._save();
+          PanelUI.renderDetailsPane();
+        },
+        cancelItem(id) {
+          this.data = (0, import_message_queue_tools.cancelQueueItem)(this.data, id);
+          this._save();
+          PanelUI.renderDetailsPane();
+        },
+        removeItem(id) {
+          this.data = (0, import_message_queue_tools.removeQueueItem)(this.data, id);
+          this._save();
+          PanelUI.renderDetailsPane();
+        },
+        moveItem(id, direction) {
+          this.data = (0, import_message_queue_tools.moveQueueItem)(this.data, id, direction);
+          this._save();
+          PanelUI.renderDetailsPane();
+        },
+        clearHistory() {
+          this.data = (0, import_message_queue_tools.clearQueueHistory)(this.data);
+          this._save();
+          PanelUI.renderDetailsPane();
+        },
+        _makeButton(iconName, title, onClick, text = "") {
+          const btn = document.createElement("button");
+          btn.className = "g-btn";
+          btn.title = title;
+          btn.style.cssText = "display:inline-flex;align-items:center;justify-content:center;gap:4px;min-width:26px;height:24px;padding:0 6px;font-size:10px;";
+          btn.appendChild(createIcon(iconName, 12));
+          if (text) btn.appendChild(document.createTextNode(" " + text));
+          btn.onclick = (e) => {
+            e.stopPropagation();
+            onClick();
+          };
+          return btn;
+        },
+        _renderControls(container, stats) {
+          const row = document.createElement("div");
+          row.style.cssText = "display:flex;gap:6px;margin:6px 0 8px;flex-wrap:wrap;";
+          row.appendChild(this._makeButton("plus", NativeUI.t("加入当前输入", "Add current input"), () => this.queueCurrentInput(), NativeUI.t("加入", "Add")));
+          if (this.data.paused) {
+            row.appendChild(this._makeButton("play", NativeUI.t("开始发送队列", "Start queue"), () => this.startQueue(), NativeUI.t("开始", "Start")));
+          } else {
+            row.appendChild(this._makeButton("pause", NativeUI.t("暂停队列", "Pause queue"), () => this.pauseQueue(), NativeUI.t("暂停", "Pause")));
+          }
+          if (stats.sent || stats.cancelled) {
+            row.appendChild(this._makeButton("trash", NativeUI.t("清理已完成", "Clear finished"), () => this.clearHistory(), NativeUI.t("清理", "Clear")));
+          }
+          container.appendChild(row);
+        },
+        _renderQueueItem(container, item, index) {
+          const row = document.createElement("div");
+          row.className = "detail-row";
+          row.style.alignItems = "center";
+          row.title = item.text;
+          const label = document.createElement("span");
+          label.style.cssText = "flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+          label.textContent = `${index + 1}. ${item.title} [${item.status}]`;
+          const actions = document.createElement("div");
+          actions.style.cssText = "display:flex;gap:4px;";
+          if (item.status === "queued") {
+            actions.appendChild(this._makeButton("arrow-up", NativeUI.t("上移", "Move up"), () => this.moveItem(item.id, "up")));
+            actions.appendChild(this._makeButton("arrow-down", NativeUI.t("下移", "Move down"), () => this.moveItem(item.id, "down")));
+            actions.appendChild(this._makeButton("x", NativeUI.t("取消", "Cancel"), () => this.cancelItem(item.id)));
+          } else {
+            actions.appendChild(this._makeButton("trash", NativeUI.t("删除", "Delete"), () => this.removeItem(item.id)));
+          }
+          row.appendChild(label);
+          row.appendChild(actions);
+          container.appendChild(row);
+          if (item.error) {
+            const err = document.createElement("div");
+            err.className = "detail-row";
+            err.style.cssText = "font-size:10px;color:#f28b82;";
+            err.textContent = item.error;
+            container.appendChild(err);
+          }
+        },
+        renderToDetailsPane(container) {
+          const stats = (0, import_message_queue_tools.getQueueStats)(this.data);
+          const title = document.createElement("div");
+          title.className = "section-title";
+          title.style.cssText = "display:flex;justify-content:space-between;align-items:center;";
+          const label = document.createElement("span");
+          label.textContent = "Message Queue";
+          const count = document.createElement("span");
+          count.style.opacity = "0.7";
+          count.textContent = `${stats.queued}/${stats.total}`;
+          title.appendChild(label);
+          title.appendChild(count);
+          container.appendChild(title);
+          this._renderControls(container, stats);
+          if (this.data.lastError) {
+            const err = document.createElement("div");
+            err.className = "detail-row";
+            err.style.cssText = "font-size:10px;color:#f28b82;";
+            err.textContent = this.data.lastError;
+            container.appendChild(err);
+          }
+          if (this.data.items.length === 0) {
+            const hint = document.createElement("div");
+            hint.className = "detail-row";
+            hint.textContent = NativeUI.t("输入 Prompt 后点击加入队列。", "Type a prompt, then add it to the queue.");
+            container.appendChild(hint);
+            return;
+          }
+          this.data.items.slice(0, 12).forEach((item, index) => this._renderQueueItem(container, item, index));
+        },
+        getOnboarding() {
+          return {
+            zh: {
+              rant: "连续发多条 Prompt 时，Gemini 没有本地队列；你只能手动复制、等待、再发送。",
+              features: "把输入框内容加入本地发送队列，支持开始、暂停、取消、重排。遇到可识别的工具模式会暂停，避免盲目自动发送。",
+              guide: "在输入框写好 Prompt 后点击队列按钮或面板里的加入，再从 Message Queue 标签开始发送。"
+            },
+            en: {
+              rant: "Gemini has no local send queue, so multi-prompt runs become copy, wait, paste, repeat.",
+              features: "Queues prompts locally with start, pause, cancel, and reorder controls. Recognized tool modes pause automation instead of blindly sending.",
+              guide: "Write a prompt, add it through the queue button or panel, then start sending from the Message Queue tab."
+            }
+          };
+        }
+      };
+    }
+  });
+
   // src/native_ui_styles.js
   function injectNativeUIStyles() {
     GM_addStyle(`
@@ -8196,6 +8799,7 @@ ${part}`).join("\n\n---\n\n");
       init_quote_reply();
       init_ui_tweaks();
       init_chat_notes();
+      init_message_queue();
       init_native_ui_styles();
       ModuleRegistry.register(CounterModule);
       ModuleRegistry.register(ExportModule);
@@ -8206,6 +8810,7 @@ ${part}`).join("\n\n---\n\n");
       ModuleRegistry.register(QuoteReplyModule);
       ModuleRegistry.register(UITweaksModule);
       ModuleRegistry.register(ChatNotesModule);
+      ModuleRegistry.register(MessageQueueModule);
       var lastDetectedUser = null;
       function lazyDetect() {
         try {

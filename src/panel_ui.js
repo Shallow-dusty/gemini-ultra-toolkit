@@ -28,7 +28,8 @@ export const MODULE_ICON_MAP = {
     'batch-delete': 'trash',
     'quote-reply': 'quote',
     'ui-tweaks': 'palette',
-    'chat-notes': 'pin'
+    'chat-notes': 'pin',
+    'message-queue': 'package'
 };
 
 /** Set element content to [SVG icon] + text (CSP-safe) */

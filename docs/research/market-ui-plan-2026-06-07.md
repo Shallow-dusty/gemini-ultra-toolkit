@@ -9,7 +9,7 @@ mutable, so refresh this file before any major release or store submission.
 - Local git state is mutable; run `git status --short --branch` before release,
   push, or store submission instead of treating this snapshot as live git truth.
 - Local verification on 2026-06-08:
-  - `npm test` passed: 168 tests, `lib/` at 100% c8 coverage.
+  - `npm test` passed: 176 tests, `lib/` at 100% c8 coverage.
   - `npm run build` passed for userscript and extension outputs.
 - 2026-06-08 follow-up: `brace-expansion` was updated from `5.0.5` to
   `5.0.6`; `npm audit --audit-level=moderate` now reports 0 vulnerabilities.
@@ -83,9 +83,10 @@ Direct competitive gap:
 
 - Primer++ already covers counter, folders, prompt vault, default model, batch
   delete, quote reply, UI tweaks, heatmap, and export.
-- Primer++ is behind the top competitors on message queue, per-chat notes, bulk
-  export, PDF/DOCX export, pinned messages, image gallery, undo/trash, and
-  cross-device sync.
+- Primer++ still trails the top competitors on bulk export, PDF/DOCX export,
+  pinned messages, image gallery, undo/trash, cross-device sync, and deeper
+  queue automation. Post-planning local message queue and per-chat notes now
+  cover the first parity slice for those two gaps.
 - Primer++ has a stronger local-first story than products that disclose
   analytics, cloud sync, or in-app purchases. Keep this as a product boundary,
   not an afterthought.
@@ -132,11 +133,14 @@ Codex CLI/TUI.
   - Plan: move next to broader prompt automation such as message queue safety
     and chain-aware execution controls.
 - Send control
-  - Primer++ v12: Ctrl+Enter tweak and default model.
+  - Primer++ v12 plus post-planning implementation: Ctrl+Enter tweak, default
+    model, and a local message queue with pause/cancel/reorder controls plus a
+    conservative active-tool-mode pause guard.
   - Market signal: SPG has smart queue and shortcuts; TFG has shortcuts and
     send-to-Gemini.
   - Gemini signal: Gemini is adding agent/tool modes where auto-send risk rises.
-  - Plan: message queue is high-value parity, but must be tool-mode aware.
+  - Plan: broaden live tool-mode probes and queue execution checks before
+    claiming current Gemini DOM coverage.
 - Notes/references
   - Primer++ v12 plus post-planning implementation: quote reply plus local
     per-chat notes and pins.
@@ -244,9 +248,11 @@ Goal: close the highest-value competitor gaps while keeping the local-first
 boundary.
 
 1. Message queue:
-   - queue multiple prompts while Gemini is generating;
-   - support pause/cancel/reorder;
-   - avoid auto-sending while model/tool mode is ambiguous.
+   - ~~queue multiple prompts while Gemini is generating;~~ local queue shipped
+     after this planning snapshot;
+   - ~~support pause/cancel/reorder;~~ done after this planning snapshot;
+   - active-tool-mode pause guard shipped after this planning snapshot; broaden
+     live probes before claiming full ambiguous-mode coverage.
 2. Prompt vault upgrade:
    - ~~slash shortcut insertion;~~ done after this planning snapshot;
    - ~~prompt chains;~~ done after this planning snapshot;

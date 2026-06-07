@@ -26,6 +26,8 @@ Implemented modules:
 - Export: JSON, CSV, and Markdown usage export.
 - Prompt Vault: saved prompts, quick insert, import/export, favorites, recent
   ranking, slash shortcuts, template variables, and local prompt chains.
+- Message Queue: local prompt queue with start/pause, cancel, reorder, and a
+  conservative active-tool-mode pause guard.
 - Default Model: preferred model selection on new chats.
 - Batch Delete: multi-select deletion workflow.
 - Quote Reply: selected-text quote insertion.
@@ -80,7 +82,8 @@ Implemented modules:
 
 Prioritize local-first workflow parity with direct Gemini competitors:
 
-- Message queue with pause/cancel/reorder.
+- ~~Message queue with pause/cancel/reorder.~~ Done after the market/UI planning
+  snapshot; live Gemini smoke coverage is still due before release.
 - Prompt vault upgrade:
   - ~~slash shortcut insertion~~ done after the market/UI planning snapshot;
   - ~~prompt chains~~ done after the market/UI planning snapshot;

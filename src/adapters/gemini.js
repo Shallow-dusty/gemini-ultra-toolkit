@@ -41,6 +41,7 @@ const S = Object.freeze({
     INPUT_EDITOR_BY_ARIA: '[role="textbox"][aria-label="Enter a prompt for Gemini"]',
     INPUT_EDITOR_TARGET: 'textarea, div.ql-editor[contenteditable="true"], [role="textbox"][aria-label="Enter a prompt for Gemini"], [contenteditable="true"]',
     INPUT_TRAILING_ACTIONS: '.trailing-actions-wrapper',
+    TOOL_MODE_CANDIDATE: 'button, [role="button"], [aria-pressed="true"], [data-active="true"]',
     SEND_BUTTON: [
         'button[aria-label="Send message"]',         // v12 primary
         'button.send-button',                        // v11 deprecated (kept for mixed-rollout)
@@ -153,6 +154,25 @@ function normalizeModelText(text) {
     // Flash (and Flash-Lite — same multiplier bucket)
     if (t.includes('flash') || t.includes('fast') || t.includes('快速') || t.includes('高速') || t.includes('빠른')) return 'flash';
     return null;
+}
+
+function matchToolModeLabel(text) {
+    const t = (text || '').toLowerCase();
+    if (t.includes('deep research')) return 'Deep Research';
+    if (t.includes('canvas')) return 'Canvas';
+    if (t.includes('spark')) return 'Spark';
+    if (t.includes('audio overview')) return 'Audio Overview';
+    if (/\bimage\b|imagen/.test(t)) return 'Image';
+    if (/\bvideo\b|veo/.test(t)) return 'Video';
+    return '';
+}
+
+function isActiveModeCandidate(el) {
+    return el.getAttribute('aria-pressed') === 'true' ||
+           el.getAttribute('aria-current') === 'true' ||
+           el.getAttribute('data-active') === 'true' ||
+           el.classList?.contains('active') ||
+           el.classList?.contains('selected');
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -295,6 +315,23 @@ export const GeminiAdapter = {
     /** prompt_vault inject point — wrapper that holds the trailing action buttons. */
     getInputTrailingActions() {
         return document.querySelector(S.INPUT_TRAILING_ACTIONS);
+    },
+
+    /**
+     * Conservative automation guard for tool/mode chips in the input area.
+     * Unknown Gemini DOM still returns inactive; this is a best-effort pause
+     * signal, not proof that every future tool surface is detected.
+     */
+    getActiveToolMode() {
+        const area = this.getInputArea();
+        if (!area) return { active: false, label: '' };
+        const candidates = area.querySelectorAll(S.TOOL_MODE_CANDIDATE);
+        for (const el of candidates) {
+            if (!isActiveModeCandidate(el)) continue;
+            const label = matchToolModeLabel(`${el.textContent || ''} ${el.getAttribute('aria-label') || ''}`);
+            if (label) return { active: true, label };
+        }
+        return { active: false, label: '' };
     },
 
     getSendButton() {
