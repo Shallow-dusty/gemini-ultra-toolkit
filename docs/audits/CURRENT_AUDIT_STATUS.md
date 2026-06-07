@@ -14,6 +14,8 @@ Implemented protections:
 - Folder auto-classify regexes are length-capped and screened with `isSafeRegex()`.
 - Regex edit flow validates patterns before storing them as regex rules.
 - Chat href fallback navigation uses `isValidChatHref()`.
+- Gemini sidebar chat scanning now rejects known non-conversation `/app/*`
+  routes such as `/app/download` before folder/export/batch workflows see them.
 - Folder color values are validated before use in `cssText`.
 - Transcript export reads visible conversation text only after an explicit
   user export action; selected-chat export records failed/empty captures rather

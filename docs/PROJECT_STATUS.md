@@ -18,15 +18,21 @@ Updated: 2026-06-08 — v12.0 released; selected-chat export added, live smoke s
 
 Last verified locally on 2026-06-08:
 
-- `npm test` — 193 passing tests; `lib/` remains at 100% c8 coverage.
-- `npm run build` — userscript and extension builds complete (~413.7 kb userscript after selected-chat export).
+- `npm test` — 196 passing tests; `lib/` remains at 100% c8 coverage.
+- `npm run build` — userscript and extension builds complete (~415.1 kb userscript after selected-chat export and URL filtering).
 - `npm audit --audit-level=moderate` — 0 vulnerabilities after updating
   `brace-expansion` from `5.0.5` to `5.0.6`.
-- **Real-browser smoke test** — last passed on 2026-05-21
+- **Real-browser smoke test** — last full logged-in smoke passed on 2026-05-21
   (`docs/research/v12-dom-probe-2026-05-21-revised.md`). A 2026-06-07 CDP
   refresh was not possible because no Gemini page was available at
   `127.0.0.1:63366`. Treat live Gemini compatibility as due for refresh before
   store submission.
+- **Limited signed-out headless smoke** — on 2026-06-08, Playwright loaded
+  `https://gemini.google.com/app`, injected the generated userscript after DOM
+  load, mounted the Primer++ panel, opened the Export tab, and confirmed the
+  signed-out `/app/download` link is no longer treated as a selectable chat.
+  This does not verify logged-in sidebar history navigation or transcript
+  capture.
 
 ## Repository Structure
 

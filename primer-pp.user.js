@@ -405,6 +405,45 @@
     }
   });
 
+  // lib/gemini_url_tools.js
+  var require_gemini_url_tools = __commonJS({
+    "lib/gemini_url_tools.js"(exports, module) {
+      var NON_CHAT_APP_IDS = /* @__PURE__ */ new Set([
+        "download"
+      ]);
+      function cleanText(value) {
+        if (value === null || value === void 0) return "";
+        return String(value).trim();
+      }
+      function parseGeminiUrl(value) {
+        const raw = cleanText(value);
+        if (!raw) return null;
+        try {
+          return new URL(raw, "https://gemini.google.com");
+        } catch {
+          return null;
+        }
+      }
+      function extractGeminiChatId2(value) {
+        const url = parseGeminiUrl(value);
+        if (!url) return null;
+        if (url.hostname !== "gemini.google.com") return null;
+        const match = url.pathname.match(/^\/app\/([a-zA-Z0-9_-]+)$/);
+        if (!match) return null;
+        const id = match[1];
+        if (NON_CHAT_APP_IDS.has(id.toLowerCase())) return null;
+        return id;
+      }
+      function isGeminiConversationHref(value) {
+        return !!extractGeminiChatId2(value);
+      }
+      module.exports = {
+        extractGeminiChatId: extractGeminiChatId2,
+        isGeminiConversationHref
+      };
+    }
+  });
+
   // src/adapters/gemini.js
   function firstMatch(root, list) {
     const arr = Array.isArray(list) ? list : [list];
@@ -448,10 +487,11 @@
   function cleanVisibleText(el) {
     return (el?.textContent || "").replace(/\s+\n/g, "\n").replace(/\n\s+/g, "\n").trim();
   }
-  var import_tool_mode_tools, S, GeminiAdapter;
+  var import_tool_mode_tools, import_gemini_url_tools, S, GeminiAdapter;
   var init_gemini = __esm({
     "src/adapters/gemini.js"() {
       import_tool_mode_tools = __toESM(require_tool_mode_tools());
+      import_gemini_url_tools = __toESM(require_gemini_url_tools());
       S = Object.freeze({
         // Sidebar
         SIDEBAR: [
@@ -598,8 +638,7 @@
         // ─── URL / Chat ID ─────────────────────────────────────────────────
         getChatId() {
           try {
-            const m = window.location.pathname.match(/\/app\/([a-zA-Z0-9\-_]+)/);
-            return m ? m[1] : null;
+            return (0, import_gemini_url_tools.extractGeminiChatId)(window.location.href);
           } catch {
             return null;
           }
@@ -631,19 +670,23 @@
           const links = document.querySelectorAll(S.CHAT_LINK);
           for (const el of links) {
             const href = el.getAttribute("href") || "";
-            const m = href.match(/\/app\/([a-zA-Z0-9\-_]+)/);
-            if (!m) continue;
+            const id = (0, import_gemini_url_tools.extractGeminiChatId)(href);
+            if (!id) continue;
             let title = "";
             const textEl = el.querySelector("span, div");
             if (textEl) title = (textEl.textContent || "").trim();
             if (!title) title = "Untitled";
-            items.push({ id: m[1], title, element: el, href });
+            items.push({ id, title, element: el, href });
           }
           return items;
         },
         /** Live chat-link count, for cache validation in Core.scanSidebarChats. */
         getChatLinkCount() {
-          return document.querySelectorAll(S.CHAT_LINK).length;
+          let count = 0;
+          document.querySelectorAll(S.CHAT_LINK).forEach((el) => {
+            if ((0, import_gemini_url_tools.extractGeminiChatId)(el.getAttribute("href") || "")) count++;
+          });
+          return count;
         },
         /**
          * v12: the row-level "More options for <title>" button is rendered in the

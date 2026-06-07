@@ -1,4 +1,5 @@
 import { getToolModeState } from '../../lib/tool_mode_tools.js';
+import { extractGeminiChatId } from '../../lib/gemini_url_tools.js';
 
 /**
  * GeminiAdapter — centralizes Gemini web-app DOM coupling.
@@ -220,8 +221,7 @@ export const GeminiAdapter = {
     // ─── URL / Chat ID ─────────────────────────────────────────────────
     getChatId() {
         try {
-            const m = window.location.pathname.match(/\/app\/([a-zA-Z0-9\-_]+)/);
-            return m ? m[1] : null;
+            return extractGeminiChatId(window.location.href);
         } catch { return null; }
     },
 
@@ -257,20 +257,24 @@ export const GeminiAdapter = {
         const links = document.querySelectorAll(S.CHAT_LINK);
         for (const el of links) {
             const href = el.getAttribute('href') || '';
-            const m = href.match(/\/app\/([a-zA-Z0-9\-_]+)/);
-            if (!m) continue;
+            const id = extractGeminiChatId(href);
+            if (!id) continue;
             let title = '';
             const textEl = el.querySelector('span, div');
             if (textEl) title = (textEl.textContent || '').trim();
             if (!title) title = 'Untitled';
-            items.push({ id: m[1], title, element: el, href });
+            items.push({ id, title, element: el, href });
         }
         return items;
     },
 
     /** Live chat-link count, for cache validation in Core.scanSidebarChats. */
     getChatLinkCount() {
-        return document.querySelectorAll(S.CHAT_LINK).length;
+        let count = 0;
+        document.querySelectorAll(S.CHAT_LINK).forEach(el => {
+            if (extractGeminiChatId(el.getAttribute('href') || '')) count++;
+        });
+        return count;
     },
 
     /**
