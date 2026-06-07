@@ -249,6 +249,19 @@ describe('app smoke checks', () => {
         assert.match(chatNotes, /NativeUI\.t\('对话笔记', 'Chat Notes'\)/);
     });
 
+    it('keeps Message Queue pacing local and clamped', () => {
+        const messageQueue = read('src/modules/message_queue.js');
+        const queueTools = read('lib/message_queue_tools.js');
+
+        assert.match(queueTools, /normalizeQueueIntervalMs/);
+        assert.match(queueTools, /MIN_QUEUE_INTERVAL_MS/);
+        assert.match(queueTools, /MAX_QUEUE_INTERVAL_MS/);
+        assert.match(messageQueue, /setQueueInterval/);
+        assert.match(messageQueue, /input\.type = 'number'/);
+        assert.match(messageQueue, /NativeUI\.t\('发送间隔', 'Send interval'\)/);
+        assert.doesNotMatch(messageQueue, /chrome\.storage\.sync|fetch\(/);
+    });
+
     it('keeps folder and batch-delete panel labels localized', () => {
         const folders = read('src/modules/folders.js');
         const batchDelete = read('src/modules/batch_delete.js');

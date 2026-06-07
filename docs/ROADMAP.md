@@ -1,6 +1,6 @@
 # Roadmap
 
-Updated: 2026-06-08 (post-v12 planning refresh + local data portability + local context references + pinned context packets + prompt context packets + selected text packets + transcript snippet packets + rich response probe counts + quota window framing + prompt-chain queueing + CSV/HTML/DOCX transcript export + composer input counter + adapter probe export + i18n hardening).
+Updated: 2026-06-08 (post-v12 planning refresh + local data portability + local context references + pinned context packets + prompt context packets + selected text packets + transcript snippet packets + rich response probe counts + quota window framing + prompt-chain queueing + queue send-interval control + CSV/HTML/DOCX transcript export + composer input counter + adapter probe export + i18n hardening).
 
 This is the maintained roadmap. It replaces the old full feature brainstorming document, which mixed implemented features, speculative ideas, and stale project naming.
 
@@ -34,10 +34,10 @@ Implemented modules:
   versioned metadata import/export, plus local prompt-delete undo and
   step-by-step handoff to Message Queue. Selected saved prompts can also be
   inserted as explicit local context packets.
-- Message Queue: local prompt queue with start/pause, cancel, reorder, and a
-  conservative active-tool-mode pause guard backed by tested tool-label
-  matching. Prompt Vault chains can be queued as separate local items before
-  sending.
+- Message Queue: local prompt queue with start/pause, cancel, reorder, local
+  send-interval control, and a conservative active-tool-mode pause guard backed
+  by tested tool-label matching. Prompt Vault chains can be queued as separate
+  local items before sending.
 - Default Model: preferred model selection on new chats.
 - Batch Delete: multi-select deletion workflow.
 - Quote Reply: selected-text quote insertion and explicit local snippet packets.
@@ -100,8 +100,9 @@ Implemented modules:
 
 Prioritize local-first workflow parity with direct Gemini competitors:
 
-- ~~Message queue with pause/cancel/reorder.~~ Done after the market/UI planning
-  snapshot; live Gemini smoke coverage is still due before release.
+- ~~Message queue with pause/cancel/reorder and send-interval control.~~ Done
+  after the market/UI planning snapshot; live Gemini smoke coverage is still due
+  before release.
 - Prompt vault upgrade:
   - ~~slash shortcut insertion~~ done after the market/UI planning snapshot;
   - ~~prompt chains~~ done after the market/UI planning snapshot;

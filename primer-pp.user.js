@@ -8007,6 +8007,9 @@
       var MAX_TITLE_LENGTH = 80;
       var MAX_TEXT_LENGTH = 12e3;
       var MAX_ERROR_LENGTH = 240;
+      var DEFAULT_QUEUE_INTERVAL_MS2 = 1600;
+      var MIN_QUEUE_INTERVAL_MS2 = 800;
+      var MAX_QUEUE_INTERVAL_MS2 = 1e4;
       var STATUSES = /* @__PURE__ */ new Set(["queued", "sending", "sent", "failed", "cancelled"]);
       function toText(value) {
         if (value === null || value === void 0) return "";
@@ -8020,6 +8023,11 @@
       }
       function nowIso(opts = {}) {
         return cleanText(opts.nowIso) || (/* @__PURE__ */ new Date()).toISOString();
+      }
+      function normalizeQueueIntervalMs2(value) {
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric)) return DEFAULT_QUEUE_INTERVAL_MS2;
+        return Math.max(MIN_QUEUE_INTERVAL_MS2, Math.min(MAX_QUEUE_INTERVAL_MS2, Math.round(numeric)));
       }
       function deriveTitle(text) {
         const firstLine = cleanText(text).split(/\r?\n/)[0];
@@ -8058,6 +8066,7 @@
           paused: source.paused === false ? false : true,
           activeId: activeExists ? activeId : "",
           lastError: limitedText(source.lastError, MAX_ERROR_LENGTH),
+          intervalMs: normalizeQueueIntervalMs2(source.intervalMs),
           items
         };
       }
@@ -8150,6 +8159,11 @@
         if (opts.lastError !== void 0) {
           state.lastError = limitedText(opts.lastError, MAX_ERROR_LENGTH);
         }
+        return state;
+      }
+      function setQueueInterval2(data, intervalMs, opts = {}) {
+        const state = normalizeQueueData2(data, opts);
+        state.intervalMs = normalizeQueueIntervalMs2(intervalMs);
         return state;
       }
       function getNextQueuedItem2(data) {
@@ -8245,16 +8259,21 @@
         cancelQueueItem: cancelQueueItem2,
         clearQueueHistory: clearQueueHistory2,
         createQueueItem,
+        DEFAULT_QUEUE_INTERVAL_MS: DEFAULT_QUEUE_INTERVAL_MS2,
         evaluateQueueSafety: evaluateQueueSafety2,
         getNextQueuedItem: getNextQueuedItem2,
         getQueueStats: getQueueStats2,
+        MAX_QUEUE_INTERVAL_MS: MAX_QUEUE_INTERVAL_MS2,
+        MIN_QUEUE_INTERVAL_MS: MIN_QUEUE_INTERVAL_MS2,
         markQueueItemFailed: markQueueItemFailed2,
         markQueueItemSending: markQueueItemSending2,
         markQueueItemSent: markQueueItemSent2,
         moveQueueItem: moveQueueItem2,
         normalizeQueueData: normalizeQueueData2,
+        normalizeQueueIntervalMs: normalizeQueueIntervalMs2,
         normalizeQueueItem,
         removeQueueItem: removeQueueItem2,
+        setQueueInterval: setQueueInterval2,
         setQueuePaused: setQueuePaused2,
         updateQueueItem
       };
@@ -8262,7 +8281,7 @@
   });
 
   // src/modules/message_queue.js
-  var import_message_queue_tools, PROCESS_DELAY_MS, SEND_READY_DELAY_MS, MessageQueueModule;
+  var import_message_queue_tools, SEND_READY_DELAY_MS, MessageQueueModule;
   var init_message_queue = __esm({
     "src/modules/message_queue.js"() {
       init_core();
@@ -8272,7 +8291,6 @@
       init_gemini();
       init_icons();
       import_message_queue_tools = __toESM(require_message_queue_tools());
-      PROCESS_DELAY_MS = 1600;
       SEND_READY_DELAY_MS = 120;
       MessageQueueModule = {
         id: "message-queue",
@@ -8281,7 +8299,7 @@
         iconId: "package",
         defaultEnabled: false,
         STORAGE_KEY: "gemini_message_queue",
-        data: { paused: true, activeId: "", lastError: "", items: [] },
+        data: { paused: true, activeId: "", lastError: "", intervalMs: import_message_queue_tools.DEFAULT_QUEUE_INTERVAL_MS, items: [] },
         _timer: null,
         _processing: false,
         _getStorageKey() {
@@ -8391,7 +8409,10 @@
           sendBtn.click();
           return { ok: true, reason: "" };
         },
-        _scheduleProcess(delay = PROCESS_DELAY_MS) {
+        _getIntervalMs() {
+          return (0, import_message_queue_tools.normalizeQueueIntervalMs)(this.data.intervalMs);
+        },
+        _scheduleProcess(delay = this._getIntervalMs()) {
           if (this._timer) clearTimeout(this._timer);
           if (this.data.paused) return;
           this._timer = setTimeout(() => {
@@ -8477,6 +8498,12 @@
           this._save();
           PanelUI.renderDetailsPane();
         },
+        setIntervalMs(intervalMs) {
+          this.data = (0, import_message_queue_tools.setQueueInterval)(this.data, intervalMs);
+          this._save();
+          PanelUI.renderDetailsPane();
+          if (!this.data.paused && this._timer) this._scheduleProcess(this.data.intervalMs);
+        },
         cancelItem(id) {
           this.data = (0, import_message_queue_tools.cancelQueueItem)(this.data, id);
           this._save();
@@ -8524,6 +8551,30 @@
           }
           container.appendChild(row);
         },
+        _renderPacingControl(container) {
+          const row = document.createElement("div");
+          row.className = "detail-row";
+          row.style.cssText = "display:flex;align-items:center;gap:6px;font-size:10px;";
+          const label = document.createElement("span");
+          label.style.cssText = "flex:1;color:var(--text-sub);";
+          label.textContent = NativeUI.t("发送间隔", "Send interval");
+          const input = document.createElement("input");
+          input.type = "number";
+          input.min = String(import_message_queue_tools.MIN_QUEUE_INTERVAL_MS / 1e3);
+          input.max = String(import_message_queue_tools.MAX_QUEUE_INTERVAL_MS / 1e3);
+          input.step = "0.1";
+          input.value = (this._getIntervalMs() / 1e3).toFixed(1).replace(/\.0$/, "");
+          input.title = NativeUI.t("队列每条消息之间的本地等待秒数", "Local wait time between queued sends");
+          input.style.cssText = "width:54px;background:var(--input-bg,rgba(255,255,255,0.1));color:var(--text-main);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:11px;text-align:center;";
+          input.onchange = () => this.setIntervalMs(Number(input.value) * 1e3);
+          const unit = document.createElement("span");
+          unit.style.color = "var(--text-sub)";
+          unit.textContent = NativeUI.t("秒", "sec");
+          row.appendChild(label);
+          row.appendChild(input);
+          row.appendChild(unit);
+          container.appendChild(row);
+        },
         _renderQueueItem(container, item, index) {
           const row = document.createElement("div");
           row.className = "detail-row";
@@ -8566,6 +8617,7 @@
           title.appendChild(count);
           container.appendChild(title);
           this._renderControls(container, stats);
+          this._renderPacingControl(container);
           if (this.data.lastError) {
             const err = document.createElement("div");
             err.className = "detail-row";
@@ -8586,13 +8638,13 @@
           return {
             zh: {
               rant: "连续发多条 Prompt 时，Gemini 没有本地队列；你只能手动复制、等待、再发送。",
-              features: "把输入框内容加入本地发送队列，支持开始、暂停、取消、重排。遇到可识别的工具模式会暂停，避免盲目自动发送。",
-              guide: "在输入框写好 Prompt 后点击队列按钮或面板里的加入，再从 Message Queue 标签开始发送。"
+              features: "把输入框内容加入本地发送队列，支持开始、暂停、取消、重排和发送间隔控制。遇到可识别的工具模式会暂停，避免盲目自动发送。",
+              guide: "在输入框写好 Prompt 后点击队列按钮或面板里的加入，按需调整发送间隔，再从 Message Queue 标签开始发送。"
             },
             en: {
               rant: "Gemini has no local send queue, so multi-prompt runs become copy, wait, paste, repeat.",
-              features: "Queues prompts locally with start, pause, cancel, and reorder controls. Recognized tool modes pause automation instead of blindly sending.",
-              guide: "Write a prompt, add it through the queue button or panel, then start sending from the Message Queue tab."
+              features: "Queues prompts locally with start, pause, cancel, reorder, and send-interval controls. Recognized tool modes pause automation instead of blindly sending.",
+              guide: "Write a prompt, add it through the queue button or panel, adjust the send interval if needed, then start sending from the Message Queue tab."
             }
           };
         }

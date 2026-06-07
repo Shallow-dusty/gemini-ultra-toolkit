@@ -6,16 +6,21 @@ const {
     cancelQueueItem,
     clearQueueHistory,
     createQueueItem,
+    DEFAULT_QUEUE_INTERVAL_MS,
     evaluateQueueSafety,
     getNextQueuedItem,
     getQueueStats,
+    MAX_QUEUE_INTERVAL_MS,
+    MIN_QUEUE_INTERVAL_MS,
     markQueueItemFailed,
     markQueueItemSending,
     markQueueItemSent,
     moveQueueItem,
     normalizeQueueData,
+    normalizeQueueIntervalMs,
     normalizeQueueItem,
     removeQueueItem,
+    setQueueInterval,
     setQueuePaused,
     updateQueueItem
 } = require('../lib/message_queue_tools.js');
@@ -51,6 +56,7 @@ describe('message_queue_tools', () => {
             paused: true,
             activeId: '',
             lastError: '',
+            intervalMs: DEFAULT_QUEUE_INTERVAL_MS,
             items: []
         });
 
@@ -58,6 +64,7 @@ describe('message_queue_tools', () => {
             paused: false,
             activeId: 'a',
             lastError: '  wait  ',
+            intervalMs: '2500',
             items: [
                 { id: 'a', text: 'one', status: 'sending' },
                 { id: 'b', text: '' },
@@ -68,12 +75,25 @@ describe('message_queue_tools', () => {
         assert.equal(data.paused, false);
         assert.equal(data.activeId, 'a');
         assert.equal(data.lastError, 'wait');
+        assert.equal(data.intervalMs, 2500);
         assert.deepEqual(data.items.map(item => item.id), ['a']);
 
         const recovered = normalizeQueueData(data, { recoverSending: true });
         assert.equal(recovered.activeId, '');
         assert.equal(recovered.items[0].status, 'queued');
         assert.deepEqual(normalizeQueueData({ items: {} }).items, []);
+    });
+
+    it('normalizes and updates queue pacing intervals', () => {
+        assert.equal(normalizeQueueIntervalMs(undefined), DEFAULT_QUEUE_INTERVAL_MS);
+        assert.equal(normalizeQueueIntervalMs('bad'), DEFAULT_QUEUE_INTERVAL_MS);
+        assert.equal(normalizeQueueIntervalMs(2500.4), 2500);
+        assert.equal(normalizeQueueIntervalMs(MIN_QUEUE_INTERVAL_MS - 1), MIN_QUEUE_INTERVAL_MS);
+        assert.equal(normalizeQueueIntervalMs(MAX_QUEUE_INTERVAL_MS + 1), MAX_QUEUE_INTERVAL_MS);
+
+        const paced = setQueueInterval({ intervalMs: 1200, items: [{ id: 'a', text: 'one' }] }, '3400');
+        assert.equal(paced.intervalMs, 3400);
+        assert.equal(paced.items[0].id, 'a');
     });
 
     it('creates and adds queue items at the requested position', () => {

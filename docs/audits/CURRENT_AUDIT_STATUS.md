@@ -1,6 +1,6 @@
 # Current Audit Status
 
-Updated: 2026-06-08 — covers v12.0 plus post-release dependency-audit repair, local folder undo, local data portability, local context references, pinned context packets, prompt context packets, selected text packets, transcript snippet packets, rich response probe counts, CSV/HTML/DOCX transcript export, composer input counter, adapter probe export, and i18n hardening.
+Updated: 2026-06-08 — covers v12.0 plus post-release dependency-audit repair, local folder undo, local data portability, local context references, pinned context packets, prompt context packets, selected text packets, transcript snippet packets, rich response probe counts, queue send-interval control, CSV/HTML/DOCX transcript export, composer input counter, adapter probe export, and i18n hardening.
 
 This is the maintained audit summary for v12.0. v12 inherits all v11 protections and adds a `src/adapters/gemini.js` abstraction layer for DOM coupling (see ROADMAP.md). Reviewed across 5 self-audit passes plus 3 independent agent reviews (architecture / generic code / userscript-specific). No `critical` findings; all `important` items addressed before release. v11.0 baseline below remains the audit reference for shared logic.
 
@@ -56,6 +56,8 @@ Implemented protections:
 - Export transcript-packet insertion is explicit and bounded: it formats the
   current visible transcript or explicitly selected chat transcripts into the
   composer without storing transcript snippets or auto-sending.
+- Message Queue send-interval control is a clamped local setting; the queue
+  still requires explicit start and keeps the active-tool-mode pause guard.
 - UI Tweaks input counting reads only the active composer editor text to format
   a local character/line label; it does not read transcript bodies or send text.
 - GM_* reads and writes are wrapped defensively in source paths that can run in Tampermonkey or the extension polyfill.

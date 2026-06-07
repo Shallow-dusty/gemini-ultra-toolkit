@@ -9,12 +9,13 @@ mutable, so refresh this file before any major release or store submission.
 - Local git state is mutable; run `git status --short --branch` before release,
   push, or store submission instead of treating this snapshot as live git truth.
 - Local verification on 2026-06-08:
-  - `npm test` passed: 262 tests, `lib/` at 100% c8 coverage.
+  - `npm test` passed: 264 tests, `lib/` at 100% c8 coverage.
   - `npm run build` passed for userscript and extension outputs; generated
-    userscript size was ~508.1 kb after CSV/HTML/DOCX transcript export, composer
-    input counter, adapter probe export, pinned context packets, prompt context
-    packets, selected text packets, transcript snippet packets, rich response
-    probe counts, and broader i18n hardening.
+    userscript size was ~511.1 kb after queue send-interval control,
+    CSV/HTML/DOCX transcript export, composer input counter, adapter probe
+    export, pinned context packets, prompt context packets, selected text
+    packets, transcript snippet packets, rich response probe counts, and broader
+    i18n hardening.
 - 2026-06-08 follow-up: `brace-expansion` was updated from `5.0.5` to
   `5.0.6`; `npm audit --audit-level=moderate` now reports 0 vulnerabilities.
 - Live Gemini DOM verification was not refreshed: no Chrome DevTools Protocol
@@ -157,9 +158,9 @@ Codex CLI/TUI.
 - Send control
   - Primer++ v12 plus post-planning implementation: Ctrl+Enter tweak, composer
     input counter, default model, and a local message queue with
-    pause/cancel/reorder controls plus a conservative active-tool-mode pause
-    guard. Prompt Vault chains can be added as ordered queue items before
-    sending.
+    pause/cancel/reorder/send-interval controls plus a conservative
+    active-tool-mode pause guard. Prompt Vault chains can be added as ordered
+    queue items before sending.
   - Market signal: SPG has smart queue and shortcuts; TFG has shortcuts and
     send-to-Gemini.
   - Gemini signal: Gemini is adding agent/tool modes where auto-send risk rises.
@@ -291,6 +292,7 @@ boundary.
    - ~~queue multiple prompts while Gemini is generating;~~ local queue shipped
      after this planning snapshot;
    - ~~support pause/cancel/reorder;~~ done after this planning snapshot;
+   - ~~support local send-interval pacing;~~ done after this planning snapshot;
    - active-tool-mode pause guard shipped after this planning snapshot; broaden
      live probes before claiming full ambiguous-mode coverage.
    - ~~show a local composer input counter;~~ done after this planning snapshot

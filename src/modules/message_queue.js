@@ -9,19 +9,23 @@ import {
     addQueueItems,
     cancelQueueItem,
     clearQueueHistory,
+    DEFAULT_QUEUE_INTERVAL_MS,
     evaluateQueueSafety,
     getNextQueuedItem,
     getQueueStats,
+    MAX_QUEUE_INTERVAL_MS,
+    MIN_QUEUE_INTERVAL_MS,
     markQueueItemFailed,
     markQueueItemSending,
     markQueueItemSent,
     moveQueueItem,
     normalizeQueueData,
+    normalizeQueueIntervalMs,
     removeQueueItem,
+    setQueueInterval,
     setQueuePaused
 } from '../../lib/message_queue_tools.js';
 
-const PROCESS_DELAY_MS = 1600;
 const SEND_READY_DELAY_MS = 120;
 
 export const MessageQueueModule = {
@@ -32,7 +36,7 @@ export const MessageQueueModule = {
     defaultEnabled: false,
 
     STORAGE_KEY: 'gemini_message_queue',
-    data: { paused: true, activeId: '', lastError: '', items: [] },
+    data: { paused: true, activeId: '', lastError: '', intervalMs: DEFAULT_QUEUE_INTERVAL_MS, items: [] },
     _timer: null,
     _processing: false,
 
@@ -157,7 +161,11 @@ export const MessageQueueModule = {
         return { ok: true, reason: '' };
     },
 
-    _scheduleProcess(delay = PROCESS_DELAY_MS) {
+    _getIntervalMs() {
+        return normalizeQueueIntervalMs(this.data.intervalMs);
+    },
+
+    _scheduleProcess(delay = this._getIntervalMs()) {
         if (this._timer) clearTimeout(this._timer);
         if (this.data.paused) return;
         this._timer = setTimeout(() => {
@@ -254,6 +262,13 @@ export const MessageQueueModule = {
         PanelUI.renderDetailsPane();
     },
 
+    setIntervalMs(intervalMs) {
+        this.data = setQueueInterval(this.data, intervalMs);
+        this._save();
+        PanelUI.renderDetailsPane();
+        if (!this.data.paused && this._timer) this._scheduleProcess(this.data.intervalMs);
+    },
+
     cancelItem(id) {
         this.data = cancelQueueItem(this.data, id);
         this._save();
@@ -309,6 +324,35 @@ export const MessageQueueModule = {
         container.appendChild(row);
     },
 
+    _renderPacingControl(container) {
+        const row = document.createElement('div');
+        row.className = 'detail-row';
+        row.style.cssText = 'display:flex;align-items:center;gap:6px;font-size:10px;';
+
+        const label = document.createElement('span');
+        label.style.cssText = 'flex:1;color:var(--text-sub);';
+        label.textContent = NativeUI.t('发送间隔', 'Send interval');
+
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.min = String(MIN_QUEUE_INTERVAL_MS / 1000);
+        input.max = String(MAX_QUEUE_INTERVAL_MS / 1000);
+        input.step = '0.1';
+        input.value = (this._getIntervalMs() / 1000).toFixed(1).replace(/\.0$/, '');
+        input.title = NativeUI.t('队列每条消息之间的本地等待秒数', 'Local wait time between queued sends');
+        input.style.cssText = 'width:54px;background:var(--input-bg,rgba(255,255,255,0.1));color:var(--text-main);border:1px solid var(--border);border-radius:4px;padding:2px 6px;font-size:11px;text-align:center;';
+        input.onchange = () => this.setIntervalMs(Number(input.value) * 1000);
+
+        const unit = document.createElement('span');
+        unit.style.color = 'var(--text-sub)';
+        unit.textContent = NativeUI.t('秒', 'sec');
+
+        row.appendChild(label);
+        row.appendChild(input);
+        row.appendChild(unit);
+        container.appendChild(row);
+    },
+
     _renderQueueItem(container, item, index) {
         const row = document.createElement('div');
         row.className = 'detail-row';
@@ -357,6 +401,7 @@ export const MessageQueueModule = {
         container.appendChild(title);
 
         this._renderControls(container, stats);
+        this._renderPacingControl(container);
 
         if (this.data.lastError) {
             const err = document.createElement('div');
@@ -381,13 +426,13 @@ export const MessageQueueModule = {
         return {
             zh: {
                 rant: '连续发多条 Prompt 时，Gemini 没有本地队列；你只能手动复制、等待、再发送。',
-                features: '把输入框内容加入本地发送队列，支持开始、暂停、取消、重排。遇到可识别的工具模式会暂停，避免盲目自动发送。',
-                guide: '在输入框写好 Prompt 后点击队列按钮或面板里的加入，再从 Message Queue 标签开始发送。'
+                features: '把输入框内容加入本地发送队列，支持开始、暂停、取消、重排和发送间隔控制。遇到可识别的工具模式会暂停，避免盲目自动发送。',
+                guide: '在输入框写好 Prompt 后点击队列按钮或面板里的加入，按需调整发送间隔，再从 Message Queue 标签开始发送。'
             },
             en: {
                 rant: 'Gemini has no local send queue, so multi-prompt runs become copy, wait, paste, repeat.',
-                features: 'Queues prompts locally with start, pause, cancel, and reorder controls. Recognized tool modes pause automation instead of blindly sending.',
-                guide: 'Write a prompt, add it through the queue button or panel, then start sending from the Message Queue tab.'
+                features: 'Queues prompts locally with start, pause, cancel, reorder, and send-interval controls. Recognized tool modes pause automation instead of blindly sending.',
+                guide: 'Write a prompt, add it through the queue button or panel, adjust the send interval if needed, then start sending from the Message Queue tab.'
             }
         };
     }
