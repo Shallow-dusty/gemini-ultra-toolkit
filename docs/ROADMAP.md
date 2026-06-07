@@ -1,6 +1,6 @@
 # Roadmap
 
-Updated: 2026-06-08 (post-v12 planning refresh + local data portability + local context references + pinned context packets + quota window framing + prompt-chain queueing + HTML transcript export + adapter probe export).
+Updated: 2026-06-08 (post-v12 planning refresh + local data portability + local context references + pinned context packets + quota window framing + prompt-chain queueing + HTML transcript export + adapter probe export + i18n hardening).
 
 This is the maintained roadmap. It replaces the old full feature brainstorming document, which mixed implemented features, speculative ideas, and stale project naming.
 
@@ -86,7 +86,9 @@ Implemented modules:
    - Add static smoke checks only for release-critical metadata and invariants.
 
 6. Accessibility and i18n hardening
-   - Continue replacing hardcoded UI text with `NativeUI.t()`.
+   - Continue replacing hardcoded UI text with `NativeUI.t()`; post-v12 Export,
+     Chat Notes, Message Queue, and Prompt Vault workflow labels now have
+     focused static smoke coverage.
    - Verify focus order in real browser.
    - Recheck contrast for all themes.
 

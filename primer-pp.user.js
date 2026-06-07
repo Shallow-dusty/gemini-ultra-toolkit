@@ -2743,7 +2743,7 @@
           btn.id = NATIVE_ID;
           btn.className = "gc-header-btn";
           btn.appendChild(createIcon("download", 16));
-          btn.title = "Export conversation";
+          btn.title = NativeUI.t("导出对话", "Export conversation");
           btn.onclick = (e) => {
             e.stopPropagation();
             this._toggleExportMenu(btn);
@@ -2772,13 +2772,13 @@
           menu.className = "gc-dropdown-menu";
           menu.style.cssText = "top:100%;right:0;margin-top:4px;";
           const items = [
-            { icon: "file-text", text: "Usage JSON", action: () => this.exportJSON() },
-            { icon: "chart", text: "Usage CSV", action: () => this.doExportCSV() },
-            { icon: "edit", text: "Usage Markdown", action: () => this.doExportMarkdown() },
-            { icon: "file-text", text: "Chat JSON", action: () => this.exportCurrentChatJSON() },
-            { icon: "edit", text: "Chat Markdown", action: () => this.exportCurrentChatMarkdown() },
-            { icon: "file-text", text: "Chat TXT", action: () => this.exportCurrentChatText() },
-            { icon: "file-text", text: "Chat HTML", action: () => this.exportCurrentChatHTML() }
+            { icon: "file-text", text: NativeUI.t("用量 JSON", "Usage JSON"), action: () => this.exportJSON() },
+            { icon: "chart", text: NativeUI.t("用量 CSV", "Usage CSV"), action: () => this.doExportCSV() },
+            { icon: "edit", text: NativeUI.t("用量 Markdown", "Usage Markdown"), action: () => this.doExportMarkdown() },
+            { icon: "file-text", text: NativeUI.t("对话 JSON", "Chat JSON"), action: () => this.exportCurrentChatJSON() },
+            { icon: "edit", text: NativeUI.t("对话 Markdown", "Chat Markdown"), action: () => this.exportCurrentChatMarkdown() },
+            { icon: "file-text", text: NativeUI.t("对话 TXT", "Chat TXT"), action: () => this.exportCurrentChatText() },
+            { icon: "file-text", text: NativeUI.t("对话 HTML", "Chat HTML"), action: () => this.exportCurrentChatHTML() }
           ];
           items.forEach((item) => {
             const el = document.createElement("div");
@@ -3137,7 +3137,7 @@
           section.className = "gf-section";
           const currentTitle = document.createElement("div");
           currentTitle.className = "section-title";
-          currentTitle.textContent = "Current Chat";
+          currentTitle.textContent = NativeUI.t("当前对话", "Current Chat");
           section.appendChild(currentTitle);
           section.appendChild(this._buttonRow([
             this._panelButton("JSON", () => this.exportCurrentChatJSON()),
@@ -3149,7 +3149,7 @@
           bulkTitle.className = "section-title";
           bulkTitle.style.cssText = "display:flex;justify-content:space-between;align-items:center;";
           const bulkLabel = document.createElement("span");
-          bulkLabel.textContent = "Selected Chats";
+          bulkLabel.textContent = NativeUI.t("选中对话", "Selected Chats");
           const bulkCount = document.createElement("span");
           bulkCount.textContent = String(this._bulkSelected.size);
           bulkTitle.appendChild(bulkLabel);
@@ -3163,15 +3163,15 @@
             section.appendChild(empty);
           } else {
             const actions = this._buttonRow([
-              this._panelButton("All", () => {
+              this._panelButton(NativeUI.t("全选", "All"), () => {
                 this._selectVisibleBulkChats(chats);
                 PanelUI.renderDetailsPane();
               }),
-              this._panelButton("Clear", () => {
+              this._panelButton(NativeUI.t("清空", "Clear"), () => {
                 this._clearBulkSelection();
                 PanelUI.renderDetailsPane();
               }),
-              this._panelButton("Refresh", () => {
+              this._panelButton(NativeUI.t("刷新", "Refresh"), () => {
                 Core.invalidateSidebarCache();
                 PanelUI.renderDetailsPane();
               })
@@ -3205,10 +3205,13 @@
           if (this._bulkExporting) {
             const progress = document.createElement("div");
             progress.style.cssText = "font-size:10px;color:var(--accent);margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
-            progress.textContent = `Exporting ${this._bulkProgress.current}/${this._bulkProgress.total}: ${this._bulkProgress.title}`;
+            progress.textContent = NativeUI.t(
+              `正在导出 ${this._bulkProgress.current}/${this._bulkProgress.total}: ${this._bulkProgress.title}`,
+              `Exporting ${this._bulkProgress.current}/${this._bulkProgress.total}: ${this._bulkProgress.title}`
+            );
             section.appendChild(progress);
             section.appendChild(this._buttonRow([
-              this._panelButton("Cancel", () => {
+              this._panelButton(NativeUI.t("取消", "Cancel"), () => {
                 this._bulkCancelRequested = true;
               }, { style: "width:auto;flex:1;padding:5px 6px;font-size:10px;margin-top:0;color:#f28b82;" })
             ]));
@@ -3242,35 +3245,35 @@
           jsonBtn.className = "settings-btn";
           jsonBtn.style.cssText = "display:flex;align-items:center;gap:6px;";
           jsonBtn.appendChild(createIcon("download", 14));
-          jsonBtn.appendChild(document.createTextNode(" Export JSON"));
+          jsonBtn.appendChild(document.createTextNode(" " + NativeUI.t("导出 JSON", "Export JSON")));
           jsonBtn.onclick = () => this.exportJSON();
           container.appendChild(jsonBtn);
           const csvBtn = document.createElement("button");
           csvBtn.className = "settings-btn";
           csvBtn.style.cssText = "display:flex;align-items:center;gap:6px;";
           csvBtn.appendChild(createIcon("download", 14));
-          csvBtn.appendChild(document.createTextNode(" Export CSV"));
+          csvBtn.appendChild(document.createTextNode(" " + NativeUI.t("导出 CSV", "Export CSV")));
           csvBtn.onclick = () => this.doExportCSV();
           container.appendChild(csvBtn);
           const mdBtn = document.createElement("button");
           mdBtn.className = "settings-btn";
           mdBtn.style.cssText = "display:flex;align-items:center;gap:6px;";
           mdBtn.appendChild(createIcon("download", 14));
-          mdBtn.appendChild(document.createTextNode(" Export Markdown"));
+          mdBtn.appendChild(document.createTextNode(" " + NativeUI.t("导出 Markdown", "Export Markdown")));
           mdBtn.onclick = () => this.doExportMarkdown();
           container.appendChild(mdBtn);
           const chatMdBtn = document.createElement("button");
           chatMdBtn.className = "settings-btn";
           chatMdBtn.style.cssText = "display:flex;align-items:center;gap:6px;";
           chatMdBtn.appendChild(createIcon("download", 14));
-          chatMdBtn.appendChild(document.createTextNode(" Export Current Chat"));
+          chatMdBtn.appendChild(document.createTextNode(" " + NativeUI.t("导出当前对话", "Export Current Chat")));
           chatMdBtn.onclick = () => this.exportCurrentChatMarkdown();
           container.appendChild(chatMdBtn);
           const chatHtmlBtn = document.createElement("button");
           chatHtmlBtn.className = "settings-btn";
           chatHtmlBtn.style.cssText = "display:flex;align-items:center;gap:6px;";
           chatHtmlBtn.appendChild(createIcon("download", 14));
-          chatHtmlBtn.appendChild(document.createTextNode(" Export Current Chat HTML"));
+          chatHtmlBtn.appendChild(document.createTextNode(" " + NativeUI.t("导出当前对话 HTML", "Export Current Chat HTML")));
           chatHtmlBtn.onclick = () => this.exportCurrentChatHTML();
           container.appendChild(chatHtmlBtn);
         }
@@ -7946,7 +7949,7 @@
           title.className = "section-title";
           title.style.cssText = "display:flex;justify-content:space-between;align-items:center;";
           const label = document.createElement("span");
-          label.textContent = "Message Queue";
+          label.textContent = NativeUI.t("消息队列", "Message Queue");
           const count = document.createElement("span");
           count.style.opacity = "0.7";
           count.textContent = `${stats.queued}/${stats.total}`;
@@ -8315,7 +8318,7 @@ ${part}`).join("\n\n---\n\n");
           btn.id = NATIVE_ID;
           btn.className = "gc-input-btn";
           btn.appendChild(createIcon("gem", 16));
-          btn.title = "Prompt Vault";
+          btn.title = NativeUI.t("提示词金库", "Prompt Vault");
           btn.onclick = (e) => {
             e.stopPropagation();
             this._toggleQuickMenu(btn);
@@ -8577,11 +8580,11 @@ ${part}`).join("\n\n---\n\n");
           title.className = "section-title";
           title.style.cssText = "display: flex; justify-content: space-between; align-items: center;";
           const titleText = document.createElement("span");
-          titleText.textContent = "Prompt Vault";
+          titleText.textContent = NativeUI.t("提示词金库", "Prompt Vault");
           const addBtn = document.createElement("span");
           addBtn.style.cssText = "font-size: 12px; cursor: pointer; opacity: 0.6;";
           addBtn.textContent = "+";
-          addBtn.title = "Add new prompt";
+          addBtn.title = NativeUI.t("新增提示词", "Add new prompt");
           addBtn.onclick = (e) => {
             e.stopPropagation();
             this.showPromptEditor(null);
@@ -8614,7 +8617,7 @@ ${part}`).join("\n\n---\n\n");
           if (this._prompts.length === 0) {
             const hint = document.createElement("div");
             hint.style.cssText = "font-size: 10px; color: var(--text-sub); opacity: 0.6; padding: 4px 8px;";
-            hint.textContent = "No saved prompts. Click + to add.";
+            hint.textContent = NativeUI.t("暂无提示词。点击 + 添加。", "No saved prompts. Click + to add.");
             container.appendChild(hint);
             this._appendPromptIORow(container);
             return;
@@ -8645,7 +8648,7 @@ ${part}`).join("\n\n---\n\n");
               const insertBtn = document.createElement("span");
               insertBtn.style.cssText = "cursor: pointer; display: flex; align-items: center; justify-content: center; width: 14px; height: 14px;";
               insertBtn.appendChild(createIcon("copy", 12));
-              insertBtn.title = "Insert into chat";
+              insertBtn.title = NativeUI.t("插入到对话", "Insert into chat");
               insertBtn.onclick = (e) => {
                 e.stopPropagation();
                 this.insertPrompt(p.content, p.id);
@@ -8653,7 +8656,7 @@ ${part}`).join("\n\n---\n\n");
               const queueBtn = document.createElement("span");
               queueBtn.style.cssText = "cursor: pointer; display: flex; align-items: center; justify-content: center; width: 14px; height: 14px;";
               queueBtn.appendChild(createIcon("package", 12));
-              queueBtn.title = p.chainSteps?.length ? "Queue prompt chain" : "Add to queue";
+              queueBtn.title = p.chainSteps?.length ? NativeUI.t("加入提示词链队列", "Queue prompt chain") : NativeUI.t("加入队列", "Add to queue");
               queueBtn.onclick = (e) => {
                 e.stopPropagation();
                 this.queuePrompt(p);
@@ -8661,7 +8664,7 @@ ${part}`).join("\n\n---\n\n");
               const favoriteBtn = document.createElement("span");
               favoriteBtn.style.cssText = `cursor: pointer; display: flex; align-items: center; justify-content: center; width: 14px; height: 14px; color: ${p.favorite ? "var(--accent)" : "inherit"};`;
               favoriteBtn.appendChild(createIcon("pin", 12));
-              favoriteBtn.title = p.favorite ? "Unfavorite" : "Favorite";
+              favoriteBtn.title = p.favorite ? NativeUI.t("取消收藏", "Unfavorite") : NativeUI.t("收藏", "Favorite");
               favoriteBtn.onclick = (e) => {
                 e.stopPropagation();
                 this.togglePromptFavorite(p.id);
@@ -8780,7 +8783,7 @@ ${part}`).join("\n\n---\n\n");
           const header = document.createElement("div");
           header.className = "settings-header";
           const h3 = document.createElement("h3");
-          h3.textContent = existing ? "Edit Prompt" : "New Prompt";
+          h3.textContent = existing ? NativeUI.t("编辑提示词", "Edit Prompt") : NativeUI.t("新建提示词", "New Prompt");
           const closeBtn = document.createElement("span");
           closeBtn.className = "settings-close";
           closeBtn.textContent = "";
@@ -8793,30 +8796,30 @@ ${part}`).join("\n\n---\n\n");
           const nameInput = document.createElement("input");
           nameInput.className = "settings-select";
           nameInput.style.cssText = "width: 100%; margin-bottom: 8px; padding: 8px; box-sizing: border-box;";
-          nameInput.placeholder = "Prompt name";
+          nameInput.placeholder = NativeUI.t("提示词名称", "Prompt name");
           nameInput.value = existing ? existing.name : "";
           const catInput = document.createElement("input");
           catInput.className = "settings-select";
           catInput.style.cssText = "width: 100%; margin-bottom: 8px; padding: 8px; box-sizing: border-box;";
-          catInput.placeholder = "Category (e.g. Coding, Writing)";
+          catInput.placeholder = NativeUI.t("分类（例如 Coding, Writing）", "Category (e.g. Coding, Writing)");
           catInput.value = existing ? existing.category : "General";
           const shortcutInput = document.createElement("input");
           shortcutInput.className = "settings-select";
           shortcutInput.style.cssText = "width: 100%; margin-bottom: 8px; padding: 8px; box-sizing: border-box;";
-          shortcutInput.placeholder = "Slash shortcut (e.g. /review)";
+          shortcutInput.placeholder = NativeUI.t("Slash 快捷命令（例如 /review）", "Slash shortcut (e.g. /review)");
           shortcutInput.value = existing?.shortcut ? "/" + existing.shortcut : "";
           const chainArea = document.createElement("textarea");
           chainArea.style.cssText = "width: 100%; height: 96px; padding: 8px; font-size: 12px; border-radius: 6px; border: 1px solid var(--border, rgba(255,255,255,0.1)); background: var(--input-bg, rgba(255,255,255,0.05)); color: var(--text-main, #fff); resize: vertical; box-sizing: border-box; font-family: inherit; margin-bottom: 8px;";
-          chainArea.placeholder = "Optional chain steps. Separate each step with ---";
+          chainArea.placeholder = NativeUI.t("可选 chain steps。用 --- 分隔每一步。", "Optional chain steps. Separate each step with ---");
           chainArea.value = existing?.chainSteps?.length ? existing.chainSteps.join("\n---\n") : "";
           const contentArea = document.createElement("textarea");
           contentArea.style.cssText = "width: 100%; height: 120px; padding: 8px; font-size: 12px; border-radius: 6px; border: 1px solid var(--border, rgba(255,255,255,0.1)); background: var(--input-bg, rgba(255,255,255,0.05)); color: var(--text-main, #fff); resize: vertical; box-sizing: border-box; font-family: inherit;";
-          contentArea.placeholder = "Enter your prompt template...";
+          contentArea.placeholder = NativeUI.t("输入提示词模板...", "Enter your prompt template...");
           contentArea.value = existing ? existing.content : "";
           const saveBtn = document.createElement("button");
           saveBtn.className = "settings-btn";
           saveBtn.style.cssText = "background: var(--accent, #8ab4f8); color: #000; font-weight: 500; margin-top: 8px;";
-          saveBtn.textContent = existing ? "Save" : "Create";
+          saveBtn.textContent = existing ? NativeUI.t("保存", "Save") : NativeUI.t("创建", "Create");
           saveBtn.onclick = () => {
             const name = nameInput.value.trim() || "Untitled";
             const content = contentArea.value.trim();
@@ -10210,7 +10213,7 @@ ${part}`).join("\n\n---\n\n");
           title.className = "section-title";
           title.style.cssText = "display:flex;justify-content:space-between;align-items:center;";
           const label = document.createElement("span");
-          label.textContent = "Chat Notes";
+          label.textContent = NativeUI.t("对话笔记", "Chat Notes");
           const count = document.createElement("span");
           count.style.opacity = "0.7";
           count.textContent = `${stats.total}/${stats.pinned}`;

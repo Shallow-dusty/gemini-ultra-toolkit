@@ -195,4 +195,26 @@ describe('app smoke checks', () => {
         assert.match(chatNotes, /notes\.slice\(0, 8\)/);
         assert.doesNotMatch(chatNotes, /getCurrentConversationMessages/);
     });
+
+    it('keeps recently hardened module labels localized', () => {
+        const exportModule = read('src/modules/export.js');
+        const promptVault = read('src/modules/prompt_vault.js');
+        const messageQueue = read('src/modules/message_queue.js');
+        const chatNotes = read('src/modules/chat_notes.js');
+
+        assert.match(exportModule, /NativeUI\.t\('当前对话', 'Current Chat'\)/);
+        assert.match(exportModule, /NativeUI\.t\('选中对话', 'Selected Chats'\)/);
+        assert.doesNotMatch(exportModule, /textContent = 'Current Chat'/);
+        assert.doesNotMatch(exportModule, /textContent = 'Selected Chats'/);
+
+        assert.match(promptVault, /NativeUI\.t\('提示词金库', 'Prompt Vault'\)/);
+        assert.match(promptVault, /NativeUI\.t\('提示词名称', 'Prompt name'\)/);
+        assert.match(promptVault, /NativeUI\.t\('新建提示词', 'New Prompt'\)/);
+        assert.doesNotMatch(promptVault, /title = 'Prompt Vault'/);
+        assert.doesNotMatch(promptVault, /placeholder = 'Prompt name'/);
+        assert.doesNotMatch(promptVault, /textContent = 'No saved prompts/);
+
+        assert.match(messageQueue, /NativeUI\.t\('消息队列', 'Message Queue'\)/);
+        assert.match(chatNotes, /NativeUI\.t\('对话笔记', 'Chat Notes'\)/);
+    });
 });

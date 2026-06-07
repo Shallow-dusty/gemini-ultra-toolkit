@@ -84,7 +84,7 @@ export const PromptVaultModule = {
         btn.id = NATIVE_ID;
         btn.className = 'gc-input-btn';
         btn.appendChild(createIcon('gem', 16));
-        btn.title = 'Prompt Vault';
+        btn.title = NativeUI.t('提示词金库', 'Prompt Vault');
         btn.onclick = (e) => {
             e.stopPropagation();
             this._toggleQuickMenu(btn);
@@ -358,11 +358,11 @@ export const PromptVaultModule = {
         title.className = 'section-title';
         title.style.cssText = 'display: flex; justify-content: space-between; align-items: center;';
         const titleText = document.createElement('span');
-        titleText.textContent = 'Prompt Vault';
+        titleText.textContent = NativeUI.t('提示词金库', 'Prompt Vault');
         const addBtn = document.createElement('span');
         addBtn.style.cssText = 'font-size: 12px; cursor: pointer; opacity: 0.6;';
         addBtn.textContent = '+';
-        addBtn.title = 'Add new prompt';
+        addBtn.title = NativeUI.t('新增提示词', 'Add new prompt');
         addBtn.onclick = (e) => {
             e.stopPropagation();
             this.showPromptEditor(null);
@@ -400,7 +400,7 @@ export const PromptVaultModule = {
         if (this._prompts.length === 0) {
             const hint = document.createElement('div');
             hint.style.cssText = 'font-size: 10px; color: var(--text-sub); opacity: 0.6; padding: 4px 8px;';
-            hint.textContent = 'No saved prompts. Click + to add.';
+            hint.textContent = NativeUI.t('暂无提示词。点击 + 添加。', 'No saved prompts. Click + to add.');
             container.appendChild(hint);
             this._appendPromptIORow(container);
             return;
@@ -438,19 +438,19 @@ export const PromptVaultModule = {
                 const insertBtn = document.createElement('span');
                 insertBtn.style.cssText = 'cursor: pointer; display: flex; align-items: center; justify-content: center; width: 14px; height: 14px;';
                 insertBtn.appendChild(createIcon('copy', 12));
-                insertBtn.title = 'Insert into chat';
+                insertBtn.title = NativeUI.t('插入到对话', 'Insert into chat');
                 insertBtn.onclick = (e) => { e.stopPropagation(); this.insertPrompt(p.content, p.id); };
 
                 const queueBtn = document.createElement('span');
                 queueBtn.style.cssText = 'cursor: pointer; display: flex; align-items: center; justify-content: center; width: 14px; height: 14px;';
                 queueBtn.appendChild(createIcon('package', 12));
-                queueBtn.title = p.chainSteps?.length ? 'Queue prompt chain' : 'Add to queue';
+                queueBtn.title = p.chainSteps?.length ? NativeUI.t('加入提示词链队列', 'Queue prompt chain') : NativeUI.t('加入队列', 'Add to queue');
                 queueBtn.onclick = (e) => { e.stopPropagation(); this.queuePrompt(p); };
 
                 const favoriteBtn = document.createElement('span');
                 favoriteBtn.style.cssText = `cursor: pointer; display: flex; align-items: center; justify-content: center; width: 14px; height: 14px; color: ${p.favorite ? 'var(--accent)' : 'inherit'};`;
                 favoriteBtn.appendChild(createIcon('pin', 12));
-                favoriteBtn.title = p.favorite ? 'Unfavorite' : 'Favorite';
+                favoriteBtn.title = p.favorite ? NativeUI.t('取消收藏', 'Unfavorite') : NativeUI.t('收藏', 'Favorite');
                 favoriteBtn.onclick = (e) => {
                     e.stopPropagation();
                     this.togglePromptFavorite(p.id);
@@ -570,7 +570,7 @@ export const PromptVaultModule = {
         const header = document.createElement('div');
         header.className = 'settings-header';
         const h3 = document.createElement('h3');
-        h3.textContent = existing ? 'Edit Prompt' : 'New Prompt';
+        h3.textContent = existing ? NativeUI.t('编辑提示词', 'Edit Prompt') : NativeUI.t('新建提示词', 'New Prompt');
         const closeBtn = document.createElement('span');
         closeBtn.className = 'settings-close';
         closeBtn.textContent = '';
@@ -585,35 +585,35 @@ export const PromptVaultModule = {
         const nameInput = document.createElement('input');
         nameInput.className = 'settings-select';
         nameInput.style.cssText = 'width: 100%; margin-bottom: 8px; padding: 8px; box-sizing: border-box;';
-        nameInput.placeholder = 'Prompt name';
+        nameInput.placeholder = NativeUI.t('提示词名称', 'Prompt name');
         nameInput.value = existing ? existing.name : '';
 
         const catInput = document.createElement('input');
         catInput.className = 'settings-select';
         catInput.style.cssText = 'width: 100%; margin-bottom: 8px; padding: 8px; box-sizing: border-box;';
-        catInput.placeholder = 'Category (e.g. Coding, Writing)';
+        catInput.placeholder = NativeUI.t('分类（例如 Coding, Writing）', 'Category (e.g. Coding, Writing)');
         catInput.value = existing ? existing.category : 'General';
 
         const shortcutInput = document.createElement('input');
         shortcutInput.className = 'settings-select';
         shortcutInput.style.cssText = 'width: 100%; margin-bottom: 8px; padding: 8px; box-sizing: border-box;';
-        shortcutInput.placeholder = 'Slash shortcut (e.g. /review)';
+        shortcutInput.placeholder = NativeUI.t('Slash 快捷命令（例如 /review）', 'Slash shortcut (e.g. /review)');
         shortcutInput.value = existing?.shortcut ? '/' + existing.shortcut : '';
 
         const chainArea = document.createElement('textarea');
         chainArea.style.cssText = 'width: 100%; height: 96px; padding: 8px; font-size: 12px; border-radius: 6px; border: 1px solid var(--border, rgba(255,255,255,0.1)); background: var(--input-bg, rgba(255,255,255,0.05)); color: var(--text-main, #fff); resize: vertical; box-sizing: border-box; font-family: inherit; margin-bottom: 8px;';
-        chainArea.placeholder = 'Optional chain steps. Separate each step with ---';
+        chainArea.placeholder = NativeUI.t('可选 chain steps。用 --- 分隔每一步。', 'Optional chain steps. Separate each step with ---');
         chainArea.value = existing?.chainSteps?.length ? existing.chainSteps.join('\n---\n') : '';
 
         const contentArea = document.createElement('textarea');
         contentArea.style.cssText = 'width: 100%; height: 120px; padding: 8px; font-size: 12px; border-radius: 6px; border: 1px solid var(--border, rgba(255,255,255,0.1)); background: var(--input-bg, rgba(255,255,255,0.05)); color: var(--text-main, #fff); resize: vertical; box-sizing: border-box; font-family: inherit;';
-        contentArea.placeholder = 'Enter your prompt template...';
+        contentArea.placeholder = NativeUI.t('输入提示词模板...', 'Enter your prompt template...');
         contentArea.value = existing ? existing.content : '';
 
         const saveBtn = document.createElement('button');
         saveBtn.className = 'settings-btn';
         saveBtn.style.cssText = 'background: var(--accent, #8ab4f8); color: #000; font-weight: 500; margin-top: 8px;';
-        saveBtn.textContent = existing ? 'Save' : 'Create';
+        saveBtn.textContent = existing ? NativeUI.t('保存', 'Save') : NativeUI.t('创建', 'Create');
         saveBtn.onclick = () => {
             const name = nameInput.value.trim() || 'Untitled';
             const content = contentArea.value.trim();

@@ -59,7 +59,7 @@ export const ExportModule = {
         btn.id = NATIVE_ID;
         btn.className = 'gc-header-btn';
         btn.appendChild(createIcon('download', 16));
-        btn.title = 'Export conversation';
+        btn.title = NativeUI.t('导出对话', 'Export conversation');
         btn.onclick = (e) => {
             e.stopPropagation();
             this._toggleExportMenu(btn);
@@ -87,13 +87,13 @@ export const ExportModule = {
         menu.style.cssText = 'top:100%;right:0;margin-top:4px;';
 
         const items = [
-            { icon: 'file-text', text: 'Usage JSON', action: () => this.exportJSON() },
-            { icon: 'chart', text: 'Usage CSV', action: () => this.doExportCSV() },
-            { icon: 'edit', text: 'Usage Markdown', action: () => this.doExportMarkdown() },
-            { icon: 'file-text', text: 'Chat JSON', action: () => this.exportCurrentChatJSON() },
-            { icon: 'edit', text: 'Chat Markdown', action: () => this.exportCurrentChatMarkdown() },
-            { icon: 'file-text', text: 'Chat TXT', action: () => this.exportCurrentChatText() },
-            { icon: 'file-text', text: 'Chat HTML', action: () => this.exportCurrentChatHTML() }
+            { icon: 'file-text', text: NativeUI.t('用量 JSON', 'Usage JSON'), action: () => this.exportJSON() },
+            { icon: 'chart', text: NativeUI.t('用量 CSV', 'Usage CSV'), action: () => this.doExportCSV() },
+            { icon: 'edit', text: NativeUI.t('用量 Markdown', 'Usage Markdown'), action: () => this.doExportMarkdown() },
+            { icon: 'file-text', text: NativeUI.t('对话 JSON', 'Chat JSON'), action: () => this.exportCurrentChatJSON() },
+            { icon: 'edit', text: NativeUI.t('对话 Markdown', 'Chat Markdown'), action: () => this.exportCurrentChatMarkdown() },
+            { icon: 'file-text', text: NativeUI.t('对话 TXT', 'Chat TXT'), action: () => this.exportCurrentChatText() },
+            { icon: 'file-text', text: NativeUI.t('对话 HTML', 'Chat HTML'), action: () => this.exportCurrentChatHTML() }
         ];
 
         items.forEach(item => {
@@ -504,7 +504,7 @@ export const ExportModule = {
 
         const currentTitle = document.createElement('div');
         currentTitle.className = 'section-title';
-        currentTitle.textContent = 'Current Chat';
+        currentTitle.textContent = NativeUI.t('当前对话', 'Current Chat');
         section.appendChild(currentTitle);
         section.appendChild(this._buttonRow([
             this._panelButton('JSON', () => this.exportCurrentChatJSON()),
@@ -517,7 +517,7 @@ export const ExportModule = {
         bulkTitle.className = 'section-title';
         bulkTitle.style.cssText = 'display:flex;justify-content:space-between;align-items:center;';
         const bulkLabel = document.createElement('span');
-        bulkLabel.textContent = 'Selected Chats';
+        bulkLabel.textContent = NativeUI.t('选中对话', 'Selected Chats');
         const bulkCount = document.createElement('span');
         bulkCount.textContent = String(this._bulkSelected.size);
         bulkTitle.appendChild(bulkLabel);
@@ -532,15 +532,15 @@ export const ExportModule = {
             section.appendChild(empty);
         } else {
             const actions = this._buttonRow([
-                this._panelButton('All', () => {
+                this._panelButton(NativeUI.t('全选', 'All'), () => {
                     this._selectVisibleBulkChats(chats);
                     PanelUI.renderDetailsPane();
                 }),
-                this._panelButton('Clear', () => {
+                this._panelButton(NativeUI.t('清空', 'Clear'), () => {
                     this._clearBulkSelection();
                     PanelUI.renderDetailsPane();
                 }),
-                this._panelButton('Refresh', () => {
+                this._panelButton(NativeUI.t('刷新', 'Refresh'), () => {
                     Core.invalidateSidebarCache();
                     PanelUI.renderDetailsPane();
                 })
@@ -579,10 +579,13 @@ export const ExportModule = {
         if (this._bulkExporting) {
             const progress = document.createElement('div');
             progress.style.cssText = 'font-size:10px;color:var(--accent);margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
-            progress.textContent = `Exporting ${this._bulkProgress.current}/${this._bulkProgress.total}: ${this._bulkProgress.title}`;
+            progress.textContent = NativeUI.t(
+                `正在导出 ${this._bulkProgress.current}/${this._bulkProgress.total}: ${this._bulkProgress.title}`,
+                `Exporting ${this._bulkProgress.current}/${this._bulkProgress.total}: ${this._bulkProgress.title}`
+            );
             section.appendChild(progress);
             section.appendChild(this._buttonRow([
-                this._panelButton('Cancel', () => {
+                this._panelButton(NativeUI.t('取消', 'Cancel'), () => {
                     this._bulkCancelRequested = true;
                 }, { style: 'width:auto;flex:1;padding:5px 6px;font-size:10px;margin-top:0;color:#f28b82;' })
             ]));
@@ -619,7 +622,7 @@ export const ExportModule = {
         jsonBtn.className = 'settings-btn';
         jsonBtn.style.cssText = 'display:flex;align-items:center;gap:6px;';
         jsonBtn.appendChild(createIcon('download', 14));
-        jsonBtn.appendChild(document.createTextNode(' Export JSON'));
+        jsonBtn.appendChild(document.createTextNode(' ' + NativeUI.t('导出 JSON', 'Export JSON')));
         jsonBtn.onclick = () => this.exportJSON();
         container.appendChild(jsonBtn);
 
@@ -627,7 +630,7 @@ export const ExportModule = {
         csvBtn.className = 'settings-btn';
         csvBtn.style.cssText = 'display:flex;align-items:center;gap:6px;';
         csvBtn.appendChild(createIcon('download', 14));
-        csvBtn.appendChild(document.createTextNode(' Export CSV'));
+        csvBtn.appendChild(document.createTextNode(' ' + NativeUI.t('导出 CSV', 'Export CSV')));
         csvBtn.onclick = () => this.doExportCSV();
         container.appendChild(csvBtn);
 
@@ -635,7 +638,7 @@ export const ExportModule = {
         mdBtn.className = 'settings-btn';
         mdBtn.style.cssText = 'display:flex;align-items:center;gap:6px;';
         mdBtn.appendChild(createIcon('download', 14));
-        mdBtn.appendChild(document.createTextNode(' Export Markdown'));
+        mdBtn.appendChild(document.createTextNode(' ' + NativeUI.t('导出 Markdown', 'Export Markdown')));
         mdBtn.onclick = () => this.doExportMarkdown();
         container.appendChild(mdBtn);
 
@@ -643,7 +646,7 @@ export const ExportModule = {
         chatMdBtn.className = 'settings-btn';
         chatMdBtn.style.cssText = 'display:flex;align-items:center;gap:6px;';
         chatMdBtn.appendChild(createIcon('download', 14));
-        chatMdBtn.appendChild(document.createTextNode(' Export Current Chat'));
+        chatMdBtn.appendChild(document.createTextNode(' ' + NativeUI.t('导出当前对话', 'Export Current Chat')));
         chatMdBtn.onclick = () => this.exportCurrentChatMarkdown();
         container.appendChild(chatMdBtn);
 
@@ -651,7 +654,7 @@ export const ExportModule = {
         chatHtmlBtn.className = 'settings-btn';
         chatHtmlBtn.style.cssText = 'display:flex;align-items:center;gap:6px;';
         chatHtmlBtn.appendChild(createIcon('download', 14));
-        chatHtmlBtn.appendChild(document.createTextNode(' Export Current Chat HTML'));
+        chatHtmlBtn.appendChild(document.createTextNode(' ' + NativeUI.t('导出当前对话 HTML', 'Export Current Chat HTML')));
         chatHtmlBtn.onclick = () => this.exportCurrentChatHTML();
         container.appendChild(chatHtmlBtn);
     }
