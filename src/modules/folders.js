@@ -7,6 +7,12 @@ import { PanelUI } from '../panel_ui.js';
 import { CounterModule } from './counter.js';
 import { GeminiAdapter } from '../adapters/gemini.js';
 import { createIcon } from '../icons.js';
+import {
+    deleteFolderForUndo,
+    moveChatsToFolderForUndo,
+    restoreDeletedFolder,
+    restoreFolderMove
+} from '../../lib/folder_tools.js';
 
 // Helper: validate href is safe (relative URL, not javascript: or data:)
 function isValidChatHref(href) {
@@ -63,10 +69,12 @@ export const FoldersModule = {
     _batchSelected: new Set(),
     _activeFilter: null,
     _initTimeout: null,
+    _lastFolderUndo: null,
 
     // --- \u751F\u547D\u5468\u671F ---
     init() {
         this.loadData();
+        this._lastFolderUndo = null;
         this.injectStyles();
         this.startObserver();
         Logger.info('FoldersModule initialized', { mode: 'pure' });
@@ -82,6 +90,7 @@ export const FoldersModule = {
         // 清理拖拽状态
         this.dragState = null;
         this.folderDragState = null;
+        this._lastFolderUndo = null;
         // \u79FB\u9664\u4FA7\u8FB9\u680F\u7684\u989C\u8272\u6807\u8BB0
         document.querySelectorAll('.gf-sidebar-dot').forEach(el => el.remove());
         // \u79FB\u9664\u6A21\u6001\u6846
@@ -109,6 +118,7 @@ export const FoldersModule = {
 
     onUserChange(user) {
         this.loadData();
+        this._lastFolderUndo = null;
         this._activeFilter = null;
         // removeNativeUI() wipes the filter bar; without a follow-up re-inject
         // the bar stays gone until Gemini next mutates the sidebar, which
@@ -258,19 +268,13 @@ export const FoldersModule = {
     },
 
     deleteFolder(folderId) {
-        if (!this.data.folders[folderId]) return;
-        // \u79FB\u9664\u6587\u4EF6\u5939\u5185\u7684\u804A\u5929\u6620\u5C04
-        Object.keys(this.data.chatToFolder).forEach(chatId => {
-            if (this.data.chatToFolder[chatId] === folderId) {
-                delete this.data.chatToFolder[chatId];
-            }
-        });
-        delete this.data.folders[folderId];
-        this.data.folderOrder = this.data.folderOrder.filter(id => id !== folderId);
-        this.saveData();
-        this.markSidebarChats();
-        this._refreshFilterBar();
-        PanelUI.renderDetailsPane();
+        const result = deleteFolderForUndo(this.data, folderId, { nowIso: new Date().toISOString() });
+        if (!result.undo) return;
+        this.data = result.data;
+        this._lastFolderUndo = result.undo;
+        if (this._activeFilter === result.undo.folderId) this._activeFilter = null;
+        this._persistFolderChanges();
+        NativeUI.showToast(NativeUI.t('文件夹已删除，可撤销', 'Folder deleted. Undo is available'));
     },
 
     toggleFolderCollapse(folderId) {
@@ -300,14 +304,12 @@ export const FoldersModule = {
     },
 
     moveChatToFolder(chatId, folderId) {
-        if (folderId === null) {
-            delete this.data.chatToFolder[chatId];
-        } else {
-            this.data.chatToFolder[chatId] = folderId;
-        }
-        this.saveData();
-        this.markSidebarChats();
-        PanelUI.renderDetailsPane();
+        const result = moveChatsToFolderForUndo(this.data, [chatId], folderId, { nowIso: new Date().toISOString() });
+        if (!result.undo) return;
+        this.data = result.data;
+        this._lastFolderUndo = result.undo;
+        this._persistFolderChanges();
+        NativeUI.showToast(NativeUI.t('对话已移动，可撤销', 'Chat moved. Undo is available'));
     },
 
     reorderFolder(draggedId, targetId, position) {
@@ -322,17 +324,41 @@ export const FoldersModule = {
     },
 
     batchMoveToFolder(targetFolderId) {
-        this._batchSelected.forEach(chatId => {
-            if (targetFolderId === null) {
-                delete this.data.chatToFolder[chatId];
-            } else {
-                this.data.chatToFolder[chatId] = targetFolderId;
-            }
-        });
+        const result = moveChatsToFolderForUndo(this.data, [...this._batchSelected], targetFolderId, { nowIso: new Date().toISOString() });
+        this.data = result.data;
+        if (result.undo) {
+            this._lastFolderUndo = result.undo;
+            NativeUI.showToast(NativeUI.t('批量移动已完成，可撤销', 'Batch move complete. Undo is available'));
+        }
         this._batchSelected.clear();
         this._batchMode = false;
+        this._persistFolderChanges();
+    },
+
+    undoLastFolderAction() {
+        if (!this._lastFolderUndo) return;
+        const undo = this._lastFolderUndo;
+        const result = undo.type === 'folder-delete'
+            ? restoreDeletedFolder(this.data, undo)
+            : restoreFolderMove(this.data, undo);
+
+        this._lastFolderUndo = null;
+        if (!result.restored) {
+            PanelUI.renderDetailsPane();
+            NativeUI.showToast(NativeUI.t('无法撤销最近的文件夹操作', 'Unable to undo the latest folder change'));
+            return;
+        }
+
+        this.data = result.data;
+        this._persistFolderChanges();
+        NativeUI.showToast(NativeUI.t('已撤销文件夹操作', 'Folder change undone'));
+    },
+
+    _persistFolderChanges() {
         this.saveData();
         this.markSidebarChats();
+        this._applyFilter(this._activeFilter);
+        this._refreshFilterBar();
         PanelUI.renderDetailsPane();
     },
 
@@ -800,6 +826,28 @@ export const FoldersModule = {
         title.appendChild(titleText);
         title.appendChild(batchToggle);
         container.appendChild(title);
+
+        if (this._lastFolderUndo) {
+            const undoRow = document.createElement('div');
+            undoRow.className = 'detail-row';
+            undoRow.style.cssText = 'display:flex;align-items:center;gap:6px;';
+            const label = document.createElement('span');
+            label.style.cssText = 'flex:1;font-size:10px;color:var(--text-sub);';
+            label.textContent = this._lastFolderUndo.type === 'folder-delete'
+                ? NativeUI.t('文件夹删除可撤销', 'Folder delete can be undone')
+                : NativeUI.t('文件夹移动可撤销', 'Folder move can be undone');
+            const undoBtn = document.createElement('button');
+            undoBtn.className = 'settings-btn';
+            undoBtn.style.cssText = 'width:auto;margin-top:0;padding:3px 8px;font-size:10px;';
+            undoBtn.textContent = NativeUI.t('撤销', 'Undo');
+            undoBtn.onclick = (e) => {
+                e.stopPropagation();
+                this.undoLastFolderAction();
+            };
+            undoRow.appendChild(label);
+            undoRow.appendChild(undoBtn);
+            container.appendChild(undoRow);
+        }
 
         // Batch action bar
         if (this._batchMode && this._batchSelected.size > 0) {

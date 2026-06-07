@@ -1,6 +1,6 @@
 # Current Audit Status
 
-Updated: 2026-06-08 — covers v12.0 plus post-release dependency-audit repair.
+Updated: 2026-06-08 — covers v12.0 plus post-release dependency-audit repair and local folder undo.
 
 This is the maintained audit summary for v12.0. v12 inherits all v11 protections and adds a `src/adapters/gemini.js` abstraction layer for DOM coupling (see ROADMAP.md). Reviewed across 5 self-audit passes plus 3 independent agent reviews (architecture / generic code / userscript-specific). No `critical` findings; all `important` items addressed before release. v11.0 baseline below remains the audit reference for shared logic.
 
@@ -22,6 +22,9 @@ Implemented protections:
   than treating sidebar titles as conversation content.
 - Prompt Vault local deletes keep a one-step undo record in memory so accidental
   local prompt removal can be restored before the next delete/session reset.
+- Local folder moves, batch moves, unassignments, and folder deletes keep a
+  one-step undo record in memory; restore is conflict-safe and does not promise
+  recovery for Gemini server-side chat deletes.
 - GM_* reads and writes are wrapped defensively in source paths that can run in Tampermonkey or the extension polyfill.
 - 2026-06-08: `npm audit --audit-level=moderate` reports 0 vulnerabilities
   after updating `brace-expansion` from `5.0.5` to `5.0.6`.

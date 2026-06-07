@@ -5459,6 +5459,171 @@
     }
   });
 
+  // lib/folder_tools.js
+  var require_folder_tools = __commonJS({
+    "lib/folder_tools.js"(exports, module) {
+      function toId(value) {
+        if (value === null || value === void 0) return "";
+        return String(value).trim();
+      }
+      function toNullableFolderId(value) {
+        const id = toId(value);
+        return id || null;
+      }
+      function cloneFolderData(data) {
+        const source = data && typeof data === "object" ? data : {};
+        const rawFolders = source.folders && typeof source.folders === "object" ? source.folders : {};
+        const folders = {};
+        Object.entries(rawFolders).forEach(([id, folder]) => {
+          folders[id] = folder && typeof folder === "object" ? { ...folder } : folder;
+        });
+        const chatToFolder = source.chatToFolder && typeof source.chatToFolder === "object" ? { ...source.chatToFolder } : {};
+        const folderOrder = Array.isArray(source.folderOrder) ? [...source.folderOrder] : Object.keys(folders);
+        return { folders, chatToFolder, folderOrder };
+      }
+      function getNowIso(opts = {}) {
+        return opts.nowIso || (/* @__PURE__ */ new Date()).toISOString();
+      }
+      function getCurrentFolderId(chatToFolder, chatId) {
+        return Object.prototype.hasOwnProperty.call(chatToFolder, chatId) ? chatToFolder[chatId] : null;
+      }
+      function normalizeChatIds(chatIds) {
+        const raw = Array.isArray(chatIds) ? chatIds : [chatIds];
+        const seen = /* @__PURE__ */ new Set();
+        return raw.map(toId).filter((id) => {
+          if (!id || seen.has(id)) return false;
+          seen.add(id);
+          return true;
+        });
+      }
+      function moveChatsToFolderForUndo2(data, chatIds, targetFolderId, opts = {}) {
+        const next = cloneFolderData(data);
+        const targetId = toNullableFolderId(targetFolderId);
+        if (targetId !== null && !next.folders[targetId]) {
+          return { data: next, undo: null };
+        }
+        const entries = [];
+        normalizeChatIds(chatIds).forEach((chatId) => {
+          const previousFolderId = getCurrentFolderId(next.chatToFolder, chatId);
+          if (previousFolderId === targetId) return;
+          if (targetId === null) {
+            delete next.chatToFolder[chatId];
+          } else {
+            next.chatToFolder[chatId] = targetId;
+          }
+          entries.push({ chatId, previousFolderId, nextFolderId: targetId });
+        });
+        if (entries.length === 0) return { data: next, undo: null };
+        return {
+          data: next,
+          undo: {
+            type: "folder-move",
+            movedAt: getNowIso(opts),
+            targetFolderId: targetId,
+            entries
+          }
+        };
+      }
+      function restoreFolderMove2(data, undo) {
+        const next = cloneFolderData(data);
+        if (!undo || undo.type !== "folder-move" || !Array.isArray(undo.entries)) {
+          return { data: next, restored: false, restoredCount: 0, skippedCount: 0 };
+        }
+        let restoredCount = 0;
+        let skippedCount = 0;
+        undo.entries.forEach((entry) => {
+          const chatId = toId(entry.chatId);
+          const previousFolderId = toNullableFolderId(entry.previousFolderId);
+          const nextFolderId = toNullableFolderId(entry.nextFolderId);
+          const currentFolderId = chatId ? getCurrentFolderId(next.chatToFolder, chatId) : null;
+          const canRestoreTarget = previousFolderId === null || Boolean(next.folders[previousFolderId]);
+          if (!chatId || currentFolderId !== nextFolderId || !canRestoreTarget) {
+            skippedCount++;
+            return;
+          }
+          if (previousFolderId === null) {
+            delete next.chatToFolder[chatId];
+          } else {
+            next.chatToFolder[chatId] = previousFolderId;
+          }
+          restoredCount++;
+        });
+        return {
+          data: next,
+          restored: restoredCount > 0,
+          restoredCount,
+          skippedCount
+        };
+      }
+      function deleteFolderForUndo2(data, folderId, opts = {}) {
+        const next = cloneFolderData(data);
+        const id = toId(folderId);
+        if (!id || !next.folders[id]) {
+          return { data: next, undo: null };
+        }
+        const assignments = Object.entries(next.chatToFolder).filter(([, assignedFolderId]) => assignedFolderId === id).map(([chatId]) => ({ chatId, folderId: id }));
+        assignments.forEach(({ chatId }) => {
+          delete next.chatToFolder[chatId];
+        });
+        const folder = { ...next.folders[id] };
+        const restoreIndex = next.folderOrder.indexOf(id);
+        delete next.folders[id];
+        next.folderOrder = next.folderOrder.filter((existingId) => existingId !== id);
+        return {
+          data: next,
+          undo: {
+            type: "folder-delete",
+            deletedAt: getNowIso(opts),
+            folderId: id,
+            folder,
+            restoreIndex,
+            assignments
+          }
+        };
+      }
+      function restoreDeletedFolder2(data, undo) {
+        const next = cloneFolderData(data);
+        const folderId = toId(undo && undo.folderId);
+        const folder = undo && undo.folder && typeof undo.folder === "object" ? undo.folder : null;
+        if (!undo || undo.type !== "folder-delete" || !folderId || !folder || next.folders[folderId]) {
+          return { data: next, restored: false, restoredAssignments: 0, skippedAssignments: 0 };
+        }
+        next.folders[folderId] = { ...folder };
+        const rawIndex = Number(undo.restoreIndex);
+        const restoreIndex = Number.isInteger(rawIndex) ? Math.max(0, Math.min(rawIndex, next.folderOrder.length)) : next.folderOrder.length;
+        const order = next.folderOrder.filter((id) => id !== folderId);
+        order.splice(restoreIndex, 0, folderId);
+        next.folderOrder = order;
+        let restoredAssignments = 0;
+        let skippedAssignments = 0;
+        const assignments = Array.isArray(undo.assignments) ? undo.assignments : [];
+        assignments.forEach((entry) => {
+          const chatId = toId(entry.chatId);
+          const currentFolderId = chatId ? getCurrentFolderId(next.chatToFolder, chatId) : null;
+          if (!chatId || currentFolderId !== null && Boolean(next.folders[currentFolderId])) {
+            skippedAssignments++;
+            return;
+          }
+          next.chatToFolder[chatId] = folderId;
+          restoredAssignments++;
+        });
+        return {
+          data: next,
+          restored: true,
+          restoredAssignments,
+          skippedAssignments
+        };
+      }
+      module.exports = {
+        cloneFolderData,
+        deleteFolderForUndo: deleteFolderForUndo2,
+        moveChatsToFolderForUndo: moveChatsToFolderForUndo2,
+        restoreDeletedFolder: restoreDeletedFolder2,
+        restoreFolderMove: restoreFolderMove2
+      };
+    }
+  });
+
   // src/modules/folders.js
   function isValidChatHref(href) {
     if (!href || typeof href !== "string") return false;
@@ -5475,7 +5640,7 @@
     if (src.includes("|") && /[+*]|\{\d+,?\d*\}/.test(src)) return false;
     return true;
   }
-  var FoldersModule;
+  var import_folder_tools, FoldersModule;
   var init_folders = __esm({
     "src/modules/folders.js"() {
       init_constants();
@@ -5487,6 +5652,7 @@
       init_counter();
       init_gemini();
       init_icons();
+      import_folder_tools = __toESM(require_folder_tools());
       FoldersModule = {
         id: "folders",
         name: NativeUI.t("对话文件夹", "Chat Folders"),
@@ -5518,9 +5684,11 @@
         _batchSelected: /* @__PURE__ */ new Set(),
         _activeFilter: null,
         _initTimeout: null,
+        _lastFolderUndo: null,
         // --- \u751F\u547D\u5468\u671F ---
         init() {
           this.loadData();
+          this._lastFolderUndo = null;
           this.injectStyles();
           this.startObserver();
           Logger.info("FoldersModule initialized", { mode: "pure" });
@@ -5541,6 +5709,7 @@
           DOMWatcher.unregister("folders-sidebar");
           this.dragState = null;
           this.folderDragState = null;
+          this._lastFolderUndo = null;
           document.querySelectorAll(".gf-sidebar-dot").forEach((el) => el.remove());
           document.querySelectorAll(".gf-modal-overlay").forEach((el) => el.remove());
           if (this.chatCache) {
@@ -5561,6 +5730,7 @@
         },
         onUserChange(user) {
           this.loadData();
+          this._lastFolderUndo = null;
           this._activeFilter = null;
           this.removeNativeUI();
           this.markSidebarChats();
@@ -5690,18 +5860,13 @@
           }
         },
         deleteFolder(folderId) {
-          if (!this.data.folders[folderId]) return;
-          Object.keys(this.data.chatToFolder).forEach((chatId) => {
-            if (this.data.chatToFolder[chatId] === folderId) {
-              delete this.data.chatToFolder[chatId];
-            }
-          });
-          delete this.data.folders[folderId];
-          this.data.folderOrder = this.data.folderOrder.filter((id) => id !== folderId);
-          this.saveData();
-          this.markSidebarChats();
-          this._refreshFilterBar();
-          PanelUI.renderDetailsPane();
+          const result = (0, import_folder_tools.deleteFolderForUndo)(this.data, folderId, { nowIso: (/* @__PURE__ */ new Date()).toISOString() });
+          if (!result.undo) return;
+          this.data = result.data;
+          this._lastFolderUndo = result.undo;
+          if (this._activeFilter === result.undo.folderId) this._activeFilter = null;
+          this._persistFolderChanges();
+          NativeUI.showToast(NativeUI.t("文件夹已删除，可撤销", "Folder deleted. Undo is available"));
         },
         toggleFolderCollapse(folderId) {
           if (this.data.folders[folderId]) {
@@ -5727,14 +5892,12 @@
           }
         },
         moveChatToFolder(chatId, folderId) {
-          if (folderId === null) {
-            delete this.data.chatToFolder[chatId];
-          } else {
-            this.data.chatToFolder[chatId] = folderId;
-          }
-          this.saveData();
-          this.markSidebarChats();
-          PanelUI.renderDetailsPane();
+          const result = (0, import_folder_tools.moveChatsToFolderForUndo)(this.data, [chatId], folderId, { nowIso: (/* @__PURE__ */ new Date()).toISOString() });
+          if (!result.undo) return;
+          this.data = result.data;
+          this._lastFolderUndo = result.undo;
+          this._persistFolderChanges();
+          NativeUI.showToast(NativeUI.t("对话已移动，可撤销", "Chat moved. Undo is available"));
         },
         reorderFolder(draggedId, targetId, position) {
           const order = this.data.folderOrder.filter((id) => id !== draggedId);
@@ -5747,17 +5910,35 @@
           PanelUI.renderDetailsPane();
         },
         batchMoveToFolder(targetFolderId) {
-          this._batchSelected.forEach((chatId) => {
-            if (targetFolderId === null) {
-              delete this.data.chatToFolder[chatId];
-            } else {
-              this.data.chatToFolder[chatId] = targetFolderId;
-            }
-          });
+          const result = (0, import_folder_tools.moveChatsToFolderForUndo)(this.data, [...this._batchSelected], targetFolderId, { nowIso: (/* @__PURE__ */ new Date()).toISOString() });
+          this.data = result.data;
+          if (result.undo) {
+            this._lastFolderUndo = result.undo;
+            NativeUI.showToast(NativeUI.t("批量移动已完成，可撤销", "Batch move complete. Undo is available"));
+          }
           this._batchSelected.clear();
           this._batchMode = false;
+          this._persistFolderChanges();
+        },
+        undoLastFolderAction() {
+          if (!this._lastFolderUndo) return;
+          const undo = this._lastFolderUndo;
+          const result = undo.type === "folder-delete" ? (0, import_folder_tools.restoreDeletedFolder)(this.data, undo) : (0, import_folder_tools.restoreFolderMove)(this.data, undo);
+          this._lastFolderUndo = null;
+          if (!result.restored) {
+            PanelUI.renderDetailsPane();
+            NativeUI.showToast(NativeUI.t("无法撤销最近的文件夹操作", "Unable to undo the latest folder change"));
+            return;
+          }
+          this.data = result.data;
+          this._persistFolderChanges();
+          NativeUI.showToast(NativeUI.t("已撤销文件夹操作", "Folder change undone"));
+        },
+        _persistFolderChanges() {
           this.saveData();
           this.markSidebarChats();
+          this._applyFilter(this._activeFilter);
+          this._refreshFilterBar();
           PanelUI.renderDetailsPane();
         },
         getFolderStats(folderId) {
@@ -6198,6 +6379,25 @@
           title.appendChild(titleText);
           title.appendChild(batchToggle);
           container.appendChild(title);
+          if (this._lastFolderUndo) {
+            const undoRow = document.createElement("div");
+            undoRow.className = "detail-row";
+            undoRow.style.cssText = "display:flex;align-items:center;gap:6px;";
+            const label = document.createElement("span");
+            label.style.cssText = "flex:1;font-size:10px;color:var(--text-sub);";
+            label.textContent = this._lastFolderUndo.type === "folder-delete" ? NativeUI.t("文件夹删除可撤销", "Folder delete can be undone") : NativeUI.t("文件夹移动可撤销", "Folder move can be undone");
+            const undoBtn = document.createElement("button");
+            undoBtn.className = "settings-btn";
+            undoBtn.style.cssText = "width:auto;margin-top:0;padding:3px 8px;font-size:10px;";
+            undoBtn.textContent = NativeUI.t("撤销", "Undo");
+            undoBtn.onclick = (e) => {
+              e.stopPropagation();
+              this.undoLastFolderAction();
+            };
+            undoRow.appendChild(label);
+            undoRow.appendChild(undoBtn);
+            container.appendChild(undoRow);
+          }
           if (this._batchMode && this._batchSelected.size > 0) {
             const batchBar = document.createElement("div");
             batchBar.className = "gf-batch-bar";

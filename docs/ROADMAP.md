@@ -1,6 +1,6 @@
 # Roadmap
 
-Updated: 2026-06-08 (post-v12 planning refresh + Phase 0 audit repair).
+Updated: 2026-06-08 (post-v12 planning refresh + local folder undo).
 
 This is the maintained roadmap. It replaces the old full feature brainstorming document, which mixed implemented features, speculative ideas, and stale project naming.
 
@@ -22,7 +22,9 @@ extension market both change quickly.
 Implemented modules:
 
 - Counter: daily usage, streaks, quota weighting, model breakdown, heatmap/dashboard.
-- Folders: sidebar markers, panel management, search, pinning, drag reorder, batch move, auto-classify rules.
+- Folders: sidebar markers, panel management, search, pinning, drag reorder,
+  batch move, auto-classify rules, and one-step local undo for folder
+  moves/deletes.
 - Export: JSON/CSV/Markdown usage export, current visible conversation
   transcript export, and selected-sidebar chat export in JSON/Markdown/TXT.
 - Prompt Vault: saved prompts, quick insert, import/export, favorites, recent
@@ -99,9 +101,9 @@ Prioritize local-first workflow parity with direct Gemini competitors:
   as a selected-sidebar workflow that navigates each selected chat and captures
   visible transcript text; live Gemini smoke coverage is still due before
   release claims. PDF/DOCX only after dependency and bundle-size review.
-- Local undo/trash safety: Prompt Vault delete undo is implemented; folder-move
-  undo remains open and server-side Gemini chat delete restore remains out of
-  scope unless it can be intercepted before confirmation.
+- Local undo/trash safety: Prompt Vault delete undo and local folder
+  move/delete undo are implemented; server-side Gemini chat delete restore
+  remains out of scope unless it can be intercepted before confirmation.
 - Tool-mode awareness for Canvas, Deep Research, Image, Video, Audio Overview,
   Spark, or equivalent Gemini modes so automations can disable themselves
   safely. Canonical label/state matching is covered by unit tests; visible

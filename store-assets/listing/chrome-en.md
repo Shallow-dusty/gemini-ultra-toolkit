@@ -35,7 +35,7 @@ WHAT IT ADDS
 
 • Heatmap dashboard — GitHub-style year heatmap of your Gemini usage, plus per-model breakdown and per-day drill-down.
 
-• Folders — group sidebar chats into folders with drag-and-drop, color coding, pinning, batch move, and optional auto-classify rules (regex or keyword).
+• Folders — group sidebar chats into folders with drag-and-drop, color coding, pinning, batch move, one-step local undo, and optional auto-classify rules (regex or keyword).
 
 • Export — export usage reports, the current visible chat transcript, or selected sidebar chats to JSON / Markdown / TXT.
 

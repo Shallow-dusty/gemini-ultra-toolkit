@@ -9,7 +9,7 @@ mutable, so refresh this file before any major release or store submission.
 - Local git state is mutable; run `git status --short --branch` before release,
   push, or store submission instead of treating this snapshot as live git truth.
 - Local verification on 2026-06-08:
-  - `npm test` passed: 189 tests, `lib/` at 100% c8 coverage.
+  - `npm test` passed: 212 tests, `lib/` at 100% c8 coverage.
   - `npm run build` passed for userscript and extension outputs.
 - 2026-06-08 follow-up: `brace-expansion` was updated from `5.0.5` to
   `5.0.6`; `npm audit --audit-level=moderate` now reports 0 vulnerabilities.
@@ -83,10 +83,11 @@ Direct competitive gap:
 
 - Primer++ already covers counter, folders, prompt vault, default model, batch
   delete, quote reply, UI tweaks, heatmap, and export.
-- Primer++ still trails the top competitors on bulk export, PDF/DOCX export,
-  pinned messages, image gallery, undo/trash, cross-device sync, and deeper
-  queue automation. Post-planning local message queue and per-chat notes now
-  cover the first parity slice for those two gaps.
+- Primer++ still trails the top competitors on PDF/DOCX export, image gallery,
+  server-side trash/restore, cross-device sync, and deeper queue automation.
+  Post-planning selected-chat export, local message queue, per-chat notes, and
+  local undo for prompts/folders now cover the first parity slice for those
+  gaps.
 - Primer++ has a stronger local-first story than products that disclose
   analytics, cloud sync, or in-app purchases. Keep this as a product boundary,
   not an afterthought.
@@ -161,13 +162,12 @@ Codex CLI/TUI.
     responses.
   - Plan: add adapter probes for rich response zones before media features.
 - Bulk safety
-  - Primer++ v12 plus post-planning implementation: batch delete and local
-    Prompt Vault delete undo; folder-move undo remains open.
+  - Primer++ v12 plus post-planning implementation: batch delete, local Prompt
+    Vault delete undo, and one-step local folder move/delete undo.
   - Market signal: SPG positions trash/restore; TFG has bulk management and
     protected folders.
   - Gemini signal: Gemini delete remains server-side and risky to automate.
-  - Plan: finish undo for local folder moves; avoid promising server-side
-    restore.
+  - Plan: keep local undo conflict-safe; avoid promising server-side restore.
 - UI resilience
   - Primer++ v12: primary adapter covers most Gemini DOM paths; a static smoke
     check now blocks new Gemini selector literals outside the adapter.
@@ -276,7 +276,7 @@ boundary.
      selected-sidebar navigation workflow; live smoke still pending;
    - add PDF/DOCX only after a dependency and bundle-size review.
 5. Undo/trash safety for local operations:
-   - undo folder moves;
+   - ~~undo folder moves/deletes~~ done with a one-step local restore action;
    - ~~undo local prompt deletes~~ done with a Prompt Vault one-step restore
      action;
    - do not promise recovery for Gemini server-side chat deletes unless the

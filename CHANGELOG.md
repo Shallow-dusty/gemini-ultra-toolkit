@@ -2,6 +2,11 @@
 
 > Formerly known as "Gemini Counter Pro" (v1–v8) → "Gemini Primer++" (v9–v10.17) → "Primer++ for Gemini™" (v10.17+)
 
+### Unreleased
+
+- **Local folder undo**: folder moves, batch moves, unassignments, and local folder deletes now keep a one-step in-memory undo record with conflict-safe restore behavior.
+- **Test coverage**: added `lib/folder_tools.js` unit coverage for local folder move/delete undo and restore edge cases.
+
 ### v11.0 Current Release Cleanup
 
 > _2026/05/05_
