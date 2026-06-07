@@ -17,7 +17,7 @@ Primer++ is an unofficial community extension. Gemini™ is a trademark of Googl
 | **Batch Delete** | Select and delete multiple conversations at once |
 | **Quote Reply** | Quote selected text into the input area |
 | **UI Tweaks** | Tab title updates, Ctrl+Enter send, layout customizations |
-| **Chat Notes** | Save local per-chat notes and pins with JSON import/export |
+| **Chat Notes** | Save local per-chat notes and pins, import/export JSON, and insert explicit local reference packets |
 
 All modules can be individually enabled/disabled from the settings panel.
 

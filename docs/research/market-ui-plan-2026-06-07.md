@@ -9,7 +9,7 @@ mutable, so refresh this file before any major release or store submission.
 - Local git state is mutable; run `git status --short --branch` before release,
   push, or store submission instead of treating this snapshot as live git truth.
 - Local verification on 2026-06-08:
-  - `npm test` passed: 221 tests, `lib/` at 100% c8 coverage.
+  - `npm test` passed: 227 tests, `lib/` at 100% c8 coverage.
   - `npm run build` passed for userscript and extension outputs.
 - 2026-06-08 follow-up: `brace-expansion` was updated from `5.0.5` to
   `5.0.6`; `npm audit --audit-level=moderate` now reports 0 vulnerabilities.
@@ -86,8 +86,9 @@ Direct competitive gap:
 - Primer++ still trails the top competitors on PDF/DOCX export, image gallery,
   server-side trash/restore, cross-device sync, and deeper queue automation.
   Post-planning selected-chat export, local message queue, per-chat notes,
-  local undo for prompts/folders, and local JSON import/export for prompts,
-  folders, and notes now cover the first parity slice for those gaps.
+  local undo for prompts/folders, local JSON import/export for prompts,
+  folders, and notes, and explicit local Chat Notes reference insertion now
+  cover the first parity slice for those gaps.
 - Primer++ has a stronger local-first story than products that disclose
   analytics, cloud sync, or in-app purchases. Keep this as a product boundary,
   not an afterthought.
@@ -111,7 +112,8 @@ Codex CLI/TUI.
   - Market signal: SPG has native folders/sidebar management; TFG has folders
     and subfolders.
   - Gemini signal: Gemini has built-in chat-history search on web/mobile.
-  - Plan: folders are parity now; move toward notes, pins, and context packets.
+  - Plan: folders and first-pass notes/references are parity now; keep live
+    compatibility checks current before expanding context packets.
 - Quota visibility
   - Primer++ v12: daily counter, model weighting, heatmap, streaks.
   - Market signal: SPG frames 5-hour and weekly usage; TFG is more word-count
@@ -150,11 +152,13 @@ Codex CLI/TUI.
     claiming current Gemini DOM coverage.
 - Notes/references
   - Primer++ v12 plus post-planning implementation: quote reply plus local
-    per-chat notes and pins with JSON import/export.
+    per-chat notes and pins with JSON import/export, and explicit local
+    reference insertion for saved titles, links, chat IDs, and notes.
   - Market signal: SPG has notes/chat referencing; TFG has pinned messages.
   - Gemini signal: Gemini renamed past chats to memories and adds app
     connections.
-  - Plan: continue toward context packets without mirroring Gemini memories.
+  - Plan: continue toward broader context packets without mirroring Gemini
+    memories or reading hidden transcript content.
 - Rich responses/media
   - Primer++ v12: no image gallery or Neural Expressive handling.
   - Market signal: TFG has image gallery; SPG is not primarily media-positioned.
@@ -268,9 +272,14 @@ boundary.
    - ~~compatible import/export for prompt metadata.~~ done after this planning
      snapshot.
 3. Per-chat notes and pins:
-   - store local notes keyed by chat ID;
-   - pin important messages/sections locally without modifying Gemini data;
-   - expose quick navigation in the panel.
+   - ~~store local notes keyed by chat ID;~~ done after this planning snapshot;
+   - ~~pin important messages/sections locally without modifying Gemini
+     data;~~ done after this planning snapshot;
+   - ~~expose quick navigation in the panel;~~ done after this planning
+     snapshot;
+   - explicit local reference insertion shipped after this planning snapshot;
+     it formats local title/link/chat ID/note data into the composer and does
+     not read hidden Gemini transcript content.
 4. Bulk export upgrade:
    - ~~export selected chats in JSON/Markdown/TXT first~~ done with a
      selected-sidebar navigation workflow; live smoke still pending;
@@ -290,11 +299,14 @@ store screenshots.
 Goal: differentiate from generic folder/export extensions.
 
 1. Local context packets:
+   - first-pass Chat Notes references shipped after this planning snapshot for
+     saved notes, titles, links, and chat IDs;
    - create reusable bundles from selected prompts, notes, chat links, and
      exported snippets;
    - insert them into Gemini via explicit user action.
 2. Chat referencing without server storage:
-   - drag a local chat reference or note into the composer;
+   - ~~insert a local chat reference or note into the composer;~~ done as an
+     icon-button action after this planning snapshot;
    - include title/date/link plus optional local notes, not full hidden chat
      content unless user explicitly exports/selects it.
 3. Memory migration helper:

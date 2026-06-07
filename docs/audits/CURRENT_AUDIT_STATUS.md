@@ -1,6 +1,6 @@
 # Current Audit Status
 
-Updated: 2026-06-08 — covers v12.0 plus post-release dependency-audit repair, local folder undo, and local data portability.
+Updated: 2026-06-08 — covers v12.0 plus post-release dependency-audit repair, local folder undo, local data portability, and local context references.
 
 This is the maintained audit summary for v12.0. v12 inherits all v11 protections and adds a `src/adapters/gemini.js` abstraction layer for DOM coupling (see ROADMAP.md). Reviewed across 5 self-audit passes plus 3 independent agent reviews (architecture / generic code / userscript-specific). No `critical` findings; all `important` items addressed before release. v11.0 baseline below remains the audit reference for shared logic.
 
@@ -28,6 +28,9 @@ Implemented protections:
 - Folder and Chat Notes imports normalize versioned JSON locally, reject empty
   or malformed payloads in the UI, and do not read hidden Gemini conversation
   text.
+- Chat Notes context-reference insertion is explicit and local: it formats
+  saved titles, links, chat IDs, and local notes into the composer without
+  reading hidden transcript content.
 - GM_* reads and writes are wrapped defensively in source paths that can run in Tampermonkey or the extension polyfill.
 - 2026-06-08: `npm audit --audit-level=moderate` reports 0 vulnerabilities
   after updating `brace-expansion` from `5.0.5` to `5.0.6`.

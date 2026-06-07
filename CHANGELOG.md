@@ -4,9 +4,10 @@
 
 ### Unreleased
 
+- **Local context references**: Chat Notes can insert an explicit local reference packet into the Gemini composer using saved title, link, chat ID, and local note data; it does not read hidden transcript content.
 - **Local folder undo**: folder moves, batch moves, unassignments, and local folder deletes now keep a one-step in-memory undo record with conflict-safe restore behavior.
 - **Local data portability**: folders and chat notes now have versioned JSON export/import alongside the existing Prompt Vault JSON import/export.
-- **Test coverage**: added `lib/folder_tools.js` and `lib/chat_notes_store.js` unit coverage for local folder undo, folder import/export, and notes import/export edge cases.
+- **Test coverage**: added `lib/folder_tools.js`, `lib/chat_notes_store.js`, and `lib/context_packet_tools.js` unit coverage for local folder undo, folder import/export, notes import/export, and context reference formatting edge cases.
 
 ### v11.0 Current Release Cleanup
 

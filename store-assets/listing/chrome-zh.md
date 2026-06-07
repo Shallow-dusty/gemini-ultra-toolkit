@@ -47,7 +47,7 @@ Primer++ for Gemini™ 是一款非官方、开源的 Google Gemini 网页版增
 
 • 引用回复 Quote Reply — 把任意对话里的选中文字带引用插入到下一条 prompt。
 
-• 对话笔记 Chat Notes — 为重要对话保存本地笔记和置顶标记，换浏览器时可用 JSON 导入 / 导出。
+• 对话笔记 Chat Notes — 为重要对话保存本地笔记和置顶标记，换浏览器时可用 JSON 导入 / 导出，也可手动插入包含标题、链接、对话 ID 和本地笔记的引用包。
 
 • 界面微调 UI Tweaks — 标签页标题与对话标题同步、自定义 Ctrl+Enter 行为、调整对话宽度、隐藏未使用的 Gems。
 
@@ -59,7 +59,7 @@ Primer++ for Gemini™ 是一款非官方、开源的 Google Gemini 网页版增
 
 • 所有数据存放在你设备本地的 chrome.storage.local 中。
 • 任何数据都不会上传 — 不传给开发者，不传给任何分析服务，不传给任何地方。
-• 只有当你明确保存到 Prompt Vault 或加入 Message Queue 时，prompt 文本才会被读取并保存在本地。只有当你明确导出当前对话或选中对话记录时，可见的 Gemini 对话文本才会被读取。
+• 只有当你明确保存到 Prompt Vault 或加入 Message Queue 时，prompt 文本才会被读取并保存在本地。只有当你明确导出当前对话或选中对话记录时，可见的 Gemini 对话文本才会被读取。Chat Notes 的引用插入只使用本地保存的标题 / 链接 / ID / 笔记。
 • 唯一申请的 host 权限：https://gemini.google.com/*。
 • 完整隐私政策：https://github.com/Shallow-dusty/primer-pp/blob/main/PRIVACY.md
 
@@ -98,7 +98,7 @@ Primer++ for Gemini™ 是非官方社区项目。Gemini™ 是 Google LLC 的�
 ### `storage`
 
 ```
-仅在用户设备本地保存偏好设置与按账号隔离的数据：每日消息计数（Counter 模块）、文件夹定义（Folders 模块）、收藏的 prompt（Prompt Vault 模块）、排队的 prompt（Message Queue 模块）、本地对话笔记和置顶标记（Chat Notes 模块）、悬浮面板位置、当前主题、各模块启用状态。所有数据写入 chrome.storage.local，不传输到设备之外的任何地方。
+仅在用户设备本地保存偏好设置与按账号隔离的数据：每日消息计数（Counter 模块）、文件夹定义（Folders 模块）、收藏的 prompt（Prompt Vault 模块）、排队的 prompt（Message Queue 模块）、本地对话笔记、置顶标记和引用元数据（Chat Notes 模块）、悬浮面板位置、当前主题、各模块启用状态。所有数据写入 chrome.storage.local，不传输到设备之外的任何地方。
 ```
 
 ### `contextMenus`
@@ -110,7 +110,7 @@ Primer++ for Gemini™ 是非官方社区项目。Gemini™ 是 Google LLC 的�
 ### Host 权限：`https://gemini.google.com/*`
 
 ```
-扩展的内容脚本只在 Google Gemini（https://gemini.google.com/*）上运行 — 这是它增强的唯一网页应用。脚本读取侧边栏对话标题、当前选中的模型、当前登录的账号标签、以及消息发送事件，以便页面内悬浮面板能展示每日计数、管理文件夹、快速插入 prompt。当用户明确导出对话记录时，脚本会读取当前或选中对话的可见内容并写入本地下载文件。扩展未申请 <all_urls> 或任何其他 host 权限。
+扩展的内容脚本只在 Google Gemini（https://gemini.google.com/*）上运行 — 这是它增强的唯一网页应用。脚本读取侧边栏对话标题、当前选中的模型、当前登录的账号标签、以及消息发送事件，以便页面内悬浮面板能展示每日计数、管理文件夹、快速插入 prompt 或用户明确选择的本地 Chat Notes 引用。当用户明确导出对话记录时，脚本会读取当前或选中对话的可见内容并写入本地下载文件。扩展未申请 <all_urls> 或任何其他 host 权限。
 ```
 
 ### 远程代码

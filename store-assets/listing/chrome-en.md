@@ -49,7 +49,7 @@ WHAT IT ADDS
 
 • Quote Reply — quote selected text from any chat into your next prompt, with attribution.
 
-• Chat Notes — save local notes and pins for important conversations. Export or import notes as JSON when moving browsers.
+• Chat Notes — save local notes and pins for important conversations, export/import notes as JSON, and insert explicit local reference packets with title, link, chat ID, and your saved note.
 
 • UI Tweaks — sync the tab title with the chat title, customize Ctrl+Enter behavior, adjust chat width, hide unused Gems.
 
@@ -61,7 +61,7 @@ PRIVACY & DATA
 
 • All data is stored in chrome.storage.local on your device.
 • Nothing is uploaded — not to the developer, not to any analytics service, not anywhere.
-• Prompt text is read or stored only when you explicitly save it to Prompt Vault or add it to Message Queue. Visible Gemini conversation text is read only when you explicitly export the current chat or selected chats.
+• Prompt text is read or stored only when you explicitly save it to Prompt Vault or add it to Message Queue. Visible Gemini conversation text is read only when you explicitly export the current chat or selected chats. Chat Notes reference insertion uses saved local title/link/ID/note data only.
 • Only host permission requested: https://gemini.google.com/*.
 • Full privacy policy: https://github.com/Shallow-dusty/primer-pp/blob/main/PRIVACY.md
 
@@ -108,7 +108,7 @@ Enhance the Gemini web app at gemini.google.com with local-only productivity too
 ### `storage`
 
 ```
-Persists user preferences and per-account local data on the device only: daily message counts (for Counter), folder definitions (for Folders), saved prompts (for Prompt Vault), queued prompts (for Message Queue), local chat notes and pins (for Chat Notes), floating panel position, current theme, and which modules are enabled. All data is written to chrome.storage.local and never transmitted off the device.
+Persists user preferences and per-account local data on the device only: daily message counts (for Counter), folder definitions (for Folders), saved prompts (for Prompt Vault), queued prompts (for Message Queue), local chat notes, pins, and reference metadata (for Chat Notes), floating panel position, current theme, and which modules are enabled. All data is written to chrome.storage.local and never transmitted off the device.
 ```
 
 ### `contextMenus`
@@ -120,7 +120,7 @@ Adds a single "Reset Panel Position" item to the extension toolbar icon's right-
 ### Host permission: `https://gemini.google.com/*`
 
 ```
-The extension's content script only runs on Google Gemini at https://gemini.google.com/*, which is the single web app it enhances. The script reads sidebar chat titles, the currently selected model, the signed-in account label, and message-send events so the in-page floating panel can show daily counts, manage folders, and inject quick-insert prompts. When the user explicitly exports a transcript, it reads the visible current or selected chat content to write a local download. It does not request <all_urls> or any other host permission.
+The extension's content script only runs on Google Gemini at https://gemini.google.com/*, which is the single web app it enhances. The script reads sidebar chat titles, the currently selected model, the signed-in account label, and message-send events so the in-page floating panel can show daily counts, manage folders, and inject quick-insert prompts or explicit local Chat Notes references. When the user explicitly exports a transcript, it reads the visible current or selected chat content to write a local download. It does not request <all_urls> or any other host permission.
 ```
 
 ### Remote code use

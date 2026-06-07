@@ -8768,6 +8768,72 @@ ${part}`).join("\n\n---\n\n");
     }
   });
 
+  // lib/context_packet_tools.js
+  var require_context_packet_tools = __commonJS({
+    "lib/context_packet_tools.js"(exports, module) {
+      var MAX_TITLE_LENGTH = 120;
+      var MAX_NOTE_LENGTH = 1200;
+      var MAX_HREF_LENGTH = 600;
+      function toText(value) {
+        if (value === null || value === void 0) return "";
+        return String(value);
+      }
+      function cleanText(value, fallback = "") {
+        const text = toText(value).trim();
+        return text || fallback;
+      }
+      function normalizeHref(value) {
+        const href = cleanText(value, "").slice(0, MAX_HREF_LENGTH);
+        if (!href) return "";
+        return /^(javascript|data|vbscript):/i.test(href) ? "" : href;
+      }
+      function normalizeContextReference(raw) {
+        if (!raw || typeof raw !== "object") return null;
+        const source = raw;
+        const chatId = cleanText(source.chatId || source.id, "");
+        const note = cleanText(source.note, "").slice(0, MAX_NOTE_LENGTH);
+        const title = cleanText(source.title, chatId || (note ? "Untitled chat" : "")).slice(0, MAX_TITLE_LENGTH);
+        const href = normalizeHref(source.href);
+        if (!chatId && !title && !note) return null;
+        return { chatId, title, href, note };
+      }
+      function formatContextReference2(raw, opts = {}) {
+        const ref = normalizeContextReference(raw);
+        if (!ref) return "";
+        const label = cleanText(opts.label, "Gemini chat reference");
+        const lines = [
+          `[${label}]`,
+          `Title: ${ref.title}`
+        ];
+        if (ref.href) lines.push(`Link: ${ref.href}`);
+        if (ref.chatId) lines.push(`Chat ID: ${ref.chatId}`);
+        if (ref.note && opts.includeNote !== false) {
+          lines.push("Local note:");
+          lines.push(ref.note);
+        }
+        return lines.join("\n");
+      }
+      function formatContextPacket(items, opts = {}) {
+        const refs = (Array.isArray(items) ? items : [items]).map(normalizeContextReference).filter(Boolean);
+        if (refs.length === 0) return "";
+        if (refs.length === 1) return formatContextReference2(refs[0], opts);
+        const label = cleanText(opts.label, "Gemini context packet");
+        const sections = refs.map((ref, index) => {
+          return formatContextReference2(ref, {
+            ...opts,
+            label: `${index + 1}. ${ref.title}`
+          });
+        });
+        return [`[${label}]`, ...sections].join("\n\n");
+      }
+      module.exports = {
+        formatContextPacket,
+        formatContextReference: formatContextReference2,
+        normalizeContextReference
+      };
+    }
+  });
+
   // lib/chat_notes_store.js
   var require_chat_notes_store = __commonJS({
     "lib/chat_notes_store.js"(exports, module) {
@@ -8917,7 +8983,7 @@ ${part}`).join("\n\n---\n\n");
   });
 
   // src/modules/chat_notes.js
-  var import_date_utils5, import_chat_notes_store, ChatNotesModule;
+  var import_date_utils5, import_context_packet_tools, import_chat_notes_store, ChatNotesModule;
   var init_chat_notes = __esm({
     "src/modules/chat_notes.js"() {
       init_core();
@@ -8925,7 +8991,9 @@ ${part}`).join("\n\n---\n\n");
       init_native_ui();
       init_panel_ui();
       init_icons();
+      init_gemini();
       import_date_utils5 = __toESM(require_date_utils());
+      import_context_packet_tools = __toESM(require_context_packet_tools());
       import_chat_notes_store = __toESM(require_chat_notes_store());
       ChatNotesModule = {
         id: "chat-notes",
@@ -8962,6 +9030,57 @@ ${part}`).join("\n\n---\n\n");
             GM_setValue(this._getStorageKey(), this.data);
           } catch {
           }
+        },
+        _insertTextIntoEditor(text) {
+          const editor = GeminiAdapter.getInputEditor();
+          if (!editor) {
+            NativeUI.showToast(NativeUI.t("未找到 Gemini 输入框", "Gemini input box not found"));
+            return false;
+          }
+          editor.focus();
+          const before = "value" in editor ? editor.value : editor.textContent;
+          const inputEvent = new InputEvent("beforeinput", {
+            inputType: "insertText",
+            data: text,
+            bubbles: true,
+            cancelable: true,
+            composed: true
+          });
+          const accepted = editor.dispatchEvent(inputEvent);
+          const after = "value" in editor ? editor.value : editor.textContent;
+          if (accepted && after !== before) return true;
+          if ("value" in editor) {
+            const start = Number.isInteger(editor.selectionStart) ? editor.selectionStart : editor.value.length;
+            const end = Number.isInteger(editor.selectionEnd) ? editor.selectionEnd : editor.value.length;
+            editor.value = editor.value.slice(0, start) + text + editor.value.slice(end);
+            editor.selectionStart = editor.selectionEnd = start + text.length;
+          } else {
+            const p = document.createElement("p");
+            p.textContent = text;
+            editor.appendChild(p);
+          }
+          editor.dispatchEvent(new Event("input", { bubbles: true }));
+          return true;
+        },
+        _insertContextReference(note) {
+          const text = (0, import_context_packet_tools.formatContextReference)(note);
+          if (!text) return;
+          if (this._insertTextIntoEditor(text)) {
+            NativeUI.showToast(NativeUI.t("上下文引用已插入", "Context reference inserted"));
+          }
+        },
+        _makeContextInsertButton(note) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.style.cssText = "display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;padding:0;border:0;background:transparent;color:inherit;cursor:pointer;border-radius:4px;";
+          btn.title = NativeUI.t("插入本地上下文引用", "Insert local context reference");
+          btn.setAttribute("aria-label", NativeUI.t("插入本地上下文引用", "Insert local context reference"));
+          btn.appendChild(createIcon("copy", 12));
+          btn.onclick = (e) => {
+            e.stopPropagation();
+            this._insertContextReference(note);
+          };
+          return btn;
         },
         _exportNotes() {
           const data = (0, import_chat_notes_store.serializeNotesExport)(this.data, { nowIso: (/* @__PURE__ */ new Date()).toISOString() });
@@ -9030,6 +9149,12 @@ ${part}`).join("\n\n---\n\n");
           label.style.cssText = "flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
           label.textContent = current.title;
           label.title = current.title;
+          const insertBtn = this._makeContextInsertButton({
+            chatId: current.id,
+            title: existing?.title || current.title,
+            href: existing?.href || current.href,
+            note: existing?.note || ""
+          });
           const pinBtn = document.createElement("span");
           pinBtn.style.cssText = `display:inline-flex;cursor:pointer;color:${existing?.pinned ? "var(--accent)" : "inherit"};`;
           pinBtn.title = existing?.pinned ? "Unpin current chat" : "Pin current chat";
@@ -9041,6 +9166,7 @@ ${part}`).join("\n\n---\n\n");
             PanelUI.renderDetailsPane();
           };
           header.appendChild(label);
+          header.appendChild(insertBtn);
           header.appendChild(pinBtn);
           container.appendChild(header);
           const noteArea = document.createElement("textarea");
@@ -9099,6 +9225,7 @@ ${part}`).join("\n\n---\n\n");
             text.style.cssText = "flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
             text.textContent = note.note ? `${note.title} - ${note.note.slice(0, 40)}` : note.title;
             row.appendChild(text);
+            row.appendChild(this._makeContextInsertButton(note));
             row.onclick = (e) => {
               e.stopPropagation();
               if (note.href) window.location.href = note.href;
@@ -9145,13 +9272,13 @@ ${part}`).join("\n\n---\n\n");
           return {
             zh: {
               rant: "Gemini 的对话列表只有标题和时间。你想记住“这段架构结论以后要复用”，只能靠脑子或外部笔记。",
-              features: "为每个 Gemini 对话保存本地笔记和置顶标记。数据只写入浏览器本地存储，不同步到远端。",
-              guide: "打开一个对话，在面板的 Chat Notes 标签里写笔记或置顶。置顶列表可快速回到重要对话。"
+              features: "为每个 Gemini 对话保存本地笔记和置顶标记，并可手动把本地标题、链接、ID 与笔记作为上下文引用插入输入框。数据只写入浏览器本地存储，不同步到远端。",
+              guide: "打开一个对话，在面板的 Chat Notes 标签里写笔记或置顶。点击复制图标可把本地引用包插入当前输入框，置顶列表可快速回到重要对话。"
             },
             en: {
               rant: "Gemini gives you titles and timestamps, but not a durable place to mark why a chat matters.",
-              features: "Adds local per-chat notes and pins. Data stays in browser storage and is not synced to a backend.",
-              guide: "Open a chat, use the Chat Notes tab to save a note or pin it, then use the pinned list to return to important chats."
+              features: "Adds local per-chat notes and pins, plus explicit context-reference insertion for local titles, links, IDs, and notes. Data stays in browser storage and is not synced to a backend.",
+              guide: "Open a chat, use the Chat Notes tab to save a note or pin it. Click the copy icon to insert a local reference packet into the current composer, or use the pinned list to return to important chats."
             }
           };
         }

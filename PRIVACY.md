@@ -1,6 +1,6 @@
 # Privacy Policy — Primer++ for Gemini™
 
-_Last updated: 2026-06-08 (v12.0 post-release export update)_
+_Last updated: 2026-06-08 (v12.0 post-release local data and context-reference update)_
 
 `Primer++ for Gemini™` is an unofficial, open-source browser extension and userscript that adds usage tracking, conversation folders, prompt management, and other quality-of-life features to [Google Gemini](https://gemini.google.com/). This document describes what data the extension touches, where it lives, and what it does **not** do.
 
@@ -9,6 +9,7 @@ _Last updated: 2026-06-08 (v12.0 post-release export update)_
 - **All data stays on your device.** Nothing is uploaded, telemetered, analyzed, or shared.
 - **No network requests** are made by the extension beyond what the Gemini page itself does. The extension does not contact any server, including the developer's.
 - **Conversation text is read only when you explicitly export transcripts.** The extension does not continuously read or upload chat bodies.
+- **Chat Notes reference insertion uses only local metadata and notes.** It can insert saved titles, links, chat IDs, and your local note text into the composer after you click the action; it does not read hidden transcript bodies.
 - **No account, no sign-up, no tracking ID.**
 - **You are the operator and the only audience.** Export your data anytime, delete it anytime.
 
@@ -39,6 +40,7 @@ To do its job, the content script (`content.js`) reads:
 - Sidebar chat link titles and URLs, so it can render folder markers and counts.
 - Page-level UI state needed by individual features (e.g., whether a message just sent successfully, so the counter can increment).
 - Visible conversation messages only when you explicitly use the Export module's current-chat or selected-chat transcript export.
+- Saved Chat Notes metadata and note text when you explicitly insert a local context reference into the composer.
 
 The extension **does not** continuously read or store:
 

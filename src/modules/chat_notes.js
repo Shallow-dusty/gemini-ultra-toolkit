@@ -3,7 +3,9 @@ import { Logger } from '../logger.js';
 import { NativeUI } from '../native_ui.js';
 import { PanelUI } from '../panel_ui.js';
 import { createIcon } from '../icons.js';
+import { GeminiAdapter } from '../adapters/gemini.js';
 import { formatLocalDate } from '../../lib/date_utils.js';
+import { formatContextReference } from '../../lib/context_packet_tools.js';
 import {
     mergeNotesImport,
     deleteChatNote,
@@ -50,6 +52,62 @@ export const ChatNotesModule = {
 
     _save() {
         try { GM_setValue(this._getStorageKey(), this.data); } catch { /* silent */ }
+    },
+
+    _insertTextIntoEditor(text) {
+        const editor = GeminiAdapter.getInputEditor();
+        if (!editor) {
+            NativeUI.showToast(NativeUI.t('未找到 Gemini 输入框', 'Gemini input box not found'));
+            return false;
+        }
+
+        editor.focus();
+        const before = 'value' in editor ? editor.value : editor.textContent;
+        const inputEvent = new InputEvent('beforeinput', {
+            inputType: 'insertText',
+            data: text,
+            bubbles: true,
+            cancelable: true,
+            composed: true
+        });
+        const accepted = editor.dispatchEvent(inputEvent);
+        const after = 'value' in editor ? editor.value : editor.textContent;
+        if (accepted && after !== before) return true;
+
+        if ('value' in editor) {
+            const start = Number.isInteger(editor.selectionStart) ? editor.selectionStart : editor.value.length;
+            const end = Number.isInteger(editor.selectionEnd) ? editor.selectionEnd : editor.value.length;
+            editor.value = editor.value.slice(0, start) + text + editor.value.slice(end);
+            editor.selectionStart = editor.selectionEnd = start + text.length;
+        } else {
+            const p = document.createElement('p');
+            p.textContent = text;
+            editor.appendChild(p);
+        }
+        editor.dispatchEvent(new Event('input', { bubbles: true }));
+        return true;
+    },
+
+    _insertContextReference(note) {
+        const text = formatContextReference(note);
+        if (!text) return;
+        if (this._insertTextIntoEditor(text)) {
+            NativeUI.showToast(NativeUI.t('上下文引用已插入', 'Context reference inserted'));
+        }
+    },
+
+    _makeContextInsertButton(note) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;padding:0;border:0;background:transparent;color:inherit;cursor:pointer;border-radius:4px;';
+        btn.title = NativeUI.t('插入本地上下文引用', 'Insert local context reference');
+        btn.setAttribute('aria-label', NativeUI.t('插入本地上下文引用', 'Insert local context reference'));
+        btn.appendChild(createIcon('copy', 12));
+        btn.onclick = (e) => {
+            e.stopPropagation();
+            this._insertContextReference(note);
+        };
+        return btn;
     },
 
     _exportNotes() {
@@ -126,6 +184,13 @@ export const ChatNotesModule = {
         label.textContent = current.title;
         label.title = current.title;
 
+        const insertBtn = this._makeContextInsertButton({
+            chatId: current.id,
+            title: existing?.title || current.title,
+            href: existing?.href || current.href,
+            note: existing?.note || ''
+        });
+
         const pinBtn = document.createElement('span');
         pinBtn.style.cssText = `display:inline-flex;cursor:pointer;color:${existing?.pinned ? 'var(--accent)' : 'inherit'};`;
         pinBtn.title = existing?.pinned ? 'Unpin current chat' : 'Pin current chat';
@@ -138,6 +203,7 @@ export const ChatNotesModule = {
         };
 
         header.appendChild(label);
+        header.appendChild(insertBtn);
         header.appendChild(pinBtn);
         container.appendChild(header);
 
@@ -204,6 +270,7 @@ export const ChatNotesModule = {
             text.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
             text.textContent = note.note ? `${note.title} - ${note.note.slice(0, 40)}` : note.title;
             row.appendChild(text);
+            row.appendChild(this._makeContextInsertButton(note));
             row.onclick = (e) => {
                 e.stopPropagation();
                 if (note.href) window.location.href = note.href;
@@ -257,13 +324,13 @@ export const ChatNotesModule = {
         return {
             zh: {
                 rant: 'Gemini 的对话列表只有标题和时间。你想记住“这段架构结论以后要复用”，只能靠脑子或外部笔记。',
-                features: '为每个 Gemini 对话保存本地笔记和置顶标记。数据只写入浏览器本地存储，不同步到远端。',
-                guide: '打开一个对话，在面板的 Chat Notes 标签里写笔记或置顶。置顶列表可快速回到重要对话。'
+                features: '为每个 Gemini 对话保存本地笔记和置顶标记，并可手动把本地标题、链接、ID 与笔记作为上下文引用插入输入框。数据只写入浏览器本地存储，不同步到远端。',
+                guide: '打开一个对话，在面板的 Chat Notes 标签里写笔记或置顶。点击复制图标可把本地引用包插入当前输入框，置顶列表可快速回到重要对话。'
             },
             en: {
                 rant: 'Gemini gives you titles and timestamps, but not a durable place to mark why a chat matters.',
-                features: 'Adds local per-chat notes and pins. Data stays in browser storage and is not synced to a backend.',
-                guide: 'Open a chat, use the Chat Notes tab to save a note or pin it, then use the pinned list to return to important chats.'
+                features: 'Adds local per-chat notes and pins, plus explicit context-reference insertion for local titles, links, IDs, and notes. Data stays in browser storage and is not synced to a backend.',
+                guide: 'Open a chat, use the Chat Notes tab to save a note or pin it. Click the copy icon to insert a local reference packet into the current composer, or use the pinned list to return to important chats.'
             }
         };
     }
