@@ -57,7 +57,7 @@ Primer++ for Gemini™ 是一款非官方、开源的 Google Gemini 网页版增
 
 • 所有数据存放在你设备本地的 chrome.storage.local 中。
 • 任何数据都不会上传 — 不传给开发者，不传给任何分析服务，不传给任何地方。
-• 扩展不会读取 Gemini 的回复正文。只有当你明确保存到 Prompt Vault 或加入 Message Queue 时，prompt 文本才会被读取并保存在本地。
+• 只有当你明确保存到 Prompt Vault 或加入 Message Queue 时，prompt 文本才会被读取并保存在本地。只有当你明确导出当前对话记录时，可见的 Gemini 回复文本才会被读取。
 • 唯一申请的 host 权限：https://gemini.google.com/*。
 • 完整隐私政策：https://github.com/Shallow-dusty/primer-pp/blob/main/PRIVACY.md
 

@@ -175,6 +175,10 @@ function isActiveModeCandidate(el) {
            el.classList?.contains('selected');
 }
 
+function cleanVisibleText(el) {
+    return (el?.textContent || '').replace(/\s+\n/g, '\n').replace(/\n\s+/g, '\n').trim();
+}
+
 // ───────────────────────────────────────────────────────────────────────────
 // Public adapter
 // ───────────────────────────────────────────────────────────────────────────
@@ -400,6 +404,29 @@ export const GeminiAdapter = {
 
     isInsideChatContent(target) {
         return !!closestAny(target, S.CHAT_CONTENT_ROOT.split(', '));
+    },
+
+    /**
+     * Capture messages currently rendered in the visible conversation DOM.
+     * This does not navigate historical chats; bulk cross-chat export should
+     * build on this only after a separate navigation/smoke-tested workflow.
+     */
+    getCurrentConversationMessages() {
+        const nodes = document.querySelectorAll(`${S.USER_QUERY}, ${S.MODEL_RESPONSE}`);
+        const messages = [];
+        nodes.forEach((node, index) => {
+            const isUser = node.matches(S.USER_QUERY);
+            const text = isUser
+                ? cleanVisibleText(node.querySelector(S.USER_QUERY_TEXT) || node)
+                : cleanVisibleText(node);
+            if (!text) return;
+            messages.push({
+                id: `m_${index}`,
+                role: isUser ? 'user' : 'model',
+                text
+            });
+        });
+        return messages;
     },
 
     // ─── Mode picker ───────────────────────────────────────────────────

@@ -59,7 +59,7 @@ PRIVACY & DATA
 
 • All data is stored in chrome.storage.local on your device.
 • Nothing is uploaded — not to the developer, not to any analytics service, not anywhere.
-• The extension does NOT read Gemini's response body. Prompt text is read or stored only when you explicitly save it to Prompt Vault or add it to Message Queue.
+• Prompt text is read or stored only when you explicitly save it to Prompt Vault or add it to Message Queue. Visible Gemini response text is read only when you explicitly export the current chat transcript.
 • Only host permission requested: https://gemini.google.com/*.
 • Full privacy policy: https://github.com/Shallow-dusty/primer-pp/blob/main/PRIVACY.md
 

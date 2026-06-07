@@ -411,6 +411,9 @@
   function isActiveModeCandidate(el) {
     return el.getAttribute("aria-pressed") === "true" || el.getAttribute("aria-current") === "true" || el.getAttribute("data-active") === "true" || el.classList?.contains("active") || el.classList?.contains("selected");
   }
+  function cleanVisibleText(el) {
+    return (el?.textContent || "").replace(/\s+\n/g, "\n").replace(/\n\s+/g, "\n").trim();
+  }
   var S, GeminiAdapter;
   var init_gemini = __esm({
     "src/adapters/gemini.js"() {
@@ -696,6 +699,26 @@
         },
         isInsideChatContent(target) {
           return !!closestAny(target, S.CHAT_CONTENT_ROOT.split(", "));
+        },
+        /**
+         * Capture messages currently rendered in the visible conversation DOM.
+         * This does not navigate historical chats; bulk cross-chat export should
+         * build on this only after a separate navigation/smoke-tested workflow.
+         */
+        getCurrentConversationMessages() {
+          const nodes = document.querySelectorAll(`${S.USER_QUERY}, ${S.MODEL_RESPONSE}`);
+          const messages = [];
+          nodes.forEach((node, index) => {
+            const isUser = node.matches(S.USER_QUERY);
+            const text = isUser ? cleanVisibleText(node.querySelector(S.USER_QUERY_TEXT) || node) : cleanVisibleText(node);
+            if (!text) return;
+            messages.push({
+              id: `m_${index}`,
+              role: isUser ? "user" : "model",
+              text
+            });
+          });
+          return messages;
         },
         // ─── Mode picker ───────────────────────────────────────────────────
         getModelSwitch() {
@@ -2027,7 +2050,7 @@
   var require_quota_calc = __commonJS({
     "lib/quota_calc.js"(exports, module) {
       var { MODEL_CONFIG } = require_model_config();
-      function getWeightedQuota2(byModel, config = MODEL_CONFIG) {
+      function getWeightedQuota(byModel, config = MODEL_CONFIG) {
         if (!byModel || typeof byModel !== "object") return 0;
         return Object.keys(byModel).reduce((sum, key) => {
           const mult = config[key]?.multiplier ?? 1;
@@ -2053,14 +2076,14 @@
         else color = "#ea4335";
         return { pct, color };
       }
-      module.exports = { getWeightedQuota: getWeightedQuota2, ensureByModel, formatQuotaLabel, getQuotaBarState };
+      module.exports = { getWeightedQuota, ensureByModel, formatQuotaLabel, getQuotaBarState };
     }
   });
 
   // lib/export_formatter.js
   var require_export_formatter = __commonJS({
     "lib/export_formatter.js"(exports, module) {
-      var { getWeightedQuota: getWeightedQuota2 } = require_quota_calc();
+      var { getWeightedQuota } = require_quota_calc();
       var { formatLocalDate: formatLocalDate4 } = require_date_utils();
       function exportCSV2(dailyCounts, opts = {}) {
         const header = "Date,Messages,Chats,Flash,Thinking,Pro,Weighted";
@@ -2074,7 +2097,7 @@
           const flash = bm.flash || 0;
           const thinking = bm.thinking || 0;
           const pro = bm.pro || 0;
-          const weighted = getWeightedQuota2(bm);
+          const weighted = getWeightedQuota(bm);
           const weightedStr = weighted % 1 === 0 ? String(weighted) : weighted.toFixed(2);
           rows.push(`${date},${messages},${chats},${flash},${thinking},${pro},${weightedStr}`);
           sumMessages += messages;
@@ -2122,7 +2145,7 @@
             const flash = bm.flash || 0;
             const thinking = bm.thinking || 0;
             const pro = bm.pro || 0;
-            const weighted = getWeightedQuota2(bm);
+            const weighted = getWeightedQuota(bm);
             const wStr = weighted % 1 === 0 ? String(weighted) : weighted.toFixed(1);
             lines.push(`| ${date} | ${messages} | ${flash} | ${thinking} | ${pro} | ${wStr} |`);
           }
@@ -2138,17 +2161,119 @@
     }
   });
 
+  // lib/chat_transcript_export.js
+  var require_chat_transcript_export = __commonJS({
+    "lib/chat_transcript_export.js"(exports, module) {
+      function toText(value) {
+        if (value === null || value === void 0) return "";
+        return String(value);
+      }
+      function cleanText(value) {
+        return toText(value).trim();
+      }
+      function normalizeRole(value) {
+        const role = cleanText(value).toLowerCase();
+        if (role === "user" || role === "assistant" || role === "model" || role === "system") return role;
+        return "message";
+      }
+      function normalizeMessage(raw, index = 0) {
+        const source = raw && typeof raw === "object" ? raw : {};
+        const text = cleanText(source.text === void 0 ? source.content : source.text);
+        if (!text) return null;
+        return {
+          id: cleanText(source.id) || `m_${index}`,
+          role: normalizeRole(source.role),
+          text,
+          createdAt: cleanText(source.createdAt)
+        };
+      }
+      function normalizeTranscript(raw, opts = {}) {
+        const source = raw && typeof raw === "object" ? raw : {};
+        const rawMessages = Array.isArray(source.messages) ? source.messages : [];
+        const messages = rawMessages.map((message, index) => normalizeMessage(message, index)).filter(Boolean);
+        const exportedAt = cleanText(opts.nowIso) || cleanText(source.exportedAt) || (/* @__PURE__ */ new Date()).toISOString();
+        return {
+          chatId: cleanText(source.chatId),
+          title: cleanText(source.title) || "Gemini conversation",
+          href: cleanText(source.href),
+          exportedAt,
+          messages
+        };
+      }
+      function getRoleLabel(role) {
+        if (role === "user") return "User";
+        if (role === "assistant" || role === "model") return "Gemini";
+        if (role === "system") return "System";
+        return "Message";
+      }
+      function exportTranscriptJSON2(transcript, opts = {}) {
+        return JSON.stringify(normalizeTranscript(transcript, opts), null, 2);
+      }
+      function exportTranscriptMarkdown2(transcript, opts = {}) {
+        const data = normalizeTranscript(transcript, opts);
+        const lines = [
+          `# ${data.title}`,
+          "",
+          `- Chat ID: ${data.chatId || "unknown"}`,
+          `- Exported: ${data.exportedAt}`
+        ];
+        if (data.href) lines.push(`- Source: ${data.href}`);
+        lines.push("");
+        if (data.messages.length === 0) {
+          lines.push("_No visible messages captured._");
+          lines.push("");
+          return lines.join("\n");
+        }
+        data.messages.forEach((message, index) => {
+          lines.push(`## ${index + 1}. ${getRoleLabel(message.role)}`);
+          lines.push("");
+          lines.push(message.text);
+          lines.push("");
+        });
+        return lines.join("\n");
+      }
+      function exportTranscriptText2(transcript, opts = {}) {
+        const data = normalizeTranscript(transcript, opts);
+        const lines = [
+          data.title,
+          `Chat ID: ${data.chatId || "unknown"}`,
+          `Exported: ${data.exportedAt}`
+        ];
+        if (data.href) lines.push(`Source: ${data.href}`);
+        lines.push("");
+        if (data.messages.length === 0) {
+          lines.push("No visible messages captured.");
+          return lines.join("\n");
+        }
+        data.messages.forEach((message, index) => {
+          lines.push(`${index + 1}. ${getRoleLabel(message.role)}`);
+          lines.push(message.text);
+          lines.push("");
+        });
+        return lines.join("\n").trimEnd() + "\n";
+      }
+      module.exports = {
+        exportTranscriptJSON: exportTranscriptJSON2,
+        exportTranscriptMarkdown: exportTranscriptMarkdown2,
+        exportTranscriptText: exportTranscriptText2,
+        normalizeMessage,
+        normalizeTranscript
+      };
+    }
+  });
+
   // src/modules/export.js
-  var import_quota_calc, import_export_formatter, ExportModule;
+  var import_export_formatter, import_chat_transcript_export, ExportModule;
   var init_export = __esm({
     "src/modules/export.js"() {
       init_logger();
       init_core();
       init_native_ui();
       init_counter();
-      import_quota_calc = __toESM(require_quota_calc());
       import_export_formatter = __toESM(require_export_formatter());
+      import_chat_transcript_export = __toESM(require_chat_transcript_export());
       init_icons();
+      init_gemini();
       ExportModule = {
         id: "export",
         name: NativeUI.t("数据导出", "Data Export"),
@@ -2205,9 +2330,12 @@
           menu.className = "gc-dropdown-menu";
           menu.style.cssText = "top:100%;right:0;margin-top:4px;";
           const items = [
-            { icon: "file-text", text: "JSON", action: () => this.exportJSON() },
-            { icon: "chart", text: "CSV", action: () => this.doExportCSV() },
-            { icon: "edit", text: "Markdown", action: () => this.doExportMarkdown() }
+            { icon: "file-text", text: "Usage JSON", action: () => this.exportJSON() },
+            { icon: "chart", text: "Usage CSV", action: () => this.doExportCSV() },
+            { icon: "edit", text: "Usage Markdown", action: () => this.doExportMarkdown() },
+            { icon: "file-text", text: "Chat JSON", action: () => this.exportCurrentChatJSON() },
+            { icon: "edit", text: "Chat Markdown", action: () => this.exportCurrentChatMarkdown() },
+            { icon: "file-text", text: "Chat TXT", action: () => this.exportCurrentChatText() }
           ];
           items.forEach((item) => {
             const el = document.createElement("div");
@@ -2253,6 +2381,10 @@
           const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
           return `primer-pp-${user}-${date}`;
         },
+        _getChatFilePrefix() {
+          const chatId = Core.getChatId() || "current-chat";
+          return `${this._getFilePrefix()}-${chatId}`;
+        },
         exportJSON() {
           const cm = CounterModule;
           if (!cm?.state) return;
@@ -2284,17 +2416,51 @@
           });
           this._download(content, `${this._getFilePrefix()}.md`, "text/markdown");
         },
+        _getCurrentTranscript() {
+          const chatId = Core.getChatId() || "";
+          const title = GeminiAdapter.getChatTitleText() || document.title || chatId || "Gemini conversation";
+          return {
+            chatId,
+            title,
+            href: location.href,
+            exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
+            messages: GeminiAdapter.getCurrentConversationMessages()
+          };
+        },
+        _downloadCurrentTranscript(format) {
+          const transcript = this._getCurrentTranscript();
+          if (transcript.messages.length === 0) {
+            NativeUI.showToast(NativeUI.t("没有可导出的可见对话消息", "No visible chat messages to export"));
+            return;
+          }
+          if (format === "json") {
+            this._download((0, import_chat_transcript_export.exportTranscriptJSON)(transcript), `${this._getChatFilePrefix()}.chat.json`, "application/json");
+          } else if (format === "markdown") {
+            this._download((0, import_chat_transcript_export.exportTranscriptMarkdown)(transcript), `${this._getChatFilePrefix()}.chat.md`, "text/markdown");
+          } else {
+            this._download((0, import_chat_transcript_export.exportTranscriptText)(transcript), `${this._getChatFilePrefix()}.chat.txt`, "text/plain");
+          }
+        },
+        exportCurrentChatJSON() {
+          this._downloadCurrentTranscript("json");
+        },
+        exportCurrentChatMarkdown() {
+          this._downloadCurrentTranscript("markdown");
+        },
+        exportCurrentChatText() {
+          this._downloadCurrentTranscript("text");
+        },
         getOnboarding() {
           return {
             zh: {
               rant: "2026 年了，Google 最引以为傲的 AI 产品居然不支持导出对话。你跟 Gemini 讨论了三天的架构方案，结果想保存一份？不好意思，请手动复制粘贴 300 条消息。产品经理是不是觉得用户的对话像阅后即焚的 Snapchat？",
-              features: "在聊天标题旁添加 📤 导出按钮，一键导出当前对话为 JSON/CSV/Markdown 文件。",
-              guide: "1. 打开任意对话 → 2. 点击标题右侧的 📤 按钮 → 3. 选择导出格式 → 4. 文件自动下载"
+              features: "在聊天标题旁添加 📤 导出按钮，导出用量报告，或将当前可见对话导出为 JSON/Markdown/TXT。",
+              guide: "1. 打开任意对话 → 2. 点击标题右侧的 📤 按钮 → 3. 选择用量或当前对话格式 → 4. 文件自动下载"
             },
             en: {
               rant: "It's 2026. Google's flagship AI product doesn't let you export conversations. You spent three days discussing architecture with Gemini and want to save it? Sorry, please manually copy-paste 300 messages. Does the PM think conversations are Snapchats?",
-              features: "Adds a 📤 export button next to the chat title. One-click export to JSON/CSV/Markdown.",
-              guide: "1. Open any conversation → 2. Click 📤 next to the title → 3. Pick a format → 4. File downloads automatically"
+              features: "Adds a 📤 export button next to the chat title. Export usage reports, or export the current visible conversation to JSON/Markdown/TXT.",
+              guide: "1. Open any conversation → 2. Click 📤 next to the title → 3. Pick a usage or current-chat format → 4. File downloads automatically"
             }
           };
         },
@@ -2320,6 +2486,13 @@
           mdBtn.appendChild(document.createTextNode(" Export Markdown"));
           mdBtn.onclick = () => this.doExportMarkdown();
           container.appendChild(mdBtn);
+          const chatMdBtn = document.createElement("button");
+          chatMdBtn.className = "settings-btn";
+          chatMdBtn.style.cssText = "display:flex;align-items:center;gap:6px;";
+          chatMdBtn.appendChild(createIcon("download", 14));
+          chatMdBtn.appendChild(document.createTextNode(" Export Current Chat"));
+          chatMdBtn.onclick = () => this.exportCurrentChatMarkdown();
+          container.appendChild(chatMdBtn);
         }
       };
     }

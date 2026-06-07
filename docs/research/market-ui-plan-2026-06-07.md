@@ -9,7 +9,7 @@ mutable, so refresh this file before any major release or store submission.
 - Local git state is mutable; run `git status --short --branch` before release,
   push, or store submission instead of treating this snapshot as live git truth.
 - Local verification on 2026-06-08:
-  - `npm test` passed: 176 tests, `lib/` at 100% c8 coverage.
+  - `npm test` passed: 181 tests, `lib/` at 100% c8 coverage.
   - `npm run build` passed for userscript and extension outputs.
 - 2026-06-08 follow-up: `brace-expansion` was updated from `5.0.5` to
   `5.0.6`; `npm audit --audit-level=moderate` now reports 0 vulnerabilities.
@@ -118,11 +118,14 @@ Codex CLI/TUI.
   - Gemini signal: Gemini exposes tiers but not detailed personal accounting.
   - Plan: keep quota as a core differentiator and add reset-window framing.
 - Export
-  - Primer++ v12: usage export in JSON/CSV/Markdown; chat export remains narrow.
+  - Primer++ v12 plus post-planning implementation: usage export in
+    JSON/CSV/Markdown and current visible conversation transcript export in
+    JSON/Markdown/TXT. Cross-chat selected export remains open.
   - Market signal: SPG has PDF/DOCX/TXT/MD; TFG has
     PDF/HTML/Markdown/TXT/CSV.
   - Gemini signal: Gemini built-ins remain limited for power export workflows.
-  - Plan: ship selected-chat bulk export in JSON/Markdown/TXT before PDF/DOCX.
+  - Plan: build selected-chat bulk export on top of the transcript formatter
+    before PDF/DOCX.
 - Prompt workflow
   - Primer++ v12: Prompt Vault, quick insert, import/export, favorites, recent
     ranking, slash shortcuts, template variables, and local prompt chains.

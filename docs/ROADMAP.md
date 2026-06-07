@@ -23,7 +23,8 @@ Implemented modules:
 
 - Counter: daily usage, streaks, quota weighting, model breakdown, heatmap/dashboard.
 - Folders: sidebar markers, panel management, search, pinning, drag reorder, batch move, auto-classify rules.
-- Export: JSON, CSV, and Markdown usage export.
+- Export: JSON/CSV/Markdown usage export plus current visible conversation
+  transcript export in JSON/Markdown/TXT.
 - Prompt Vault: saved prompts, quick insert, import/export, favorites, recent
   ranking, slash shortcuts, template variables, and local prompt chains.
 - Message Queue: local prompt queue with start/pause, cancel, reorder, and a
@@ -91,8 +92,10 @@ Prioritize local-first workflow parity with direct Gemini competitors:
   - ~~recents and favorites~~ done after the market/UI planning snapshot;
   - compatible import/export for prompt metadata.
 - ~~Per-chat local notes and pins.~~ Done after the market/UI planning snapshot.
-- Bulk export for selected chats in JSON/Markdown/TXT first; PDF/DOCX only
-  after dependency and bundle-size review.
+- Bulk export for selected chats in JSON/Markdown/TXT first; current visible
+  chat transcript export is done, but cross-chat selected export still needs a
+  navigation/smoke-tested workflow. PDF/DOCX only after dependency and
+  bundle-size review.
 - Tool-mode awareness for Canvas, Deep Research, Image, Video, Audio Overview, Spark, or
   equivalent Gemini modes so automations can disable themselves safely.
 
