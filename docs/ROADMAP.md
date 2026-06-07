@@ -1,6 +1,6 @@
 # Roadmap
 
-Updated: 2026-06-08 (post-v12 planning refresh + local data portability + local context references + pinned context packets + prompt context packets + selected text packets + transcript snippet packets + rich response probe counts + quota window framing + prompt-chain queueing + HTML/DOCX transcript export + adapter probe export + i18n hardening).
+Updated: 2026-06-08 (post-v12 planning refresh + local data portability + local context references + pinned context packets + prompt context packets + selected text packets + transcript snippet packets + rich response probe counts + quota window framing + prompt-chain queueing + HTML/DOCX transcript export + composer input counter + adapter probe export + i18n hardening).
 
 This is the maintained roadmap. It replaces the old full feature brainstorming document, which mixed implemented features, speculative ideas, and stale project naming.
 
@@ -41,7 +41,8 @@ Implemented modules:
 - Default Model: preferred model selection on new chats.
 - Batch Delete: multi-select deletion workflow.
 - Quote Reply: selected-text quote insertion and explicit local snippet packets.
-- UI Tweaks: title sync, Ctrl+Enter behavior, width controls, Gems hiding.
+- UI Tweaks: title sync, Ctrl+Enter behavior, composer input counter, width
+  controls, Gems hiding.
 - Chat Notes: local per-chat notes and pins in the details pane, versioned JSON
   import/export, and explicit local context-reference insertion for titles,
   links, chat IDs, saved notes, and visible pinned-note context packets.

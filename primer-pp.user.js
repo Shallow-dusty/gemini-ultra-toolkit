@@ -10190,8 +10190,50 @@ ${part}`).join("\n\n---\n\n");
     }
   });
 
+  // lib/input_stats_tools.js
+  var require_input_stats_tools = __commonJS({
+    "lib/input_stats_tools.js"(exports, module) {
+      function toText(value) {
+        if (value === null || value === void 0) return "";
+        return String(value);
+      }
+      function normalizeInputText(value) {
+        return toText(value).replace(/\r\n?/g, "\n");
+      }
+      function countCharacters(text) {
+        return Array.from(text).length;
+      }
+      function getInputStats(value) {
+        const text = normalizeInputText(value);
+        const trimmed = text.trim();
+        return {
+          characters: countCharacters(text),
+          nonWhitespaceCharacters: Array.from(text).filter((char) => !/\s/u.test(char)).length,
+          lines: text.length ? text.split("\n").length : 0,
+          isEmpty: trimmed.length === 0
+        };
+      }
+      function pluralize(count, singular, plural) {
+        return count === 1 ? singular : plural;
+      }
+      function formatInputStats2(value, opts = {}) {
+        const stats = typeof value === "object" && value && Number.isFinite(value.characters) ? value : getInputStats(value);
+        const locale = opts.locale === "zh" ? "zh" : "en";
+        if (locale === "zh") {
+          return `${stats.characters} 字 · ${stats.lines} 行`;
+        }
+        return `${stats.characters} ${pluralize(stats.characters, "char", "chars")} · ${stats.lines} ${pluralize(stats.lines, "line", "lines")}`;
+      }
+      module.exports = {
+        formatInputStats: formatInputStats2,
+        getInputStats,
+        normalizeInputText
+      };
+    }
+  });
+
   // src/modules/ui_tweaks.js
-  var UITweaksModule;
+  var import_input_stats_tools, STATUS_ID, SEND_HINT_ID, INPUT_COUNTER_ID, UITweaksModule;
   var init_ui_tweaks = __esm({
     "src/modules/ui_tweaks.js"() {
       init_constants();
@@ -10200,19 +10242,26 @@ ${part}`).join("\n\n---\n\n");
       init_dom_watcher();
       init_native_ui();
       init_gemini();
+      import_input_stats_tools = __toESM(require_input_stats_tools());
+      STATUS_ID = "gc-tweaks-status";
+      SEND_HINT_ID = "gc-tweaks-send-hint";
+      INPUT_COUNTER_ID = "gc-tweaks-input-counter";
       UITweaksModule = {
         id: "ui-tweaks",
         name: NativeUI.t("UI 自定义", "UI Tweaks"),
-        description: NativeUI.t("Tab 标题 / 快捷键 / 布局调整", "Tab title / hotkeys / layout tweaks"),
+        description: NativeUI.t("Tab 标题 / 快捷键 / 输入计数 / 布局调整", "Tab title / hotkeys / input counter / layout tweaks"),
         icon: "🎨",
         defaultEnabled: false,
         STORAGE_KEY: "gemini_ui_tweaks",
         _styleEl: null,
         _titleObserver: null,
         _keyHandler: null,
+        _inputCounterEditor: null,
+        _inputCounterHandler: null,
         features: {
           tabTitle: { enabled: false, label: NativeUI.t("Tab 标题同步对话名", "Sync tab title with chat name") },
           ctrlEnter: { enabled: false, label: NativeUI.t("Ctrl+Enter 才发送", "Ctrl+Enter to send") },
+          inputCounter: { enabled: false, label: NativeUI.t("输入字数计数", "Input counter") },
           chatWidth: { enabled: false, label: NativeUI.t("聊天区宽度", "Chat area width"), value: 900 },
           sidebarWidth: { enabled: false, label: NativeUI.t("侧栏宽度", "Sidebar width"), value: 280 },
           hideGems: { enabled: false, label: NativeUI.t("隐藏 Gems 入口", "Hide Gems entry") }
@@ -10256,25 +10305,90 @@ ${part}`).join("\n\n---\n\n");
         },
         // --- \u539F\u751F UI \u6CE8\u5165 ---
         injectNativeUI() {
-          if (!this.features.ctrlEnter.enabled) return;
-          const HINT_ID = "gc-tweaks-send-hint";
-          if (document.getElementById(HINT_ID)) return;
+          if (!this.features.ctrlEnter.enabled && !this.features.inputCounter.enabled) return;
           const inputArea = NativeUI.getInputArea();
           if (!inputArea) return;
           const pos = getComputedStyle(inputArea).position;
           if (pos === "static" || pos === "") inputArea.style.position = "relative";
-          const hint = document.createElement("div");
-          hint.id = HINT_ID;
-          hint.className = "gc-send-hint";
-          hint.textContent = NativeUI.t("Ctrl+Enter ↵", "Ctrl+Enter ↵");
-          inputArea.appendChild(hint);
+          const status = this._getInputStatusContainer(inputArea);
+          if (this.features.ctrlEnter.enabled && !document.getElementById(SEND_HINT_ID)) {
+            const hint = document.createElement("span");
+            hint.id = SEND_HINT_ID;
+            hint.className = "gc-send-hint";
+            hint.textContent = NativeUI.t("Ctrl+Enter ↵", "Ctrl+Enter ↵");
+            status.appendChild(hint);
+          }
+          if (this.features.inputCounter.enabled) {
+            this._injectInputCounter(status);
+          } else {
+            this._removeInputCounter();
+          }
         },
         removeNativeUI() {
-          NativeUI.remove("gc-tweaks-send-hint");
+          this._removeInputCounter();
+          NativeUI.remove(STATUS_ID);
+        },
+        _getInputStatusContainer(inputArea) {
+          let status = document.getElementById(STATUS_ID);
+          if (!status) {
+            status = document.createElement("div");
+            status.id = STATUS_ID;
+            status.className = "gc-tweaks-status";
+            inputArea.appendChild(status);
+          } else if (status.parentElement !== inputArea) {
+            inputArea.appendChild(status);
+          }
+          return status;
+        },
+        _getEditorText(editor) {
+          if (!editor) return "";
+          if ("value" in editor) return editor.value || "";
+          return editor.textContent || "";
+        },
+        _injectInputCounter(status) {
+          const editor = GeminiAdapter.getInputEditor();
+          if (!editor) return;
+          let counter = document.getElementById(INPUT_COUNTER_ID);
+          if (!counter) {
+            counter = document.createElement("span");
+            counter.id = INPUT_COUNTER_ID;
+            counter.className = "gc-input-counter";
+            counter.title = NativeUI.t("当前输入长度", "Current input length");
+            counter.setAttribute("aria-live", "polite");
+            status.appendChild(counter);
+          } else if (counter.parentElement !== status) {
+            status.appendChild(counter);
+          }
+          if (this._inputCounterEditor !== editor) {
+            this._removeInputCounterListener();
+            this._inputCounterEditor = editor;
+            this._inputCounterHandler = () => this._updateInputCounter();
+            editor.addEventListener("input", this._inputCounterHandler);
+          }
+          this._updateInputCounter();
+        },
+        _removeInputCounterListener() {
+          if (this._inputCounterEditor && this._inputCounterHandler) {
+            this._inputCounterEditor.removeEventListener("input", this._inputCounterHandler);
+          }
+          this._inputCounterEditor = null;
+          this._inputCounterHandler = null;
+        },
+        _removeInputCounter() {
+          this._removeInputCounterListener();
+          NativeUI.remove(INPUT_COUNTER_ID);
+        },
+        _updateInputCounter() {
+          const counter = document.getElementById(INPUT_COUNTER_ID);
+          if (!counter || !this._inputCounterEditor) return;
+          counter.textContent = (0, import_input_stats_tools.formatInputStats)(this._getEditorText(this._inputCounterEditor), {
+            locale: NativeUI.isZH ? "zh" : "en"
+          });
         },
         _getStatusText() {
           const items = [];
           if (this.features.ctrlEnter.enabled) items.push("Ctrl+Enter: ON");
+          if (this.features.inputCounter.enabled) items.push("Input Counter: ON");
           if (this.features.tabTitle.enabled) items.push("Tab Title: ON");
           if (this.features.chatWidth.enabled) items.push("Chat Width: " + this.features.chatWidth.value + "px");
           if (this.features.sidebarWidth.enabled) items.push("Sidebar: " + this.features.sidebarWidth.value + "px");
@@ -10384,13 +10498,13 @@ ${part}`).join("\n\n---\n\n");
           return {
             zh: {
               rant: "Gemini 不支持 Ctrl+Enter 发送，Enter 直接发送意味着你永远不能在消息里换行——除非你知道 Shift+Enter 这个隐藏快捷键。浏览器标签页标题永远显示“Gemini”，开了 10 个对话标签？全是 Gemini - Gemini - Gemini。Google 的 UX 团队是不是觉得用户只用一个标签页？",
-              features: "三个微调开关：Ctrl+Enter 发送、标签页显示对话标题、布局优化。输入框旁 3 个小圆点显示当前状态。",
-              guide: "1. 在设置中开启需要的调整项\n2. 输入框右下角的小圆点指示哪些调整已生效\n3. 亮蓝色=已启用"
+              features: "多个微调开关：Ctrl+Enter 发送、输入字数计数、标签页显示对话标题、布局优化。输入框旁可显示快捷键提示和本地字符/行数计数。",
+              guide: "1. 在设置中开启需要的调整项\n2. 开启 Ctrl+Enter 后会在输入区显示快捷键提示\n3. 开启输入计数后仅统计当前输入框文本"
             },
             en: {
               rant: "Gemini doesn't support Ctrl+Enter to send. Enter sends immediately, meaning you can never add newlines — unless you know the secret Shift+Enter shortcut. Browser tab title always shows 'Gemini' — open 10 chat tabs? All 'Gemini - Gemini - Gemini'. Does the UX team think users only use one tab?",
-              features: "Three micro-tweaks: Ctrl+Enter to send, tab title shows conversation name, layout adjustments. Three tiny dots near the input area show current status.",
-              guide: "1. Enable desired tweaks in Settings\n2. Dots at the bottom-right of the input area indicate active tweaks\n3. Blue = enabled"
+              features: "Micro-tweaks for Ctrl+Enter send, composer input counts, tab title sync, and layout adjustments. The input area can show a shortcut hint and local character/line count.",
+              guide: "1. Enable desired tweaks in Settings\n2. Ctrl+Enter shows a shortcut hint in the input area\n3. Input counter only counts the current composer text"
             }
           };
         },
@@ -11095,19 +11209,28 @@ ${part}`).join("\n\n---\n\n");
             50% { opacity: 0.5; }
         }
 
-        .gc-send-hint {
+        .gc-tweaks-status {
             position: absolute;
             bottom: 8px;
             right: 36px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .gc-send-hint,
+        .gc-input-counter {
             font-size: 11px;
             color: #9aa0a6;
             opacity: 0.6;
-            pointer-events: none;
-            z-index: 1;
             font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
             background: rgba(255,255,255,0.06);
             padding: 2px 6px;
             border-radius: 4px;
+            line-height: 1.4;
+            white-space: nowrap;
         }
 
         /* ============================================ */
@@ -11236,6 +11359,7 @@ ${part}`).join("\n\n---\n\n");
             .gc-batch-check,
             .gc-input-btn,
             .gc-tweaks-dot,
+            .gc-input-counter,
             .gc-header-btn,
             .gc-quote-fab,
             .gc-toast,

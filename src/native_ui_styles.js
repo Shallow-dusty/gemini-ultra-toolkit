@@ -193,19 +193,28 @@ export function injectNativeUIStyles() {
             50% { opacity: 0.5; }
         }
 
-        .gc-send-hint {
+        .gc-tweaks-status {
             position: absolute;
             bottom: 8px;
             right: 36px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .gc-send-hint,
+        .gc-input-counter {
             font-size: 11px;
             color: #9aa0a6;
             opacity: 0.6;
-            pointer-events: none;
-            z-index: 1;
             font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
             background: rgba(255,255,255,0.06);
             padding: 2px 6px;
             border-radius: 4px;
+            line-height: 1.4;
+            white-space: nowrap;
         }
 
         /* ============================================ */
@@ -334,6 +343,7 @@ export function injectNativeUIStyles() {
             .gc-batch-check,
             .gc-input-btn,
             .gc-tweaks-dot,
+            .gc-input-counter,
             .gc-header-btn,
             .gc-quote-fab,
             .gc-toast,

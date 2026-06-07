@@ -280,7 +280,23 @@ describe('app smoke checks', () => {
         assert.doesNotMatch(quoteReply, /textContent = '\\uD83D\\uDCAC Quote'/);
 
         assert.match(uiTweaks, /NativeUI\.t\('Ctrl\+Enter \\u21B5', 'Ctrl\+Enter \\u21B5'\)/);
+        assert.match(uiTweaks, /NativeUI\.t\('输入字数计数', 'Input counter'\)/);
         assert.doesNotMatch(uiTweaks, /textContent = 'Ctrl\+Enter \\u21B5'/);
+    });
+
+    it('keeps UI Tweaks input counter local to the composer', () => {
+        const uiTweaks = read('src/modules/ui_tweaks.js');
+        const styles = read('src/native_ui_styles.js');
+        const inputStats = read('lib/input_stats_tools.js');
+
+        assert.match(uiTweaks, /inputCounter/);
+        assert.match(uiTweaks, /formatInputStats/);
+        assert.match(uiTweaks, /GeminiAdapter\.getInputEditor\(\)/);
+        assert.match(uiTweaks, /editor\.addEventListener\('input'/);
+        assert.match(uiTweaks, /gc-input-counter/);
+        assert.match(styles, /gc-input-counter/);
+        assert.match(inputStats, /getInputStats/);
+        assert.doesNotMatch(uiTweaks, /getCurrentConversationMessages|scanSidebarChatLinks/);
     });
 
     it('keeps Quote Reply selected text packets explicit and local', () => {

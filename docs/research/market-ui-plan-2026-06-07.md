@@ -9,12 +9,12 @@ mutable, so refresh this file before any major release or store submission.
 - Local git state is mutable; run `git status --short --branch` before release,
   push, or store submission instead of treating this snapshot as live git truth.
 - Local verification on 2026-06-08:
-  - `npm test` passed: 254 tests, `lib/` at 100% c8 coverage.
+  - `npm test` passed: 259 tests, `lib/` at 100% c8 coverage.
   - `npm run build` passed for userscript and extension outputs; generated
-    userscript size was ~499.3 kb after HTML/DOCX transcript export, adapter probe
-    export, pinned context packets, prompt context packets, selected text
-    packets, transcript snippet packets, rich response probe counts, and broader
-    i18n hardening.
+    userscript size was ~504.5 kb after HTML/DOCX transcript export, composer
+    input counter, adapter probe export, pinned context packets, prompt context
+    packets, selected text packets, transcript snippet packets, rich response
+    probe counts, and broader i18n hardening.
 - 2026-06-08 follow-up: `brace-expansion` was updated from `5.0.5` to
   `5.0.6`; `npm audit --audit-level=moderate` now reports 0 vulnerabilities.
 - Live Gemini DOM verification was not refreshed: no Chrome DevTools Protocol
@@ -92,8 +92,9 @@ Direct competitive gap:
   Post-planning selected-chat export, local message queue, per-chat notes,
   local undo for prompts/folders, local JSON import/export for prompts,
   folders, and notes, explicit local Chat Notes reference insertion, visible
-  pinned-note context packets, prompt packets, selected text packets, and
-  transcript snippet packets now cover the first parity slice for those gaps.
+  pinned-note context packets, prompt packets, selected text packets,
+  transcript snippet packets, and composer input counter now cover the first
+  parity slice for those gaps.
 - Primer++ has a stronger local-first story than products that disclose
   analytics, cloud sync, or in-app purchases. Keep this as a product boundary,
   not an afterthought.
@@ -153,10 +154,11 @@ Codex CLI/TUI.
   - Plan: chain-aware queue preparation is done; keep broader execution claims
     behind Message Queue's explicit start control and live tool-mode checks.
 - Send control
-  - Primer++ v12 plus post-planning implementation: Ctrl+Enter tweak, default
-    model, and a local message queue with pause/cancel/reorder controls plus a
-    conservative active-tool-mode pause guard. Prompt Vault chains can be added
-    as ordered queue items before sending.
+  - Primer++ v12 plus post-planning implementation: Ctrl+Enter tweak, composer
+    input counter, default model, and a local message queue with
+    pause/cancel/reorder controls plus a conservative active-tool-mode pause
+    guard. Prompt Vault chains can be added as ordered queue items before
+    sending.
   - Market signal: SPG has smart queue and shortcuts; TFG has shortcuts and
     send-to-Gemini.
   - Gemini signal: Gemini is adding agent/tool modes where auto-send risk rises.
@@ -290,6 +292,8 @@ boundary.
    - ~~support pause/cancel/reorder;~~ done after this planning snapshot;
    - active-tool-mode pause guard shipped after this planning snapshot; broaden
      live probes before claiming full ambiguous-mode coverage.
+   - ~~show a local composer input counter;~~ done after this planning snapshot
+     with character/line stats from the active prompt editor only.
 2. Prompt vault upgrade:
    - ~~slash shortcut insertion;~~ done after this planning snapshot;
    - ~~prompt chains;~~ done after this planning snapshot;

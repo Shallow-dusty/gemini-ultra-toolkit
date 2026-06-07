@@ -5,6 +5,7 @@
 ### Unreleased
 
 - **Transcript snippet packets**: Export can insert bounded packets from the current visible transcript or explicitly selected chat transcripts, without storing transcript snippets or auto-sending.
+- **Composer input counter**: UI Tweaks can show a local character/line counter for the active prompt editor without reading transcripts or sending text.
 - **DOCX transcript export**: current-chat and selected-chat transcript exports now include dependency-free DOCX downloads built as escaped, no-macro OpenXML packages.
 - **Rich response probe counts**: adapter probe exports now include structural counts for rendered rich-response zones such as code, tables, media candidates, links, and citation candidates without exporting content or URLs.
 - **Selected text packets**: Quote Reply can insert the current visible text selection as an explicit local snippet packet, without storing snippets or reading hidden transcripts.

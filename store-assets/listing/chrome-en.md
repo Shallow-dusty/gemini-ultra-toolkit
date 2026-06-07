@@ -51,7 +51,7 @@ WHAT IT ADDS
 
 • Chat Notes — save local notes and pins for important conversations, export/import notes as JSON, and insert explicit local reference packets or pinned-note packets with title, link, chat ID, and your saved note.
 
-• UI Tweaks — sync the tab title with the chat title, customize Ctrl+Enter behavior, adjust chat width, hide unused Gems.
+• UI Tweaks — sync the tab title with the chat title, customize Ctrl+Enter behavior, show a composer input counter, adjust chat width, hide unused Gems.
 
 Each module can be individually enabled or disabled from the settings panel. The floating panel is draggable, themable (Glass / Cyber / Paper / Auto-system), and remembers its position per browser profile.
 
