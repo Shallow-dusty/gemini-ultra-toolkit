@@ -1,6 +1,6 @@
 # Project Status
 
-Updated: 2026-06-08 — v12.0 released; selected-chat export, local folder undo, local data portability, local context references, pinned context packets, prompt context packets, selected text packets, transcript snippet packets, rich response probe counts, quota reset-window framing, prompt-chain queueing, queue send-interval control, CSV/HTML/DOCX transcript export, composer input counter, adapter probe export, CDP probe discovery hardening, and i18n hardening added; live smoke still pending.
+Updated: 2026-06-27 — v12.0 released; selected-chat export, local folder undo, local data portability, local context references, pinned context packets, prompt context packets, selected text packets, transcript snippet packets, rich response probe counts, quota reset-window framing, prompt-chain queueing, queue send-interval control, CSV/HTML/DOCX transcript export, composer input counter, adapter probe export, CDP probe discovery hardening, and i18n hardening added; esbuild upgraded to 0.28.1; live smoke still pending.
 
 ## Summary
 
@@ -16,10 +16,10 @@ Updated: 2026-06-08 — v12.0 released; selected-chat export, local folder undo,
 
 ## Verification Snapshot
 
-Last verified locally on 2026-06-08:
+Last verified locally on 2026-06-27:
 
 - `npm test` — 264 passing tests; `lib/` remains at 100% c8 coverage.
-- `npm run build` — userscript and extension builds complete (~511.1 kb
+- `npm run build` — userscript and extension builds complete (~511.3 kb
   userscript after selected-chat export, URL filtering, prompt-delete undo,
   folder undo, local folder/notes import-export, local context-reference
   insertion, pinned context packets, prompt context packets, selected text
@@ -28,7 +28,8 @@ Last verified locally on 2026-06-08:
   CSV/HTML/DOCX transcript export, composer input counter, adapter probe export,
   and broader i18n hardening).
 - `npm audit --audit-level=moderate` — 0 vulnerabilities after updating
-  `brace-expansion` from `5.0.5` to `5.0.6`.
+  `brace-expansion` from `5.0.5` to `5.0.6` and `esbuild` from `0.27.3` to
+  `0.28.1` (fixed GHSA-g7r4-m6w7-qqqr).
 - **Real-browser smoke test** — last full logged-in smoke passed on 2026-05-21
   (`docs/research/v12-dom-probe-2026-05-21-revised.md`). A 2026-06-07 CDP
   refresh was not possible because no Gemini page was available at
