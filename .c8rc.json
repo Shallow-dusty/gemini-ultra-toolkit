@@ -1,5 +1,21 @@
 {
-  "include": ["lib/**/*.js"],
-  "exclude": ["**/*.test.js"],
-  "all": true
+  "include": [
+    "lib/**/*.js",
+    "src/**/*.js",
+    "scripts/**/*.js"
+  ],
+  "all": true,
+  "per-file": true,
+  "check-coverage": true,
+  "branches": 100,
+  "functions": 100,
+  "lines": 100,
+  "statements": 100,
+  "report-dir": "coverage",
+  "temp-directory": "coverage/tmp",
+  "reporter": [
+    "text",
+    "json",
+    "json-summary"
+  ]
 }

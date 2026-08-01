@@ -1,0 +1,48 @@
+{
+  "name": "current-full",
+  "location": "https://gemini.google.com/app/chat_current_2026",
+  "viewport": { "width": 1440, "height": 900, "dpr": 1.25 },
+  "nodes": [
+    { "key": "body", "tag": "body", "classes": ["dark-theme"] },
+    { "key": "theme-host", "tag": "div", "parent": "body", "classes": ["theme-host", "dark-theme"], "attrs": { "data-theme": "dark" } },
+
+    { "key": "sidebar", "tag": "bard-sidenav", "parent": "body" },
+    { "key": "new-chat", "tag": "button", "parent": "sidebar", "attrs": { "data-test-id": "new-chat-button", "aria-label": "New chat" } },
+    { "key": "search", "tag": "button", "parent": "sidebar", "attrs": { "data-test-id": "search-chats-button", "aria-label": "Search chats" } },
+    { "key": "temporary", "tag": "button", "parent": "sidebar", "attrs": { "data-test-id": "temp-chat-button", "aria-label": "Temporary chat" } },
+    { "key": "images", "tag": "a", "parent": "sidebar", "attrs": { "data-test-id": "images-side-nav-entry", "href": "/images" } },
+    { "key": "videos", "tag": "a", "parent": "sidebar", "attrs": { "data-test-id": "videos-side-nav-entry", "href": "/videos" } },
+    { "key": "library", "tag": "a", "parent": "sidebar", "attrs": { "data-test-id": "my-stuff-side-nav-entry", "href": "/library" } },
+    { "key": "notebooks", "tag": "section", "parent": "sidebar", "attrs": { "data-test-id": "notebooks-section" } },
+    { "key": "usage", "tag": "button", "parent": "sidebar", "attrs": { "data-test-id": "usage-button" } },
+    { "key": "spark", "tag": "button", "parent": "sidebar", "attrs": { "data-test-id": "spark-button" } },
+    { "key": "skills", "tag": "button", "parent": "sidebar", "attrs": { "data-test-id": "skills-button" } },
+    { "key": "conversation-list", "tag": "conversations-list", "parent": "sidebar", "attrs": { "data-test-id": "all-conversations" } },
+    { "key": "chat-row", "tag": "gem-nav-list-item", "parent": "conversation-list", "attrs": { "data-test-id": "conversation" } },
+    { "key": "chat-link", "tag": "a", "parent": "chat-row", "attrs": { "href": "/app/chat_fixture_1" } },
+    { "key": "chat-title-span", "tag": "span", "parent": "chat-link", "text": "Fixture conversation" },
+    { "key": "chat-row-menu", "tag": "button", "parent": "chat-row", "attrs": { "data-test-id": "conversation-row-menu", "aria-label": "More options for Fixture conversation" } },
+
+    { "key": "composer", "tag": "div", "parent": "body", "attrs": { "data-test-id": "textarea-wrapper" } },
+    { "key": "textarea-inner", "tag": "div", "parent": "composer", "attrs": { "data-test-id": "textarea-inner" } },
+    { "key": "editor", "tag": "div", "parent": "textarea-inner", "classes": ["ql-editor"], "attrs": { "contenteditable": "true", "role": "textbox", "aria-label": "Enter a prompt for Gemini" } },
+    { "key": "input-actions", "tag": "div", "parent": "composer", "classes": ["trailing-actions-wrapper"] },
+    { "key": "send", "tag": "button", "parent": "input-actions", "attrs": { "data-test-id": "send-button", "aria-label": "Send message" } },
+    { "key": "mode-switcher", "tag": "div", "parent": "composer", "attrs": { "data-test-id": "bard-mode-switcher" } },
+    { "key": "mode-button", "tag": "button", "parent": "mode-switcher", "attrs": { "data-test-id": "bard-mode-menu-button", "aria-label": "Open mode picker" } },
+    { "key": "mode-label", "tag": "span", "parent": "mode-button", "classes": ["picker-primary-text"], "text": "Gemini Flash" },
+
+    { "key": "header", "tag": "gem-icon-button", "parent": "body" },
+    { "key": "header-menu", "tag": "button", "parent": "header", "attrs": { "data-test-id": "conversation-actions-menu-button", "aria-label": "Open menu for conversation actions" } },
+    { "key": "conversation-title", "tag": "h1", "parent": "body", "text": "Current fixture title", "attrs": { "data-test-id": "conversation-title" } },
+
+    { "key": "main", "tag": "main", "parent": "body", "attrs": { "role": "main" } },
+    { "key": "user-message", "tag": "user-query", "parent": "main", "attrs": { "data-test-id": "user-query", "data-message-id": "fixture-user-message" } },
+    { "key": "user-message-text", "tag": "div", "parent": "user-message", "classes": ["query-text"], "text": "Fixture user message" },
+    { "key": "model-message", "tag": "model-response", "parent": "main", "attrs": { "data-test-id": "model-response", "data-response-id": "fixture-model-message" }, "text": "Fixture model response" },
+    { "key": "response-container", "tag": "response-container", "parent": "model-message" },
+    { "key": "code", "tag": "code", "parent": "response-container", "text": "const fixture = true;" },
+    { "key": "table", "tag": "table", "parent": "response-container" },
+    { "key": "citation", "tag": "a", "parent": "response-container", "attrs": { "href": "https://example.invalid/source", "data-citation": "fixture" } }
+  ]
+}

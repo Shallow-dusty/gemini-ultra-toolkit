@@ -1,0 +1,900 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Primer++ in-app Browser fixture</title>
+    <script>
+        (() => {
+            'use strict';
+
+            const storagePrefix = '__PRIMER_PP_IAB_HARNESS__:';
+            let virtualConversationId = 'fixture-chat-alpha';
+            const listeners = new Map();
+            const menuCommands = new Map();
+            const deleteFailureIds = new Set();
+            const deleteAttempts = [];
+            const capturedDownloads = [];
+            let listenerSequence = 0;
+            let menuSequence = 0;
+
+            const clone = value => {
+                if (value === undefined || value === null) return value;
+                try {
+                    return typeof structuredClone === 'function'
+                        ? structuredClone(value)
+                        : JSON.parse(JSON.stringify(value));
+                } catch {
+                    return value;
+                }
+            };
+
+            const storageKey = key => `${storagePrefix}${encodeURIComponent(String(key))}`;
+            const decodeStorageKey = key => {
+                if (typeof key !== 'string' || !key.startsWith(storagePrefix)) return null;
+                try {
+                    return decodeURIComponent(key.slice(storagePrefix.length));
+                } catch {
+                    return null;
+                }
+            };
+            const decodeValue = (raw, fallback) => {
+                if (raw === null) return clone(fallback);
+                try {
+                    const envelope = JSON.parse(raw);
+                    return envelope?.format === 'primer-iab-gm-v1'
+                        ? clone(envelope.value)
+                        : clone(fallback);
+                } catch {
+                    return clone(fallback);
+                }
+            };
+            const encodeValue = value => JSON.stringify({
+                format: 'primer-iab-gm-v1',
+                value: clone(value)
+            });
+            const notify = (key, oldValue, newValue, remote) => {
+                for (const listener of listeners.values()) {
+                    if (listener.key !== key) continue;
+                    try {
+                        listener.callback(
+                            key,
+                            clone(oldValue),
+                            clone(newValue),
+                            Boolean(remote)
+                        );
+                    } catch (error) {
+                        console.error('[IAB harness] GM value listener failed', error);
+                    }
+                }
+            };
+            const listFixtureStorageKeys = () => {
+                const keys = [];
+                for (let index = 0; index < localStorage.length; index += 1) {
+                    const key = decodeStorageKey(localStorage.key(index));
+                    if (key !== null) keys.push(key);
+                }
+                return keys.sort();
+            };
+            const resetStorage = ({ reload = true } = {}) => {
+                const keys = [];
+                for (let index = 0; index < localStorage.length; index += 1) {
+                    const key = localStorage.key(index);
+                    if (key?.startsWith(storagePrefix)) keys.push(key);
+                }
+                keys.forEach(key => localStorage.removeItem(key));
+                if (reload) location.reload();
+                return keys.length;
+            };
+
+            // The production adapter correctly accepts conversation ids only
+            // from gemini.google.com. Keep the actual document on loopback,
+            // but virtualize URL parsing for this one fixture route so current-
+            // conversation UI can be exercised without weakening production.
+            const NativeURL = globalThis.URL;
+            class FixtureURL extends NativeURL {
+                constructor(input, base) {
+                    super(input, base);
+                    if (this.origin === location.origin && this.pathname === '/app/fixture') {
+                        this.protocol = 'https:';
+                        this.hostname = 'gemini.google.com';
+                        this.port = '';
+                        this.pathname = virtualConversationId
+                            ? `/app/${virtualConversationId}`
+                            : '/app';
+                        this.search = '';
+                        this.hash = '';
+                    }
+                }
+            }
+            const fixtureBlobUrls = new Map();
+            const nativeCreateObjectURL = NativeURL.createObjectURL.bind(NativeURL);
+            const nativeRevokeObjectURL = NativeURL.revokeObjectURL.bind(NativeURL);
+            FixtureURL.createObjectURL = blob => {
+                const href = nativeCreateObjectURL(blob);
+                fixtureBlobUrls.set(href, blob);
+                return href;
+            };
+            FixtureURL.revokeObjectURL = href => {
+                fixtureBlobUrls.delete(String(href));
+                nativeRevokeObjectURL(href);
+            };
+            globalThis.URL = FixtureURL;
+            const selectVirtualConversation = id => {
+                const normalized = String(id || '');
+                if (!/^fixture-chat-[a-z]+$/u.test(normalized)) {
+                    throw new TypeError('Unknown fixture conversation id');
+                }
+                virtualConversationId = normalized;
+                return virtualConversationId;
+            };
+            const selectVirtualNewChat = () => {
+                virtualConversationId = null;
+                return 'https://gemini.google.com/app';
+            };
+            const setDeleteFailures = ids => {
+                if (!Array.isArray(ids) || ids.some(id => !/^fixture-chat-[a-z]+$/u.test(String(id)))) {
+                    throw new TypeError('Delete failure ids must be fixture conversation ids');
+                }
+                deleteFailureIds.clear();
+                ids.forEach(id => deleteFailureIds.add(String(id)));
+                deleteAttempts.length = 0;
+                return [...deleteFailureIds];
+            };
+            const recordDeleteAttempt = id => {
+                const normalized = String(id || '');
+                deleteAttempts.push(normalized);
+                return deleteFailureIds.has(normalized);
+            };
+            const clearDownloads = () => { capturedDownloads.length = 0; };
+
+            const nativeAnchorClick = HTMLAnchorElement.prototype.click;
+            HTMLAnchorElement.prototype.click = function fixtureAnchorClick() {
+                if (this.download && String(this.href || '').startsWith('blob:')) {
+                    const name = String(this.download);
+                    const href = String(this.href);
+                    const source = fixtureBlobUrls.get(href);
+                    Promise.resolve(source || fetch(href).then(response => response.blob())).then(async blob => {
+                        capturedDownloads.push({
+                            name,
+                            type: blob.type,
+                            size: blob.size,
+                            text: /json|text|csv|html|markdown/i.test(blob.type) || /\.(json|csv|md|html|txt)$/i.test(name)
+                                ? await blob.text()
+                                : ''
+                        });
+                    }).catch(error => {
+                        capturedDownloads.push({ name, type: '', size: 0, text: '', error: String(error) });
+                    });
+                    return;
+                }
+                return nativeAnchorClick.call(this);
+            };
+
+            globalThis.GM_getValue = (key, fallback) => decodeValue(
+                localStorage.getItem(storageKey(key)),
+                fallback
+            );
+            globalThis.GM_setValue = (key, value) => {
+                const normalizedKey = String(key);
+                const oldValue = globalThis.GM_getValue(normalizedKey, undefined);
+                localStorage.setItem(storageKey(normalizedKey), encodeValue(value));
+                notify(normalizedKey, oldValue, value, false);
+                return clone(value);
+            };
+            globalThis.GM_deleteValue = key => {
+                const normalizedKey = String(key);
+                const oldValue = globalThis.GM_getValue(normalizedKey, undefined);
+                localStorage.removeItem(storageKey(normalizedKey));
+                notify(normalizedKey, oldValue, undefined, false);
+            };
+            globalThis.GM_listValues = listFixtureStorageKeys;
+            globalThis.GM_addValueChangeListener = (key, callback) => {
+                if (typeof callback !== 'function') {
+                    throw new TypeError('GM_addValueChangeListener callback must be a function');
+                }
+                const id = ++listenerSequence;
+                listeners.set(id, { key: String(key), callback });
+                return id;
+            };
+            globalThis.GM_removeValueChangeListener = id => listeners.delete(id);
+            globalThis.GM_addStyle = css => {
+                const style = document.createElement('style');
+                style.dataset.primerIabGmStyle = 'true';
+                style.textContent = String(css || '');
+                (document.head || document.documentElement).appendChild(style);
+                return style;
+            };
+            globalThis.GM_registerMenuCommand = (label, callback) => {
+                const id = ++menuSequence;
+                menuCommands.set(id, { label: String(label), callback });
+                return id;
+            };
+            globalThis.GM_unregisterMenuCommand = id => menuCommands.delete(id);
+            globalThis.__flushGMPolyfill = () => Promise.resolve();
+            globalThis.unsafeWindow = globalThis;
+
+            addEventListener('storage', event => {
+                const key = decodeStorageKey(event.key);
+                if (key === null) return;
+                notify(
+                    key,
+                    decodeValue(event.oldValue, undefined),
+                    decodeValue(event.newValue, undefined),
+                    true
+                );
+            });
+
+            const query = new URLSearchParams(location.search);
+            if (query.has('firstRun')) resetStorage({ reload: false });
+            if (!query.has('firstRun')) {
+                if (globalThis.GM_getValue('gemini_tour_seen', null) === null) {
+                    globalThis.GM_setValue('gemini_tour_seen', true);
+                }
+                if (globalThis.GM_getValue('gemini_onboarding_seen', null) === null) {
+                    globalThis.GM_setValue('gemini_onboarding_seen', {
+                        counter: true,
+                        export: true,
+                        folders: true,
+                        'prompt-vault': true,
+                        'default-model': true,
+                        'batch-delete': true,
+                        'quote-reply': true,
+                        'ui-tweaks': true,
+                        'chat-notes': true,
+                        'message-queue': true
+                    });
+                }
+            }
+
+            globalThis.__IAB_HARNESS__ = Object.freeze({
+                fixtureIdentity: 'fixture@example.test',
+                get virtualConversationUrl() {
+                    return virtualConversationId
+                        ? `https://gemini.google.com/app/${virtualConversationId}`
+                        : 'https://gemini.google.com/app';
+                },
+                selectVirtualConversation,
+                selectVirtualNewChat,
+                storagePrefix,
+                listStorageKeys: listFixtureStorageKeys,
+                menuCommands,
+                resetStorage,
+                setDeleteFailures,
+                recordDeleteAttempt,
+                get deleteAttempts() { return [...deleteAttempts]; },
+                clearDownloads,
+                get capturedDownloads() { return capturedDownloads.map(clone); },
+                version: 1
+            });
+        })();
+    </script>
+    <style>
+        :root {
+            color-scheme: light dark;
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #f7f8fc;
+            color: #202124;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; min-width: 320px; background: #f7f8fc; color: #202124; }
+        button, [role="button"], [contenteditable="true"] { font: inherit; }
+        button, a { -webkit-tap-highlight-color: transparent; }
+        button:focus-visible, a:focus-visible, [contenteditable="true"]:focus-visible {
+            outline: 3px solid #0b57d0;
+            outline-offset: 2px;
+        }
+        .fixture-banner {
+            position: sticky;
+            z-index: 50;
+            top: 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            min-height: 46px;
+            padding: 8px 18px;
+            border-bottom: 1px solid #d9dce6;
+            background: #fff8e1;
+            color: #523f00;
+        }
+        .fixture-banner p { margin: 0; font-size: 13px; }
+        .fixture-banner strong { margin-right: 8px; }
+        .fixture-banner-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .fixture-banner button {
+            border: 1px solid #b8a45d;
+            border-radius: 999px;
+            padding: 6px 11px;
+            background: #fff;
+            color: #473700;
+            cursor: pointer;
+        }
+        .fixture-app {
+            display: grid;
+            grid-template-columns: minmax(230px, 280px) minmax(0, 1fr);
+            min-height: calc(100vh - 46px);
+        }
+        bard-sidenav {
+            display: block;
+            border-right: 1px solid #e0e3eb;
+            background: #edf2fa;
+        }
+        .fixture-sidebar {
+            position: sticky;
+            top: 46px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            height: calc(100vh - 46px);
+            padding: 18px 12px;
+            overflow: auto;
+        }
+        .fixture-sidebar-group { display: grid; gap: 4px; }
+        .fixture-sidebar-heading {
+            margin: 8px 10px 4px;
+            color: #5f6368;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+        }
+        .fixture-nav-control, .fixture-nav-link, .fixture-chat-link {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-height: 40px;
+            width: 100%;
+            border: 0;
+            border-radius: 18px;
+            padding: 8px 12px;
+            background: transparent;
+            color: inherit;
+            text-align: left;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .fixture-nav-control:hover, .fixture-nav-link:hover, .fixture-chat-link:hover,
+        .fixture-chat-link[aria-current="page"] { background: #dbe7fa; }
+        .fixture-chat-row { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+        .fixture-chat-row .fixture-chat-link { min-width: 0; }
+        .fixture-chat-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .fixture-more {
+            width: 36px;
+            height: 36px;
+            border: 0;
+            border-radius: 50%;
+            background: transparent;
+            cursor: pointer;
+        }
+        .fixture-more:hover { background: #cbd9ee; }
+        .fixture-content { min-width: 0; }
+        .fixture-header {
+            position: sticky;
+            z-index: 20;
+            top: 46px;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 16px;
+            min-height: 68px;
+            padding: 10px 24px;
+            border-bottom: 1px solid #eaecf2;
+            background: rgba(255, 255, 255, .92);
+            backdrop-filter: blur(12px);
+        }
+        .fixture-title-wrap { min-width: 0; }
+        .conversation-title { margin: 0; overflow: hidden; font-size: 18px; text-overflow: ellipsis; white-space: nowrap; }
+        .fixture-subtitle { margin: 3px 0 0; color: #6b7280; font-size: 12px; }
+        .fixture-header-actions { display: flex; align-items: center; gap: 8px; }
+        .fixture-icon-button, .fixture-account, .fixture-model-button {
+            min-height: 38px;
+            border: 1px solid #d8dce6;
+            border-radius: 999px;
+            padding: 7px 12px;
+            background: #fff;
+            color: #202124;
+            cursor: pointer;
+        }
+        .fixture-account { max-width: 230px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .fixture-chat-window { width: min(920px, calc(100% - 40px)); margin: 0 auto; padding: 26px 0 180px; }
+        .fixture-message { margin: 0 0 24px; scroll-margin: 120px; }
+        .fixture-message.user { display: flex; justify-content: flex-end; }
+        .query-text {
+            max-width: min(680px, 88%);
+            border-radius: 22px 22px 5px 22px;
+            padding: 12px 16px;
+            background: #e8f0fe;
+            line-height: 1.55;
+        }
+        .fixture-message.model {
+            border: 1px solid #e1e5ee;
+            border-radius: 18px;
+            padding: 20px;
+            background: #fff;
+            box-shadow: 0 8px 24px rgba(40, 53, 80, .06);
+            line-height: 1.65;
+        }
+        .fixture-message h2 { margin: 0 0 12px; font-size: 17px; }
+        .fixture-message p { margin: 9px 0; }
+        .fixture-message pre { overflow: auto; border-radius: 12px; padding: 14px; background: #172033; color: #e8edf7; }
+        .fixture-message table { width: 100%; border-collapse: collapse; }
+        .fixture-message th, .fixture-message td { border: 1px solid #dfe3eb; padding: 8px; text-align: left; }
+        .fixture-rich-meta { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+        .fixture-chip { border-radius: 999px; padding: 4px 9px; background: #edf2fa; color: #45546d; font-size: 12px; }
+        .fixture-image { width: 72px; height: 48px; border-radius: 9px; object-fit: cover; }
+        input-area-v2 {
+            position: fixed;
+            z-index: 25;
+            right: 22px;
+            bottom: 18px;
+            left: calc(280px + 22px);
+            display: block;
+        }
+        .fixture-composer {
+            width: min(900px, 100%);
+            margin: 0 auto;
+            border: 1px solid #d9dce5;
+            border-radius: 28px;
+            padding: 10px 12px 9px;
+            background: rgba(255, 255, 255, .97);
+            box-shadow: 0 16px 44px rgba(33, 47, 76, .18);
+        }
+        .fixture-editor {
+            min-height: 50px;
+            max-height: 180px;
+            overflow: auto;
+            padding: 11px 12px;
+            line-height: 1.5;
+        }
+        .fixture-editor:empty::before { content: attr(data-placeholder); color: #8a909b; pointer-events: none; }
+        .fixture-composer-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .fixture-tool-modes, .trailing-actions-wrapper { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .fixture-tool, .fixture-send {
+            border: 1px solid #d9dde7;
+            border-radius: 999px;
+            padding: 7px 11px;
+            background: #fff;
+            color: #323842;
+            cursor: pointer;
+        }
+        .fixture-tool[aria-pressed="true"] { border-color: #0b57d0; background: #e8f0fe; color: #0b57d0; }
+        .fixture-send { width: 40px; height: 40px; border: 0; padding: 0; background: #0b57d0; color: #fff; font-weight: 800; }
+        .fixture-overlay-root { position: relative; z-index: 100; }
+        .fixture-menu {
+            position: fixed;
+            z-index: 100;
+            min-width: 210px;
+            border: 1px solid #d8dce5;
+            border-radius: 14px;
+            padding: 7px;
+            background: #fff;
+            box-shadow: 0 18px 46px rgba(34, 47, 72, .22);
+        }
+        .fixture-menu button { display: block; width: 100%; border: 0; border-radius: 9px; padding: 9px 11px; background: transparent; text-align: left; cursor: pointer; }
+        .fixture-menu button:hover { background: #edf2fa; }
+        .fixture-backdrop {
+            position: fixed;
+            z-index: 110;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            background: rgba(20, 27, 43, .45);
+        }
+        .fixture-dialog {
+            width: min(430px, 100%);
+            border-radius: 20px;
+            padding: 22px;
+            background: #fff;
+            box-shadow: 0 24px 72px rgba(17, 24, 39, .3);
+        }
+        .fixture-dialog h2 { margin: 0 0 8px; }
+        .fixture-dialog p { color: #5f6368; }
+        .fixture-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+        .fixture-dialog-actions button { border: 1px solid #d8dce5; border-radius: 999px; padding: 8px 13px; background: #fff; cursor: pointer; }
+        .fixture-dialog-actions .confirm-button { border-color: #b3261e; background: #b3261e; color: #fff; }
+        .fixture-status { min-width: 170px; color: #66520b; font-size: 12px; text-align: right; }
+        body.dark-theme { background: #111318; color: #e5e9f2; }
+        body.dark-theme .fixture-app, body.dark-theme .fixture-content { background: #111318; }
+        body.dark-theme bard-sidenav { border-color: #353944; background: #1a1d24; }
+        body.dark-theme .fixture-header, body.dark-theme .fixture-composer,
+        body.dark-theme .fixture-message.model, body.dark-theme .fixture-menu,
+        body.dark-theme .fixture-dialog, body.dark-theme .fixture-icon-button,
+        body.dark-theme .fixture-account, body.dark-theme .fixture-model-button,
+        body.dark-theme .fixture-tool { border-color: #3b414d; background: #20242c; color: #e5e9f2; }
+        body.dark-theme .fixture-nav-control:hover, body.dark-theme .fixture-nav-link:hover,
+        body.dark-theme .fixture-chat-link:hover, body.dark-theme .fixture-chat-link[aria-current="page"] { background: #293349; }
+        body.dark-theme .query-text { background: #26344d; }
+        body.dark-theme .fixture-subtitle, body.dark-theme .fixture-dialog p { color: #aeb5c0; }
+        @media (max-width: 760px) {
+            .fixture-app { grid-template-columns: 1fr; }
+            bard-sidenav { display: none; }
+            input-area-v2 { left: 12px; right: 12px; }
+            .fixture-header-actions .fixture-account { display: none; }
+            .fixture-chat-window { width: min(100% - 24px, 920px); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .001ms !important; animation-duration: .001ms !important; }
+        }
+    </style>
+</head>
+<body class="theme-host" data-theme="light" data-harness="fixture-root">
+    <header class="fixture-banner" aria-label="Local fixture controls">
+        <p><strong>Local UI fixture</strong>No Google traffic, account data, or credentials. Identity: fixture@example.test</p>
+        <div class="fixture-banner-actions">
+            <span class="fixture-status" id="harness-status" role="status" aria-live="polite">Waiting for Primer++</span>
+            <button type="button" data-harness-action="toggle-theme">Toggle fixture theme</button>
+            <button type="button" data-harness-action="reset-storage">Reset fixture storage</button>
+        </div>
+    </header>
+
+    <div class="fixture-app">
+        <bard-sidenav>
+            <nav class="fixture-sidebar sidenav-with-history-container" aria-label="Side Navigation">
+                <div class="fixture-sidebar-group">
+                    <button class="fixture-nav-control" type="button" data-test-id="new-chat-button">＋ New chat</button>
+                    <button class="fixture-nav-control" type="button" data-test-id="search-chats-button" aria-label="Search chats">⌕ Search chats</button>
+                    <button class="fixture-nav-control" type="button" data-test-id="temp-chat-button" aria-label="Temporary chat">◌ Temporary chat</button>
+                </div>
+
+                <div class="fixture-sidebar-group" aria-label="Gemini native capabilities">
+                    <div class="fixture-sidebar-heading">Gemini native</div>
+                    <a class="fixture-nav-link" data-harness-static-link data-test-id="images-side-nav-entry" href="https://gemini.google.com/images">Images</a>
+                    <a class="fixture-nav-link" data-harness-static-link data-test-id="videos-side-nav-entry" href="https://gemini.google.com/videos">Videos</a>
+                    <a class="fixture-nav-link" data-harness-static-link data-test-id="my-stuff-side-nav-entry" href="https://gemini.google.com/library">Library</a>
+                    <section data-test-id="notebooks-section" aria-label="Notebooks">
+                        <a class="fixture-nav-link" data-harness-static-link href="https://gemini.google.com/notebooks">Notebooks</a>
+                        <button class="fixture-nav-control" type="button" data-test-id="new-notebook-button">＋ New notebook</button>
+                    </section>
+                    <a class="fixture-nav-link" data-harness-static-link data-test-id="usage-side-nav-entry" href="https://gemini.google.com/usage">Usage limits</a>
+                    <a class="fixture-nav-link" data-harness-static-link data-test-id="spark-side-nav-entry" href="https://gemini.google.com/spark">Spark</a>
+                    <a class="fixture-nav-link" data-harness-static-link data-test-id="skills-side-nav-entry" href="https://gemini.google.com/skills">Skills</a>
+                    <a class="fixture-nav-link" data-harness-static-link href="https://gemini.google.com/gems/fixture-gem">Gems</a>
+                    <button class="fixture-nav-control" type="button" data-harness-native="canvas">Canvas</button>
+                    <button class="fixture-nav-control" type="button" data-harness-native="deep-research">Deep Research</button>
+                </div>
+
+                <div class="fixture-sidebar-group overflow-container">
+                    <div class="fixture-sidebar-heading">Recent</div>
+                    <conversations-list data-test-id="all-conversations">
+                        <gem-nav-list-item class="fixture-chat-row" data-test-id="conversation" data-fixture-chat-id="fixture-chat-alpha">
+                            <a class="fixture-chat-link" data-harness-static-link aria-current="page" href="https://gemini.google.com/app/fixture-chat-alpha">
+                                <span class="fixture-chat-title">Primer++ rich transcript fixture</span>
+                            </a>
+                            <button class="fixture-more" type="button" aria-label="More options for Primer++ rich transcript fixture">⋮</button>
+                        </gem-nav-list-item>
+                        <gem-nav-list-item class="fixture-chat-row" data-test-id="conversation" data-fixture-chat-id="fixture-chat-beta">
+                            <a class="fixture-chat-link" data-harness-static-link href="https://gemini.google.com/app/fixture-chat-beta">
+                                <span class="fixture-chat-title">Queue and collections fixture</span>
+                            </a>
+                            <button class="fixture-more" type="button" aria-label="More options for Queue and collections fixture">⋮</button>
+                        </gem-nav-list-item>
+                        <gem-nav-list-item class="fixture-chat-row" data-test-id="conversation" data-fixture-chat-id="fixture-chat-gamma">
+                            <a class="fixture-chat-link" data-harness-static-link href="https://gemini.google.com/app/fixture-chat-gamma">
+                                <span class="fixture-chat-title">Search navigation fixture</span>
+                            </a>
+                            <button class="fixture-more" type="button" aria-label="More options for Search navigation fixture">⋮</button>
+                        </gem-nav-list-item>
+                    </conversations-list>
+                </div>
+            </nav>
+        </bard-sidenav>
+
+        <section class="fixture-content">
+            <header class="fixture-header">
+                <div class="fixture-title-wrap">
+                    <h1 class="conversation-title" data-test-id="conversation-title">Primer++ rich transcript fixture</h1>
+                    <p class="fixture-subtitle">Deterministic local DOM; no remote Gemini integration</p>
+                </div>
+                <div class="fixture-header-actions">
+                    <div data-test-id="bard-mode-switcher">
+                        <button class="fixture-model-button input-area-switch" type="button" data-test-id="bard-mode-menu-button" aria-label="Open mode picker" aria-haspopup="menu" aria-expanded="false">
+                            <span class="picker-primary-text">Gemini 3.5 Flash</span>
+                        </button>
+                    </div>
+                    <button class="fixture-icon-button" type="button" data-test-id="conversation-actions-menu-button" aria-label="Open menu for conversation actions">⋮</button>
+                    <button class="fixture-account" type="button" aria-label="Google Account: fixture@example.test">Fixture · fixture@example.test</button>
+                </div>
+            </header>
+
+            <main id="conversation-main" tabindex="-1">
+                <div class="conversation-container fixture-chat-window">
+                    <article class="fixture-message user" data-test-id="user-query" data-message-id="fixture-user-1" tabindex="-1">
+                        <div class="query-text">Show a compact, structured example with code, math, sources, a tool result, and a comparison table.</div>
+                    </article>
+
+                    <article class="fixture-message model" data-test-id="model-response" data-response-id="fixture-model-1" tabindex="-1">
+                        <response-container>
+                            <h2>Structured fixture response</h2>
+                            <p>This response deliberately exercises the current rich-transcript allowlist.</p>
+                            <pre data-language="javascript"><code class="language-javascript">const fixture = { localOnly: true, account: 'fixture@example.test' };
+console.log(fixture.localOnly);</code></pre>
+                            <p>Inline math: <span data-latex="E = mc^2" aria-label="math expression">E = mc²</span>.</p>
+                            <table>
+                                <thead><tr><th>Surface</th><th>Owner</th></tr></thead>
+                                <tbody><tr><td>Notebooks</td><td>Gemini native</td></tr><tr><td>Collections</td><td>Primer++ local</td></tr></tbody>
+                            </table>
+                            <div class="fixture-rich-meta">
+                                <a href="https://example.test/reference" data-citation="fixture-citation-1">Fixture citation</a>
+                                <span class="fixture-chip" data-source-id="fixture-source-1" aria-label="source fixture-source-1">Source 1</span>
+                                <span class="fixture-chip" data-tool-name="fixture-search" data-tool-status="complete" aria-label="tool fixture-search complete">Tool complete</span>
+                                <a href="https://example.test/details">Safe public link</a>
+                            </div>
+                            <picture>
+                                <img class="fixture-image" alt="Abstract local fixture thumbnail" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='144' height='96'%3E%3Crect width='144' height='96' rx='14' fill='%23dbe7fa'/%3E%3Cpath d='M18 67l24-25 20 17 18-26 46 34' fill='none' stroke='%230b57d0' stroke-width='7'/%3E%3C/svg%3E">
+                            </picture>
+                        </response-container>
+                    </article>
+
+                    <article class="fixture-message user" data-test-id="user-query" data-message-id="fixture-user-2" tabindex="-1">
+                        <div class="query-text">Keep the next answer short so message navigation has another stable locator.</div>
+                    </article>
+                    <article class="fixture-message model" data-test-id="model-response" data-response-id="fixture-model-2" tabindex="-1">
+                        <response-container><p>Second stable model response for search, annotations, and focus restoration.</p></response-container>
+                    </article>
+                </div>
+            </main>
+
+            <input-area-v2 data-test-id="textarea-wrapper">
+                <div class="fixture-composer">
+                    <div data-test-id="textarea-inner">
+                        <div class="fixture-editor ql-editor" role="textbox" aria-label="Enter a prompt for Gemini" contenteditable="true" data-placeholder="Ask the local fixture"></div>
+                    </div>
+                    <div class="fixture-composer-row">
+                        <div class="fixture-tool-modes" aria-label="Tool modes">
+                            <button class="fixture-tool" type="button" aria-pressed="false">Deep Research</button>
+                            <button class="fixture-tool" type="button" aria-pressed="false">Canvas</button>
+                        </div>
+                        <div class="trailing-actions-wrapper">
+                            <button class="fixture-send send-button" type="button" data-test-id="send-button" aria-label="Send message">↑</button>
+                        </div>
+                    </div>
+                </div>
+            </input-area-v2>
+        </section>
+    </div>
+
+    <div class="fixture-overlay-root cdk-overlay-container" aria-live="polite"></div>
+
+    <script>
+        (() => {
+            'use strict';
+
+            const status = document.getElementById('harness-status');
+            const overlayRoot = document.querySelector('.fixture-overlay-root');
+            const modelButton = document.querySelector('[data-test-id="bard-mode-menu-button"]');
+            const modelLabel = modelButton.querySelector('.picker-primary-text');
+            const editor = document.querySelector('[role="textbox"][contenteditable="true"]');
+            const transcript = document.querySelector('.fixture-chat-window');
+            let localMessageSequence = 0;
+
+            const setStatus = message => { status.textContent = message; };
+            const closeMenus = () => {
+                overlayRoot.querySelectorAll('[role="menu"]').forEach(menu => menu.remove());
+                modelButton.setAttribute('aria-expanded', 'false');
+            };
+            const menuPosition = anchor => {
+                const rect = anchor.getBoundingClientRect();
+                return {
+                    top: Math.min(window.innerHeight - 180, rect.bottom + 6),
+                    left: Math.max(10, Math.min(window.innerWidth - 230, rect.right - 220))
+                };
+            };
+            const createMenu = anchor => {
+                closeMenus();
+                const pane = document.createElement('div');
+                pane.className = 'cdk-overlay-pane';
+                const menu = document.createElement('div');
+                menu.className = 'fixture-menu';
+                menu.setAttribute('role', 'menu');
+                const position = menuPosition(anchor);
+                menu.style.top = `${position.top}px`;
+                menu.style.left = `${position.left}px`;
+                pane.appendChild(menu);
+                overlayRoot.appendChild(pane);
+                return menu;
+            };
+
+            document.addEventListener('click', event => {
+                if (event.target.closest('.primer-bulk-choice')) return;
+                const staticLink = event.target.closest('[data-harness-static-link]');
+                if (staticLink) {
+                    event.preventDefault();
+                    const row = staticLink.closest('gem-nav-list-item[data-fixture-chat-id]');
+                    if (row) {
+                        const id = globalThis.__IAB_HARNESS__.selectVirtualConversation(row.dataset.fixtureChatId);
+                        document.querySelectorAll('.fixture-chat-link[aria-current]')
+                            .forEach(link => link.removeAttribute('aria-current'));
+                        staticLink.setAttribute('aria-current', 'page');
+                        const title = row.querySelector('.fixture-chat-title')?.textContent?.trim() || id;
+                        document.querySelector('[data-test-id="conversation-title"]').textContent = title;
+                        setStatus(`Selected local conversation: ${title}`);
+                        queueMicrotask(() => dispatchEvent(new PopStateEvent('popstate')));
+                    } else {
+                        setStatus(`Fixture held navigation: ${staticLink.textContent.trim()}`);
+                    }
+                }
+            }, true);
+
+            document.querySelector('[data-harness-action="reset-storage"]').addEventListener('click', () => {
+                globalThis.__IAB_HARNESS__.resetStorage();
+            });
+            document.querySelector('[data-harness-action="toggle-theme"]').addEventListener('click', () => {
+                const dark = document.body.classList.toggle('dark-theme');
+                document.body.dataset.theme = dark ? 'dark' : 'light';
+                setStatus(`Fixture theme: ${dark ? 'dark' : 'light'}`);
+            });
+            document.querySelectorAll('[data-test-id="new-chat-button"], [data-test-id="temp-chat-button"]')
+                .forEach(button => button.addEventListener('click', () => {
+                    globalThis.__IAB_HARNESS__.selectVirtualNewChat();
+                    document.querySelectorAll('.fixture-chat-link[aria-current]')
+                        .forEach(link => link.removeAttribute('aria-current'));
+                    document.querySelector('[data-test-id="conversation-title"]').textContent = button.dataset.testId === 'temp-chat-button'
+                        ? 'Temporary chat fixture'
+                        : 'New chat fixture';
+                    setStatus(`Selected local route: ${button.textContent.trim()}`);
+                    queueMicrotask(() => dispatchEvent(new PopStateEvent('popstate')));
+                }));
+
+            document.querySelectorAll('.fixture-tool').forEach(button => {
+                button.addEventListener('click', () => {
+                    const pressed = button.getAttribute('aria-pressed') !== 'true';
+                    document.querySelectorAll('.fixture-tool').forEach(item => item.setAttribute('aria-pressed', 'false'));
+                    button.setAttribute('aria-pressed', String(pressed));
+                    setStatus(pressed ? `Local tool mode: ${button.textContent.trim()}` : 'Local tool mode cleared');
+                });
+            });
+
+            modelButton.addEventListener('click', () => {
+                if (modelButton.getAttribute('aria-expanded') === 'true') {
+                    closeMenus();
+                    return;
+                }
+                const menu = createMenu(modelButton);
+                menu.dataset.testId = 'gem-mode-menu';
+                const options = [
+                    ['56fdd199312815e2', 'Gemini 3.5 Flash'],
+                    ['8c46e95b1a07cecc', 'Gemini 3.1 Flash-Lite'],
+                    ['e6fa609c3fa255c0', 'Gemini 3.1 Pro'],
+                    ['thinking_level', 'Thinking level']
+                ];
+                options.forEach(([modeId, label]) => {
+                    const item = document.createElement('button');
+                    item.type = 'button';
+                    item.setAttribute('role', 'menuitem');
+                    item.dataset.testId = `bard-mode-option-${modeId}`;
+                    item.dataset.modeId = modeId;
+                    item.dataset.active = String(modelLabel.textContent.includes(label.split(' ').at(-1)));
+                    item.textContent = label;
+                    item.addEventListener('click', () => {
+                        modelLabel.textContent = label;
+                        closeMenus();
+                        setStatus(`Local model: ${label}`);
+                    });
+                    menu.appendChild(item);
+                });
+                modelButton.setAttribute('aria-expanded', 'true');
+                menu.querySelector('[role="menuitem"]')?.focus();
+            });
+
+            const showDeleteDialog = row => {
+                closeMenus();
+                const backdrop = document.createElement('div');
+                backdrop.className = 'fixture-backdrop';
+                const dialog = document.createElement('section');
+                dialog.className = 'fixture-dialog mdc-dialog';
+                dialog.setAttribute('role', 'alertdialog');
+                dialog.setAttribute('aria-modal', 'true');
+                dialog.setAttribute('aria-labelledby', 'fixture-delete-title');
+                dialog.innerHTML = `
+                    <h2 id="fixture-delete-title">Delete local fixture row?</h2>
+                    <p>This removes only one in-memory sidebar row. Reloading restores the fixture.</p>
+                    <div class="fixture-dialog-actions">
+                        <button type="button" data-fixture-cancel>Cancel</button>
+                        <button type="button" class="confirm-button" data-test-id="confirm-delete">Delete</button>
+                    </div>`;
+                backdrop.appendChild(dialog);
+                overlayRoot.appendChild(backdrop);
+                const close = () => backdrop.remove();
+                dialog.querySelector('[data-fixture-cancel]').addEventListener('click', close);
+                dialog.querySelector('[data-test-id="confirm-delete"]').addEventListener('click', () => {
+                    const title = row.querySelector('.fixture-chat-title')?.textContent?.trim() || 'fixture row';
+                    const id = row.dataset.fixtureChatId || '';
+                    if (globalThis.__IAB_HARNESS__.recordDeleteAttempt(id)) {
+                        close();
+                        setStatus(`Injected delete failure: ${title}`);
+                        return;
+                    }
+                    row.remove();
+                    close();
+                    setStatus(`Deleted local row: ${title}`);
+                });
+                dialog.querySelector('[data-fixture-cancel]').focus();
+            };
+
+            document.addEventListener('click', event => {
+                const more = event.target.closest('button[aria-label^="More options for"]');
+                const headerMore = event.target.closest('[data-test-id="conversation-actions-menu-button"]');
+                if (!more && !headerMore) return;
+                const row = more?.closest('gem-nav-list-item[data-test-id="conversation"]') || null;
+                const menu = createMenu(more || headerMore);
+                const action = document.createElement('button');
+                action.type = 'button';
+                action.setAttribute('role', 'menuitem');
+                if (row) {
+                    action.dataset.testId = 'delete-button';
+                    action.textContent = 'Delete local fixture row';
+                    action.addEventListener('click', () => showDeleteDialog(row));
+                } else {
+                    action.textContent = 'Fixture conversation action';
+                    action.addEventListener('click', () => {
+                        closeMenus();
+                        setStatus('Ran local header action');
+                    });
+                }
+                menu.appendChild(action);
+                action.focus();
+            });
+
+            const sendLocalMessage = () => {
+                const text = editor.textContent.trim();
+                if (!text) {
+                    setStatus('Composer is empty');
+                    return;
+                }
+                localMessageSequence += 1;
+                const suffix = `${Date.now()}-${localMessageSequence}`;
+                const user = document.createElement('article');
+                user.className = 'fixture-message user';
+                user.dataset.testId = 'user-query';
+                user.dataset.messageId = `fixture-local-user-${suffix}`;
+                user.tabIndex = -1;
+                const query = document.createElement('div');
+                query.className = 'query-text';
+                query.textContent = text;
+                user.appendChild(query);
+
+                const model = document.createElement('article');
+                model.className = 'fixture-message model';
+                model.dataset.testId = 'model-response';
+                model.dataset.responseId = `fixture-local-model-${suffix}`;
+                model.tabIndex = -1;
+                const response = document.createElement('response-container');
+                const paragraph = document.createElement('p');
+                paragraph.textContent = 'Local fixture response: no request was sent to Gemini.';
+                response.appendChild(paragraph);
+                model.appendChild(response);
+
+                transcript.append(user, model);
+                editor.textContent = '';
+                editor.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'deleteContent' }));
+                model.scrollIntoView({ block: 'center' });
+                setStatus('Added a local-only fixture exchange');
+            };
+            document.querySelector('[data-test-id="send-button"]').addEventListener('click', sendLocalMessage);
+            editor.addEventListener('keydown', event => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    sendLocalMessage();
+                }
+            });
+            document.addEventListener('keydown', event => {
+                if (event.key === 'Escape') closeMenus();
+            });
+
+            const probeTimer = setInterval(() => {
+                if (typeof globalThis.__PRIMER_PP_GET_PROBE_REPORT__ !== 'function') return;
+                clearInterval(probeTimer);
+                try {
+                    const report = globalThis.__PRIMER_PP_GET_PROBE_REPORT__();
+                    setStatus(`Primer++ ${report?.version || ''} mounted locally`.trim());
+                } catch {
+                    setStatus('Primer++ bridge present');
+                }
+            }, 100);
+            setTimeout(() => clearInterval(probeTimer), 15000);
+        })();
+    </script>
+    <script src="/primer-pp.user.js"></script>
+</body>
+</html>

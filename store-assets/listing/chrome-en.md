@@ -15,45 +15,45 @@ _Use this file when filling the Chrome Web Store Developer Dashboard. Paste each
 > Form field cap: **132 characters**.
 
 ```
-Unofficial Gemini™ companion: daily counter, heatmap, quota tracker, folders, prompt vault, export. Local-only, open source.
+Unofficial Gemini™ companion for local insights, collections, archives, recipes, search, and backup. Private and open source.
 ```
 
-> 124 characters.
+> 125 characters.
 
 ## Detailed description
 
 > Form field cap: 16,000 characters. Markdown is **not** rendered — line breaks are preserved.
 
 ```
-Primer++ for Gemini™ is an unofficial, open-source companion extension for Google Gemini (gemini.google.com). It adds independent quality-of-life modules that turn the Gemini web app into a workspace you can actually track and organize. Everything runs locally in your browser; no account, no telemetry, no cloud sync.
+Primer++ for Gemini™ is an unofficial, open-source companion extension for Google Gemini (gemini.google.com). It adds optional local workflows for organizing, archiving, reusing, and finding your work. Everything runs in your browser; there is no Primer++ account, telemetry, backend, or cloud sync.
 
 ═══════════════════════════════════════
 WHAT IT ADDS
 ═══════════════════════════════════════
 
-• Counter — daily message tally per model (Flash / Pro / Thinking), configured reset-window framing, streak tracking, weekly trend, and a model-weighted quota bar so you can see how close you are to your self-set ceiling.
+• Local Insights — keep an on-device activity history with day and model breakdowns, streaks, trends, and a year heatmap. These are local observations, not Gemini server quota or remaining-limit values.
 
-• Heatmap dashboard — GitHub-style year heatmap of your Gemini usage, plus per-model breakdown and per-day drill-down.
+• Collections — organize chat references into nested local collections with ordering, colors, pins, batch moves, previews, safe smart rules, transfer, and undo.
 
-• Folders — group sidebar chats into folders with drag-and-drop, color coding, pinning, batch move, one-step local undo, JSON import/export, and optional auto-classify rules (regex or keyword).
+• Archive & Export — explicitly capture visible current or selected chats, preserve transcript structure, and export JSON / CSV / Markdown / TXT / HTML / DOCX. Failed or empty captures remain visible instead of being fabricated.
 
-• Export — export usage reports, the current visible chat transcript, or selected sidebar chats to JSON / CSV / Markdown / TXT / HTML / DOCX, and insert bounded transcript packets into the composer.
+• Portable Backup & Restore — export a versioned backup of selected local feature stores, validate and preview it, de-duplicate records, selectively restore, roll back failed writes, and resume an interrupted restore.
 
-• Prompt Vault — save frequently used prompts, organize by tag, one-click insert into the composer, queue prompt chains step by step, and undo local prompt deletes. Import / export your library as JSON.
+• Recipes — save reusable prompts and parameterized templates, organize them with tags, insert rendered content into the composer, queue a chain step by step, and import/export the local library.
 
-• Message Queue — queue prompts locally, including Prompt Vault chain steps, then start, pause, cancel, or reorder the send sequence from the floating panel.
+• Message Queue — locally stage prompts, then explicitly start, pause, cancel, or reorder the sequence. Active Gemini tool modes pause the queue instead of silently retrying.
 
-• Default Model — auto-select your preferred model (Flash / Pro / Thinking) when you open a fresh chat.
+• Search & Navigator — search deliberately archived/imported local records, filter and rank results, jump to a chat locator, or create an anchored quote. It does not silently index hidden Gemini conversations.
 
-• Batch Delete — multi-select chats in the sidebar and delete them in one confirmed pass.
+• Annotations — save local notes, pins, and references for important chats and insert an explicit context packet when you choose.
 
-• Quote Reply — quote selected text from any chat into your next prompt, with attribution.
+• Preferences — select an available preferred model, adjust theme/locale/layout and composer behavior, and manage shortcuts with conflict checks.
 
-• Chat Notes — save local notes and pins for important conversations, export/import notes as JSON, and insert explicit local reference packets or pinned-note packets with title, link, chat ID, and your saved note.
+• Bulk Lifecycle — select multiple chats and run a confirmed archive or delete flow with progress, pause/cancel boundaries, and an operation snapshot.
 
-• UI Tweaks — sync the tab title with the chat title, customize Ctrl+Enter behavior, show a composer input counter, adjust chat width, hide unused Gems.
+• Capability Health — see whether each integration is available, Gemini-native, unavailable, degraded, disabled, or failed to inject after a frontend change.
 
-Each module can be individually enabled or disabled from the settings panel. The floating panel is draggable, themable (Glass / Cyber / Paper / Auto-system), and remembers its position per browser profile.
+Each optional feature can be enabled or disabled independently. The shell uses consistent themes, locale-aware components, keyboard controls, and remembered preferences. Gemini-native Notebooks, search, Usage Limits, Gems/Skills, Canvas, Deep Research, and Spark remain native and are not duplicated.
 
 ═══════════════════════════════════════
 PRIVACY & DATA
@@ -61,7 +61,7 @@ PRIVACY & DATA
 
 • All data is stored in chrome.storage.local on your device.
 • Nothing is uploaded — not to the developer, not to any analytics service, not anywhere.
-• Prompt text is read or stored only when you explicitly save it to Prompt Vault or add it to Message Queue. Visible Gemini conversation text is read only when you explicitly export the current chat or selected chats, or insert a bounded transcript packet. Chat Notes context insertion uses saved local title/link/ID/note data only.
+• Prompt text is stored only when you explicitly save a recipe or add it to Message Queue. Visible conversation text is read only after an explicit archive/export or context-packet action, or from an archive you explicitly import. Archived text stays local until you delete it; hidden chats are not continuously collected.
 • Only host permission requested: https://gemini.google.com/*.
 • Full privacy policy: https://github.com/Shallow-dusty/primer-pp/blob/main/PRIVACY.md
 
@@ -96,7 +96,7 @@ Primer++ for Gemini™ is an unofficial community project. Gemini™ is a tradem
 > Required free-text field. Keep to one sentence.
 
 ```
-Enhance the Gemini web app at gemini.google.com with local-only productivity tools: usage counter, conversation folders, saved prompts, message queue, notes, and bulk operations.
+Enhance the Gemini web app with optional local workflows for insights, organization, archives, reusable prompts, navigation, and backup/restore.
 ```
 
 ---
@@ -108,7 +108,7 @@ Enhance the Gemini web app at gemini.google.com with local-only productivity too
 ### `storage`
 
 ```
-Persists user preferences and per-account local data on the device only: daily message counts (for Counter), folder definitions (for Folders), saved prompts (for Prompt Vault), queued prompts (for Message Queue), local chat notes, pins, and reference metadata (for Chat Notes), floating panel position, current theme, and which modules are enabled. All data is written to chrome.storage.local and never transmitted off the device.
+Persists user preferences and account-scoped local feature data on the device: insights, collections, explicitly created/imported archives, recipes, queued prompts, annotations, search records derived from those archives, restore progress, panel layout, locale/theme, and enabled state. All data is written to chrome.storage.local and is not transmitted by Primer++.
 ```
 
 ### `contextMenus`
@@ -120,7 +120,7 @@ Adds a single "Reset Panel Position" item to the extension toolbar icon's right-
 ### Host permission: `https://gemini.google.com/*`
 
 ```
-The extension's content script only runs on Google Gemini at https://gemini.google.com/*, which is the single web app it enhances. The script reads sidebar chat titles, the currently selected model, the signed-in account label, and message-send events so the in-page floating panel can show daily counts, manage folders, and inject quick-insert prompts or explicit local Chat Notes references. When the user explicitly exports a transcript or inserts a transcript packet, it reads the visible current or selected chat content to write a local download or insert bounded text into the composer. It does not request <all_urls> or any other host permission.
+The content script only runs on Google Gemini at https://gemini.google.com/*, the single web app it enhances. It reads the signed-in account label for local separation, current model and capability state, sidebar chat references, and page events needed by enabled workflows. It reads visible transcript content only after an explicit archive/export or context-packet action. It does not request <all_urls> or any other host permission.
 ```
 
 ### Remote code use
@@ -171,7 +171,7 @@ https://github.com/Shallow-dusty/primer-pp/blob/main/PRIVACY.md
 
 Upload in this order from `store-assets/screenshots/`:
 
-1. `01-panel-counter.png` — floating panel with daily counter + quota bar
+1. `01-panel-counter.png` — floating panel with local activity insights
 2. `02-details-pane.png` — expanded details pane with module tabs
 3. `03-dashboard-heatmap.png` — year heatmap and model breakdown
 4. `04-settings.png` — settings modal showing module toggles

@@ -1,0 +1,9 @@
+{
+  "name": "unavailable",
+  "location": "https://gemini.google.com/landing",
+  "viewport": { "width": 1024, "height": 768, "dpr": 1 },
+  "nodes": [
+    { "key": "body", "tag": "body" },
+    { "key": "unrelated", "tag": "div", "parent": "body", "attrs": { "data-test-id": "unrelated-control" }, "text": "No Gemini app anchors" }
+  ]
+}

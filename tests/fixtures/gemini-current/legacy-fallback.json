@@ -1,0 +1,26 @@
+{
+  "name": "legacy-fallback",
+  "location": "https://gemini.google.com/app/legacy_fixture",
+  "viewport": { "width": 1280, "height": 720, "dpr": 1 },
+  "nodes": [
+    { "key": "body", "tag": "body" },
+    { "key": "sidebar", "tag": "nav", "parent": "body", "attrs": { "role": "navigation" } },
+    { "key": "chat-row", "tag": "div", "parent": "sidebar", "attrs": { "role": "listitem" } },
+    { "key": "chat-link", "tag": "a", "parent": "chat-row", "attrs": { "href": "/app/legacy_chat_1" } },
+    { "key": "chat-label", "tag": "span", "parent": "chat-link", "text": "Legacy conversation" },
+    { "key": "chat-menu", "tag": "button", "parent": "chat-row", "attrs": { "aria-label": "More options for Legacy conversation" } },
+
+    { "key": "composer", "tag": "input-area-v2", "parent": "body" },
+    { "key": "editor", "tag": "div", "parent": "composer", "classes": ["ql-editor"], "attrs": { "contenteditable": "true" } },
+    { "key": "input-actions", "tag": "div", "parent": "composer", "classes": ["trailing-actions-wrapper"] },
+    { "key": "send", "tag": "button", "parent": "input-actions", "classes": ["send-button"] },
+    { "key": "mode-button", "tag": "button", "parent": "composer", "classes": ["input-area-switch"], "text": "Gemini Pro" },
+
+    { "key": "header-title", "tag": "div", "parent": "body", "classes": ["conversation-title-container"] },
+    { "key": "title", "tag": "h1", "parent": "header-title", "classes": ["conversation-title"], "text": "Legacy fixture title" },
+    { "key": "main", "tag": "main", "parent": "body", "classes": ["chat-container"] },
+    { "key": "user-message", "tag": "user-query", "parent": "main" },
+    { "key": "user-text", "tag": "div", "parent": "user-message", "classes": ["user-query-text"], "text": "Legacy question" },
+    { "key": "model-message", "tag": "model-response", "parent": "main", "text": "Legacy answer" }
+  ]
+}

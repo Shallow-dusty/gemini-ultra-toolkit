@@ -8,82 +8,86 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 npm run build              # Build both userscript + extension
 npm run build:userscript   # Build userscript only → primer-pp.user.js
 npm run build:extension    # Build extension only → dist/extension/
-npm test                   # Run lib coverage checks plus project smoke checks
+npm run test:fast          # Run node:test without coverage instrumentation
+npm test                   # Per-file coverage gate for all shipped JavaScript
+python -m unittest discover -s tests/python -p "test_*.py"  # Store-tooling tests
+npm audit --audit-level=moderate
 ```
 
-Tests enforce **100% branch/function/line/statement coverage** on `lib/`; `tests/app_smoke.test.js` covers release metadata, manifest scope, accessibility guards, and the dependency-audit pin. `pretest` auto-builds the userscript before testing. There is no watch mode or per-file test command.
+`npm test` uses the canonical `.c8rc` and enforces **100% statements, branches, functions, and lines per file** for shipped JavaScript under `lib/**/*.js`, `src/**/*.js`, and `scripts/**/*.js`. The 24 Python store-tooling tests are a separate gate and are not included in c8 percentages. Build explicitly with `npm run build`; there is no `pretest` build hook or watch command.
 
 ## Architecture
 
-**Dual-platform project**: a single codebase produces both a Tampermonkey/Violentmonkey **userscript** and a Chrome/Edge/Firefox **browser extension** (MV3). All 8 modules + core + UI are shared; only thin platform entry points differ. Public branding is `Primer++ for Gemini™`; keep `src/meta.txt`, `src/platforms/extension/manifest.json`, `src/constants.js`, `README.md`, and generated `primer-pp.user.js` aligned.
+**Dual-platform project**: one codebase produces a Tampermonkey/Violentmonkey **userscript** and a Chrome/Edge/Firefox **browser extension** (MV3). Product behavior is shared; thin platform adapters provide storage and runtime capabilities. Public branding is `Primer++ for Gemini™`. The repository version sources are `src/constants.js`, `src/meta.txt`, and `src/platforms/extension/manifest.json`; keep generated `primer-pp.user.js` and release-facing docs aligned. `package.json` intentionally has no version.
+
+The local repository is a **v13.0 release candidate**. The latest published release remains **v12.0** until an explicit release workflow creates and publishes v13 artifacts.
 
 ### Build Pipeline
 
-**esbuild** via `scripts/build.js`, controlled by `TARGET` env var:
-- **Userscript**: `src/main.js` → IIFE bundle with `src/meta.txt` banner → `primer-pp.user.js` (root)
-- **Extension**: two-phase build — `src/platforms/extension/content.js` (GM_* polyfill) and `src/main.js` bundled separately as ESM, then concatenated into an async IIFE wrapper so polyfill can `await chrome.storage.local.get()` before main runs → `dist/extension/content.js`
+`scripts/build.js` delegates to the testable `scripts/build_core.js` and esbuild:
+
+- **Userscript**: `src/main.js` → minified IIFE with the `src/meta.txt` banner → tracked `primer-pp.user.js`.
+- **Extension**: bundles the GM compatibility bootstrap and `src/main.js`, waits for `chrome.storage.local` preload, then emits a minified async IIFE at ignored `dist/extension/content.js` with manifest, background worker, and icons.
+- **Atomicity**: both targets are staged, validated, and installed together; a failed dual build restores previous artifacts.
+- **Budgets**: each primary artifact is limited to 835,000 raw bytes and 245,000 gzip-9 bytes. Build output reports raw/gzip size and SHA-256.
 
 ### Key Design Patterns
 
-**GM_* Polyfill** (`src/platforms/extension/gm_polyfill.js`): Extension reuses the exact same code as userscript by polyfilling all GM_* APIs (getValue/setValue/listValues/addValueChangeListener/addStyle/registerMenuCommand) on top of `chrome.storage.local` with a synchronous in-memory cache. The polyfill is preloaded before main.js runs.
+**Composition root** (`src/app/`): `main.js` wires injected platform, storage, adapter, feature, UI, health, and archive policies. `PrimerApplication` owns one page activation and ordered shutdown.
 
-**Direct Import (singleton modules)**: Modules import shared state/utilities directly (`import { Core } from './core.js'`). Not factory+DI. All GM_* calls go through the global `GM_getValue`/`GM_setValue` which are either native (userscript) or polyfilled (extension).
+**Lifecycle and module host** (`src/runtime/`): `LifecycleScope` owns listeners, timers, observers, and disposers. `ModuleHost` serializes feature transitions, persists enabled state, and rolls back failed start/stop operations. Compatibility module IDs remain stable while feature implementations move behind descriptors.
 
-**Module Registry** (`src/module_registry.js`): Manages lifecycle of 8 pluggable feature modules. Each module implements `init()`, `destroy()`, `tick()`, and optionally `onUserChange()`.
+**Storage ports** (`src/storage/`): application and features use asynchronous clone-safe repositories. GM and Chrome adapters contain raw platform calls and pending-write flushing; account-scoped keys remain isolated.
 
-**DOMWatcher** (`src/dom_watcher.js`): Centralized MutationObserver management — modules register watchers here instead of creating their own observers.
+**Gemini adapter** (`src/adapters/gemini/`): all mutable Gemini DOM selectors and page interactions belong here. Features consume capability-oriented composer, conversation, dialog, model, session, sidebar, transcript, and diagnostic ports instead of embedding selectors.
+
+**Feature verticals** (`src/features/`): Insights, Collections, Portable Archive, Recipes, Message Queue, Preferences, Annotations, Bulk Lifecycle, Search & Navigator, and Capability Health own their domain, service/controller, view, and restore integration.
+
+**UI foundation** (`src/ui/`): scoped semantic tokens, reusable components, locale state, dialog management, and shell controllers keep product UI separate from host DOM policy. Legacy panel/native facades remain only where compatibility requires them.
 
 ### Source Layout
 
 ```
 src/
-├── main.js             → App entry: boots core, registers modules, starts main loop
-├── core.js             → User/model detection, URL parsing, sidebar scanning
-├── panel_ui.js         → Main floating panel + details pane + core rendering
-├── panel_settings.js   → Settings, Onboarding, Debug, Calibration modals
-├── panel_dashboard.js  → Analytics dashboard with heatmap + model distribution
-├── native_ui.js        → Native Gemini UI injection points + showConfirm/showToast
-├── state.js            → Shared mutable state
-├── constants.js        → GLOBAL_KEYS, TIMINGS, VERSION
-├── module_registry.js  → Module lifecycle management
-├── dom_watcher.js      → Centralized MutationObserver
-├── guided_tour.js      → New user onboarding tour
-├── icons.js            → SVG icon definitions
-├── logger.js / debug_utils.js → Logging infrastructure
-├── meta.txt            → Tampermonkey userscript header
-├── modules/            → 8 feature modules (counter, export, folders, prompt_vault, default_model, batch_delete, quote_reply, ui_tweaks)
-└── platforms/extension/ → GM_* polyfill, content.js entry, background.js, manifest.json, icons
+├── main.js                  → Browser entry and composition
+├── app/                     → Composition root, application lifecycle, archive wiring
+├── runtime/                 → LifecycleScope, ModuleHost, descriptors and transition state
+├── storage/                 → Async storage port, repositories, migrations, GM/Chrome adapters
+├── adapters/gemini/         → Current Gemini DOM and capability boundary
+├── features/                → Product verticals and restore contributors
+├── ui/                      → Tokens, components, dialogs, locale, shell controllers
+├── modules/                 → Stable compatibility facades for legacy module IDs
+├── platforms/               → Userscript and MV3 runtime adapters
+└── constants.js / meta.txt  → Shared product constants and userscript metadata
 
-lib/                    → Pure utility modules (CommonJS, 100% test coverage)
-├── counter_calc.js     → Streak calculation, last-7-days data, ensureTodayEntry
-├── date_utils.js       → formatLocalDate, getDayKey, parseLocalDate (timezone-safe)
-├── quota_calc.js       → Weighted quota calculation, quota bar state
-├── model_config.js     → MODEL_CONFIG definition (shared with counter module)
-├── data_loader.js      → User data normalization
-├── export_formatter.js → Multi-format export (JSON/CSV/Markdown)
-└── debug_logger.js     → Logger with circular buffer, persistence, subscribers
-
-tests/                  → Unit tests for lib/ (node:test + c8)
+lib/                         → Shared pure logic used by product features
+scripts/                     → Atomic, validated dual-target build pipeline
+tests/                       → Node coverage/smoke/architecture tests and Python store tests
 ```
 
 ### Data Flow
 
-1. **Userscript**: Tampermonkey loads `primer-pp.user.js` → `main.js` → boots directly with native GM_* APIs
-2. **Extension**: `content.js` → async IIFE: init GM_* polyfill (preload chrome.storage) → then run `main.js`
-3. `main.js`: initializes Core → registers 8 modules → starts main loop (polling every 1500ms)
-4. Main loop: detects user/model changes → creates/updates panel → ticks enabled modules
+1. The userscript starts with the GM adapter; the extension awaits its Chrome storage bootstrap before the shared application bundle starts.
+2. `main.js` creates the platform and storage ports, Gemini adapter, feature catalog, UI shell, archive wiring, and capability-health service.
+3. The composition root starts one `PrimerApplication`; lifecycle scopes own DOM watchers, visibility handling, polling, subscriptions, and teardown.
+4. The module host starts only enabled descriptors and rolls back failed transitions. Features read Gemini through adapter capabilities and persist through repositories.
+5. Portable Archive discovers enabled restore contributors, validates a versioned manifest, previews selection, and executes resumable restore with rollback safeguards.
 
 ### Storage Key Conventions
 
-- User-scoped: `gemini_store_{email}`, `gemini_folders_data_{email}`, `gemini_prompt_vault_{email}`
-- Global: `gemini_panel_pos`, `gemini_current_theme`, `gemini_enabled_modules`, etc.
-- All key names defined in `src/constants.js` → `GLOBAL_KEYS`
+- New code uses `src/storage/keys.js`, repositories, and the storage port; do not call raw `GM_*` or `chrome.storage` from feature code.
+- Preserve existing user-scoped keys and migration behavior. Never log or export an account label except as explicitly sanitized product data.
+- Preferences, enabled-state, and feature data must participate in Portable Archive through a restore contributor where applicable.
+- Flush pending platform writes on page hide and application shutdown.
 
 ## Important Conventions
 
 - Current docs entry point: `docs/README.md`; current release state: `docs/PROJECT_STATUS.md`; near-term scope: `docs/ROADMAP.md`; current audit state: `docs/audits/CURRENT_AUDIT_STATUS.md`.
+- Current v13 product/architecture/test plan: `docs/research/v13-refactor-plan-2026-08-01.md`. It supersedes the June market snapshot for current decisions.
 - **Timezone safety**: All date operations use `formatLocalDate()` / `parseLocalDate()` / `getDayKey()` from `lib/date_utils.js`. Never use `toISOString().slice(0,10)` or `new Date("YYYY-MM-DD")` — both produce UTC dates that shift in non-UTC timezones.
-- `lib/model_config.js` is the single source for MODEL_CONFIG — a sync guard test ensures it stays in sync with `src/modules/counter.js`.
-- Four built-in themes (Glass/Cyber/Paper/Auto) defined in `src/constants.js`. Auto syncs with system color scheme.
+- `lib/model_config.js` is the single source for model configuration; sync guards protect compatibility surfaces.
+- Theme and locale UI must use scoped tokens/components. Do not copy Gemini styling assumptions into feature code.
+- Gemini-native features are not reimplemented: Notebooks, native search, Usage Limits, Gems/Skills, Canvas, Deep Research, and Spark stay native-owned; capability health should explain the boundary.
 - ReDoS protection: folder auto-classify regexes are length-capped (100 chars). CSS injection prevention: hex color validation on folder colors.
-- All GM_* calls in `src/` are wrapped in try-catch for robustness.
+- Transcript capture is explicit and visible-surface-only. Diagnostic exports must remain structural and must not include transcript bodies, sidebar titles, URLs, local storage, or credentials.
+- Do not describe local counts or estimates as Gemini server quota.

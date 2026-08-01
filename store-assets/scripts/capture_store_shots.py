@@ -1,238 +1,277 @@
-"""Drive Briar Havoc via page-level CDP and capture five 1280x800 PNGs.
-
-Reads page WS from /json/list; userscript is already injected from a prior
-session (sentinel: window.__PRIMER_PP_LOADED__). Otherwise injects fresh.
-
-Output: store-assets/screenshots/0{1..5}-*.png
-"""
+"""Capture the five store screenshots with explicit, restored page mutation."""
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 import time
 from pathlib import Path
-from urllib.request import urlopen
+from typing import Any, Callable, Mapping
 
-from cdp_client import CDP, GM_POLYFILL_JS, load_userscript
+from cdp_client import (
+    CDP,
+    RestoredState,
+    ensure_outputs_available,
+    find_gemini_page_ws,
+    require_mutation_opt_in,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SHOT_DIR = REPO_ROOT / "store-assets" / "screenshots"
-CDP_HTTP = "http://127.0.0.1:63366"
+DEFAULT_OUTPUT_DIR = REPO_ROOT / "store-assets" / "screenshots"
 PANEL_ID = "gemini-monitor-panel-v7"
+SHOT_NAMES = (
+    "01-panel-counter.png",
+    "02-details-pane.png",
+    "03-dashboard-heatmap.png",
+    "04-settings.png",
+    "05-settings-scrolled.png",
+)
 
 
-def find_gemini_page_ws() -> str:
-    with urlopen(f"{CDP_HTTP}/json", timeout=5) as r:
-        tabs = json.loads(r.read())
-    gem = [t for t in tabs if t.get("type") == "page" and "gemini.google.com" in t.get("url", "")]
-    if not gem:
-        raise RuntimeError("no Gemini page found")
-    return gem[0]["webSocketDebuggerUrl"]
+def output_paths(output_dir: str | Path) -> tuple[Path, ...]:
+    root = Path(output_dir).expanduser()
+    return tuple(root / name for name in SHOT_NAMES)
 
 
-def ensure_userscript(cdp: CDP) -> None:
-    cdp.eval_js(GM_POLYFILL_JS)
-    # Mark tour AND every module onboarding as seen up front so the userscript
-    # doesn't queue any modal on first boot. Idempotent: safe to call always.
-    cdp.eval_js(r"""
+def capture_page_state(client: CDP) -> dict[str, Any]:
+    ui_state = client.eval_js(r"""
         (() => {
-            try {
-                localStorage.setItem('gm_gemini_tour_seen', 'true');
-                localStorage.setItem('gm_gemini_onboarding_seen', JSON.stringify({
-                    counter: true, folders: true, export: true, 'prompt-vault': true,
-                    'default-model': true, 'batch-delete': true,
-                    'quote-reply': true, 'ui-tweaks': true
-                }));
-            } catch (e) {}
-        })()
-    """)
-    if not cdp.eval_js("!!window.__PRIMER_PP_LOADED__"):
-        us_src = load_userscript(REPO_ROOT)
-        cdp.eval_js(
-            "(() => { try { " + us_src + " } catch (e) { console.error('[primer++] inject failed:', e); throw e; } "
-            "window.__PRIMER_PP_LOADED__ = true; return true; })();",
-            _timeout=45,
-        )
-
-
-def dismiss_tour_aggressive(cdp: CDP) -> None:
-    """Click Skip on any visible Primer++ guided tour overlay, and close
-    any per-module onboarding modal that might be obscuring the panel."""
-    cdp.eval_js(r"""
-        (() => {
-            // 1. tour panels: any Skip / 跳过 button.
-            const buttons = Array.from(document.querySelectorAll('button'));
-            for (const b of buttons) {
-                const t = (b.textContent || '').trim();
-                if (t === 'Skip' || t === '跳过') { b.click(); }
-            }
-            // 2. onboarding modals: click .onboarding-close.
-            document.querySelectorAll('.onboarding-close').forEach(c => c.click());
-            // 3. brute-remove leftover onboarding overlays.
-            document.querySelectorAll('.onboarding-overlay, #gemini-onboarding-modal').forEach(el => el.remove());
-            // 4. mark every module's onboarding as seen so it doesn't pop again.
-            const seen = {
-                counter: true, folders: true, export: true, 'prompt-vault': true,
-                'default-model': true, 'batch-delete': true,
-                'quote-reply': true, 'ui-tweaks': true
+            const details = document.getElementById('g-details-pane');
+            return {
+                detailsExpanded: !!details && details.classList.contains('expanded'),
+                tourSeen: localStorage.getItem('gm_gemini_tour_seen'),
+                onboardingSeen: localStorage.getItem('gm_gemini_onboarding_seen'),
+                blockingOverlay: !!document.querySelector(
+                    '.settings-overlay, .dashboard-overlay, .onboarding-overlay, #gemini-onboarding-modal'
+                )
             };
-            try {
-                localStorage.setItem('gm_gemini_onboarding_seen', JSON.stringify(seen));
-                localStorage.setItem('gm_gemini_tour_seen', 'true');
-            } catch (e) {}
         })()
     """)
+    if not isinstance(ui_state, Mapping):
+        raise RuntimeError("page state probe failed")
+    if ui_state.get("blockingOverlay") is True:
+        raise RuntimeError("capture requires a page without an existing overlay")
+    return {
+        "viewport": client.get_viewport(),
+        "detailsExpanded": ui_state.get("detailsExpanded") is True,
+        "tourSeen": ui_state.get("tourSeen"),
+        "onboardingSeen": ui_state.get("onboardingSeen"),
+    }
 
 
-def ensure_collapsed(cdp: CDP) -> None:
-    """Make sure the floating panel is in collapsed (main view) state."""
-    cdp.eval_js(r"""
-        (() => {
-            const pane = document.getElementById('g-details-pane');
-            if (pane && pane.classList.contains('expanded')) {
-                const tog = document.querySelector('#""" + PANEL_ID + r""" .gemini-toggle-btn');
-                if (tog) tog.click();
-            }
-        })()
-    """)
-
-
-def expand_panel(cdp: CDP) -> None:
-    cdp.eval_js(r"""
-        (() => {
-            const tog = document.querySelector('#""" + PANEL_ID + r""" .gemini-toggle-btn');
-            if (tog) tog.click();
-        })()
-    """)
-
-
-def click_in_details_pane(cdp: CDP, button_title_pattern: str) -> str | None:
-    """Click a button inside #g-details-pane whose title or label matches.
-
-    Returns the button's text/title for logging or None if not found.
-    """
-    found = cdp.eval_js(
-        f"""(() => {{
-            const pane = document.getElementById('g-details-pane');
-            if (!pane) return null;
-            const re = new RegExp({json.dumps(button_title_pattern)}, 'i');
-            const btns = pane.querySelectorAll('button, [role="button"]');
-            for (const b of btns) {{
-                const label = (b.title || b.getAttribute('aria-label') || b.textContent || '').trim();
-                if (re.test(label)) {{
-                    b.click();
-                    return label.slice(0, 40);
-                }}
-            }}
-            return null;
-        }})()"""
-    )
-    return found
-
-
-def close_modal(cdp: CDP) -> None:
-    cdp.eval_js(r"""
-        (() => {
-            // Settings modal / debug modal use .settings-overlay / .settings-modal
-            const overlays = document.querySelectorAll(
-                '.settings-overlay, .dashboard-overlay, [class*="overlay"]'
-            );
-            for (const o of overlays) {
-                const closer = o.querySelector('.settings-close, [class*="close"], [aria-label*="Close" i], [aria-label*="关闭"]');
-                if (closer) { closer.click(); return; }
-                // fallback: click on the overlay backdrop
-                o.click();
-            }
-        })()
-    """)
-
-
-def shoot(cdp: CDP, name: str) -> Path:
-    SHOT_DIR.mkdir(parents=True, exist_ok=True)
-    path = SHOT_DIR / name
-    cdp.screenshot(path)
-    print(f"[capture] saved {name} ({path.stat().st_size} bytes)")
-    return path
-
-
-def main() -> int:
-    ws = find_gemini_page_ws()
-    print(f"[capture] page WS: {ws}")
-    cdp = CDP(ws)
+def restore_page_state(client: CDP, state: Mapping[str, Any]) -> None:
+    payload = json.dumps({
+        "detailsExpanded": state.get("detailsExpanded") is True,
+        "tourSeen": state.get("tourSeen"),
+        "onboardingSeen": state.get("onboardingSeen"),
+    })
     try:
-        cdp.set_viewport(1280, 800, dpr=1.0)
-        # Wait for the page <body> + the userscript's panel (sidenav element
-        # name has shifted again on the live frontend — don't gate on it).
-        cdp.wait_for("!!document.body", timeout=10)
-        ensure_userscript(cdp)
-        cdp.wait_for(f"!!document.getElementById('{PANEL_ID}')", timeout=20)
-        time.sleep(2)
-        dismiss_tour_aggressive(cdp)
-        time.sleep(1)
-        ensure_collapsed(cdp)
-        time.sleep(1)
-        dismiss_tour_aggressive(cdp)
-        time.sleep(0.5)
-
-        # --- shot 1: collapsed panel (main view, counter + quota) ---
-        shoot(cdp, "01-panel-counter.png")
-
-        # --- shot 2: expanded details pane ---
-        expand_panel(cdp)
-        time.sleep(1.5)
-        dismiss_tour_aggressive(cdp)
-        time.sleep(0.5)
-        shoot(cdp, "02-details-pane.png")
-
-        # --- shot 3: dashboard ---
-        clicked = click_in_details_pane(cdp, r"stats|统计")
-        print(f"[capture] stats button: {clicked!r}")
-        time.sleep(2.5)
-        shoot(cdp, "03-dashboard-heatmap.png")
-
-        # Close dashboard before opening settings.
-        close_modal(cdp)
-        time.sleep(1)
-        # Re-expand if collapsed got triggered.
-        cdp.eval_js(r"""
-            (() => {
-                const pane = document.getElementById('g-details-pane');
-                if (!pane || !pane.classList.contains('expanded')) {
-                    const tog = document.querySelector('#""" + PANEL_ID + r""" .gemini-toggle-btn');
-                    if (tog) tog.click();
-                }
-            })()
+        client.eval_js(f"""
+            (() => {{
+                const before = {payload};
+                for (const overlay of document.querySelectorAll('.settings-overlay, .dashboard-overlay')) {{
+                    const closer = overlay.querySelector(
+                        '.settings-close, [aria-label="Close"], [aria-label="关闭"]'
+                    );
+                    if (closer) closer.click();
+                }}
+                const details = document.getElementById('g-details-pane');
+                const expanded = !!details && details.classList.contains('expanded');
+                if (expanded !== before.detailsExpanded) {{
+                    document.querySelector('#{PANEL_ID} .gemini-toggle-btn')?.click();
+                }}
+                for (const [key, value] of [
+                    ['gm_gemini_tour_seen', before.tourSeen],
+                    ['gm_gemini_onboarding_seen', before.onboardingSeen]
+                ]) {{
+                    if (value === null) localStorage.removeItem(key);
+                    else localStorage.setItem(key, value);
+                }}
+                return true;
+            }})()
         """)
-        time.sleep(1)
-
-        # --- shot 4: settings modal ---
-        clicked = click_in_details_pane(cdp, r"settings|设置")
-        print(f"[capture] settings button: {clicked!r}")
-        time.sleep(2)
-        shoot(cdp, "04-settings.png")
-
-        # --- shot 5: scroll inside the settings modal so the lower
-        # sections (Themes / Export / Calibrate / Debug) are visible. ---
-        cdp.eval_js(r"""
-            (() => {
-                const modal = document.querySelector('.settings-modal, [class*="settings-modal"]');
-                if (!modal) return null;
-                const body = modal.querySelector('.settings-body') || modal;
-                body.scrollTop = body.scrollHeight;
-                return body.scrollHeight;
-            })()
-        """)
-        time.sleep(1)
-        shoot(cdp, "05-settings-scrolled.png")
-
-        close_modal(cdp)
-        print("[capture] DONE")
-        return 0
     finally:
-        cdp.close()
+        client.restore_viewport(state["viewport"])
+
+
+def prepare_page(client: CDP, *, width: int, height: int, dpr: float) -> None:
+    client.set_viewport(width, height, dpr=dpr)
+    client.eval_js(r"""
+        (() => {
+            localStorage.setItem('gm_gemini_tour_seen', 'true');
+            localStorage.setItem('gm_gemini_onboarding_seen', JSON.stringify({
+                counter: true, folders: true, export: true, 'prompt-vault': true,
+                'default-model': true, 'batch-delete': true, 'quote-reply': true,
+                'ui-tweaks': true
+            }));
+            return true;
+        })()
+    """)
+    if not client.eval_js("!!window.__PRIMER_PP_LOADED__"):
+        raise RuntimeError("Primer++ must already be loaded; this tool never injects by default")
+    client.wait_for(f"!!document.getElementById('{PANEL_ID}')", timeout=20)
+
+
+def set_details_expanded(client: CDP, expanded: bool) -> None:
+    result = client.eval_js(f"""
+        (() => {{
+            const details = document.getElementById('g-details-pane');
+            const current = !!details && details.classList.contains('expanded');
+            if (current !== {str(expanded).lower()}) {{
+                const toggle = document.querySelector('#{PANEL_ID} .gemini-toggle-btn');
+                if (!toggle) return false;
+                toggle.click();
+            }}
+            return true;
+        }})()
+    """)
+    if result is not True:
+        raise RuntimeError("details pane toggle is unavailable")
+
+
+def click_details_action(client: CDP, pattern: str) -> None:
+    expression = f"""
+        (() => {{
+            const pane = document.getElementById('g-details-pane');
+            if (!pane) return false;
+            const pattern = new RegExp({json.dumps(pattern)}, 'i');
+            for (const button of pane.querySelectorAll('button, [role="button"]')) {{
+                const label = button.title || button.getAttribute('aria-label') || button.textContent || '';
+                if (pattern.test(label.trim())) {{ button.click(); return true; }}
+            }}
+            return false;
+        }})()
+    """
+    if client.eval_js(expression) is not True:
+        raise RuntimeError("requested panel action is unavailable")
+
+
+def close_active_modal(client: CDP) -> None:
+    closed = client.eval_js(r"""
+        (() => {
+            const overlay = document.querySelector('.settings-overlay, .dashboard-overlay');
+            if (!overlay) return true;
+            const closer = overlay.querySelector(
+                '.settings-close, [aria-label="Close"], [aria-label="关闭"]'
+            );
+            if (!closer) return false;
+            closer.click();
+            return true;
+        })()
+    """)
+    if closed is not True:
+        raise RuntimeError("active modal cannot be closed safely")
+
+
+def scroll_settings_to_bottom(client: CDP) -> None:
+    if client.eval_js(r"""
+        (() => {
+            const body = document.querySelector('.settings-modal .settings-body');
+            if (!body) return false;
+            body.scrollTop = body.scrollHeight;
+            return true;
+        })()
+    """) is not True:
+        raise RuntimeError("settings body is unavailable")
+
+
+def capture_store_shots(
+    output_dir: str | Path,
+    *,
+    port: int | None = None,
+    force: bool = False,
+    mutate_page: bool = False,
+    width: int = 1280,
+    height: int = 800,
+    dpr: float = 1.0,
+    allow_remote: bool = False,
+    finder: Callable[..., str] = find_gemini_page_ws,
+    cdp_factory: Callable[..., CDP] = CDP,
+    sleep: Callable[[float], None] = time.sleep,
+) -> tuple[Path, ...]:
+    require_mutation_opt_in(mutate_page)
+    destinations = ensure_outputs_available(output_paths(output_dir), force=force)
+    endpoint = finder(port, allow_remote=allow_remote)
+    client = cdp_factory(endpoint, allow_remote=allow_remote)
+    try:
+        with RestoredState(
+            lambda: capture_page_state(client),
+            lambda state: restore_page_state(client, state),
+        ):
+            prepare_page(client, width=width, height=height, dpr=dpr)
+            set_details_expanded(client, False)
+            sleep(0.2)
+            client.screenshot(destinations[0], force=force)
+
+            set_details_expanded(client, True)
+            sleep(0.2)
+            client.screenshot(destinations[1], force=force)
+
+            click_details_action(client, r"stats|统计")
+            sleep(0.2)
+            client.screenshot(destinations[2], force=force)
+            close_active_modal(client)
+
+            set_details_expanded(client, True)
+            click_details_action(client, r"settings|设置")
+            client.wait_for("!!document.querySelector('.settings-modal')", timeout=15)
+            sleep(0.2)
+            client.screenshot(destinations[3], force=force)
+            scroll_settings_to_bottom(client)
+            sleep(0.2)
+            client.screenshot(destinations[4], force=force)
+        return destinations
+    finally:
+        client.close_transport()
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Capture store screenshots safely")
+    parser.add_argument("--port", type=int, help="Loopback CDP HTTP port")
+    parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
+    parser.add_argument("--force", action="store_true", help="Replace existing screenshots")
+    parser.add_argument(
+        "--mutate-page",
+        action="store_true",
+        help="Permit temporary UI/localStorage/viewport changes; all are restored",
+    )
+    parser.add_argument("--width", type=int, default=1280)
+    parser.add_argument("--height", type=int, default=800)
+    parser.add_argument("--dpr", type=float, default=1.0)
+    parser.add_argument("--allow-remote-cdp", action="store_true")
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    if args.width <= 0 or args.height <= 0 or args.dpr <= 0:
+        print("capture_store_shots: invalid viewport", file=sys.stderr)
+        return 2
+    try:
+        capture_store_shots(
+            args.output_dir,
+            port=args.port,
+            force=args.force,
+            mutate_page=args.mutate_page,
+            width=args.width,
+            height=args.height,
+            dpr=args.dpr,
+            allow_remote=args.allow_remote_cdp,
+        )
+    except PermissionError:
+        print("capture_store_shots: --mutate-page is required", file=sys.stderr)
+        return 2
+    except FileExistsError:
+        print("capture_store_shots: output exists; use --force", file=sys.stderr)
+        return 2
+    except Exception as exc:
+        print(f"capture_store_shots: failed ({type(exc).__name__})", file=sys.stderr)
+        return 1
+    print("capture_store_shots: screenshots written and page state restored")
+    return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

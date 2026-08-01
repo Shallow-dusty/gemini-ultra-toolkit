@@ -2,7 +2,21 @@
 
 > Formerly known as "Gemini Counter Pro" (v1–v8) → "Gemini Primer++" (v9–v10.17) → "Primer++ for Gemini™" (v10.17+)
 
-### Unreleased
+## Unreleased — v13.0 release candidate
+
+> _2026-08-01 repository candidate. No v13 tag, GitHub release, Chrome Web Store submission, or Greasyfork publication has been created._
+
+- **Modular application foundation**: moved startup and teardown policy into a composition root, lifecycle scopes, an asynchronous module host, explicit storage ports, and a Gemini adapter boundary while retaining compatibility facades for existing module IDs.
+- **Current Gemini ownership model**: capability probes now distinguish extension-owned, Gemini-native, unavailable, degraded, disabled, and injection-failed states. Native Notebooks, search, Usage Limits, Gems/Skills, Canvas, Deep Research, and Spark remain owned by Gemini instead of being duplicated.
+- **Feature verticals**: reorganized local workflows around Insights, Collections, Portable Archive, Recipes, Message Queue, Preferences, Annotations, Bulk Lifecycle, Search & Navigator, and Capability Health. Each optional feature remains independently switchable.
+- **Portable backup and transcript fidelity**: added versioned backup manifests, validation, de-duplication, selective restore, rollback, resumable restore execution, and fidelity-preserving visible-transcript capture/export paths.
+- **UI and accessibility foundation**: introduced scoped semantic tokens, shared components, dialog-stack management, locale/theme state, and lifecycle-safe UI cleanup.
+- **Build and verification**: userscript and MV3 artifacts are now minified, validated, size-budgeted, hash-reported, staged, and committed atomically. `npm test` enforces per-file 100% statements, branches, functions, and lines across shipped JavaScript under `lib/`, `src/`, and `scripts/`; the separate store-tooling Python suite has 24 tests on both Windows and WSL.
+- **Live compatibility checkpoint**: bounded built-in-Browser runs exercised every major userscript feature surface, paced exactly-once queue sends, caught and fixed current-Gemini integration and responsive/focus defects, validated wrong/cancel/correct destructive confirmation, archive-first deleted exactly two owned chats, preserved unrelated chats, and completed a clean teardown.
+- **Lifecycle cleanup checkpoint**: a follow-up built-in-Browser run caught and fixed a shared dialog-portal leak on application stop, then passed duplicate start, zero-residue stop/restart, all 10 module switches, and module/theme persistence across reload.
+- **Acceptance closeout**: strict bounded evidence is now 38.5/40 task-equivalents (96.25%), with every critical row green. Two-chat/rich export, Recipes, restore/bulk failure recovery, privacy/network, high contrast, compact reflow, and keyboard/accessibility sweeps pass. Message-target focus observation, live injected-failure rendering, and an installed extension-profile parity run remain non-critical partials.
+
+### Earlier post-v12 work included in this candidate
 
 - **Transcript snippet packets**: Export can insert bounded packets from the current visible transcript or explicitly selected chat transcripts, without storing transcript snippets or auto-sending.
 - **Composer input counter**: UI Tweaks can show a local character/line counter for the active prompt editor without reading transcripts or sending text.
@@ -21,7 +35,14 @@
 - **Local data portability**: folders and chat notes now have versioned JSON export/import alongside the existing Prompt Vault JSON import/export.
 - **Test coverage**: added `lib/folder_tools.js`, `lib/chat_notes_store.js`, and `lib/context_packet_tools.js` unit coverage for local folder undo, folder import/export, notes import/export, and context reference formatting edge cases.
 
-### v11.0 Current Release Cleanup
+## v12.0 — 2026-05-21
+
+- Added the first `GeminiAdapter` boundary and revised selectors for the then-current Gemini frontend.
+- Shipped the v12 live-browser compatibility pass across the eight release-critical workflows documented at the time.
+- Preserved local-only operation, explicit transcript-capture boundaries, and independently configurable productivity modules.
+- See [`store-assets/release-notes-v12.0.md`](store-assets/release-notes-v12.0.md) for the published release notes.
+
+## v11.0 Current Release Cleanup
 
 > _2026/05/05_
 

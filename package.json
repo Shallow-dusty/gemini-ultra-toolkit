@@ -6,8 +6,9 @@
     "build": "node scripts/build.js",
     "build:userscript": "node -e \"process.env.TARGET='userscript';require('./scripts/build.js')\"",
     "build:extension": "node -e \"process.env.TARGET='extension';require('./scripts/build.js')\"",
-    "pretest": "npm run build:userscript",
-    "test": "c8 --100 --check-coverage --branches 100 --functions 100 --lines 100 --statements 100 node --test"
+    "test": "c8 node --test --test-concurrency=1",
+    "test:fast": "node --test --test-concurrency=1",
+    "test:coverage:full": "npm test"
   },
   "devDependencies": {
     "c8": "^11.0.0",

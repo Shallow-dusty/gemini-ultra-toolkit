@@ -1,0 +1,19 @@
+{
+  "name": "native-semantic-fallback",
+  "location": "https://gemini.google.com/app",
+  "viewport": { "width": 1100, "height": 800, "dpr": 1 },
+  "nodes": [
+    { "key": "body", "tag": "body" },
+    { "key": "sidebar", "tag": "nav", "parent": "body", "attrs": { "role": "navigation" } },
+    { "key": "new-chat", "tag": "a", "parent": "sidebar", "attrs": { "href": "/app" } },
+    { "key": "temporary-chat", "tag": "button", "parent": "sidebar", "attrs": { "aria-label": "Temporary chat" } },
+    { "key": "images", "tag": "a", "parent": "sidebar", "attrs": { "href": "/images" } },
+    { "key": "videos", "tag": "a", "parent": "sidebar", "attrs": { "href": "/videos" } },
+    { "key": "library", "tag": "a", "parent": "sidebar", "attrs": { "href": "/library" } },
+    { "key": "notebooks", "tag": "a", "parent": "sidebar", "attrs": { "href": "/notebooks" } },
+    { "key": "search", "tag": "button", "parent": "sidebar", "attrs": { "aria-label": "Search conversations" } },
+    { "key": "usage", "tag": "a", "parent": "sidebar", "attrs": { "href": "/usage" } },
+    { "key": "spark", "tag": "a", "parent": "sidebar", "attrs": { "href": "/spark" } },
+    { "key": "skills", "tag": "a", "parent": "sidebar", "attrs": { "href": "/skills" } }
+  ]
+}

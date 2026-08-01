@@ -1,194 +1,131 @@
 import { TIMINGS } from '../constants.js';
 import { Logger } from '../logger.js';
-import { Core } from '../core.js';
 import { NativeUI } from '../native_ui.js';
 import { GeminiAdapter } from '../adapters/gemini.js';
-import { createIcon } from '../icons.js';
+import {
+    DefaultModelPreferenceController,
+    LEGACY_PREFERENCE_KEYS,
+    createDomPreferencesSurface,
+    createGlobalGmPreferencesStorage,
+    createLegacyPreferenceRepository,
+    createPollingWaitFor,
+    normalizePreferredModel
+} from '../features/preferences/index.js';
 
-export const DefaultModelModule = {
-    id: 'default-model',
-    name: NativeUI.t('默认模型', 'Default Model'),
-    description: NativeUI.t('新对话自动选择首选模型', 'Auto-select preferred model for new chats'),
-    icon: '\uD83E\uDD16',
-    iconId: 'settings',
-    defaultEnabled: false,
+const DEFAULT_MODEL_ONBOARDING = Object.freeze({
+    zh: Object.freeze({
+        rant: '为不同工作流保留一个明确的新对话首选模型，避免每次开始时重复调整。',
+        features: '在 Gemini 当前模型选择器可用时，为新对话应用首选模型，并在选择器旁显示状态。',
+        guide: '1. 在设置中选择 Fast、Thinking 或 Pro\n2. 新建对话时自动应用\n3. 无法确认模型选择器时安全跳过，不影响 Gemini'
+    }),
+    en: Object.freeze({
+        rant: 'Keep an explicit preferred model for new chats so each workflow starts consistently.',
+        features: 'Applies the preference when Gemini exposes a supported model picker and shows a status beside it.',
+        guide: '1. Choose Fast, Thinking, or Pro in Settings\n2. Start a new chat\n3. If the picker cannot be confirmed, Primer++ safely leaves Gemini unchanged'
+    })
+});
 
-    STORAGE_KEY: 'gemini_default_model',
-    _preferredModel: 'pro',
-    _lastUrl: '',
-    _pollTimer: null,
-    _switching: false,
+export function createDefaultModelAdapter({
+    adapter = GeminiAdapter,
+    getCurrentUrl = () => globalThis.location?.href || ''
+} = {}) {
+    if (typeof getCurrentUrl !== 'function') throw new TypeError('Default model URL provider must be a function');
+    return Object.freeze({
+        getCapabilityProbeReport: () => adapter.getCapabilityProbeReport(),
+        getCurrentUrl,
+        isNewChatUrl: () => adapter.isNewChatUrl(),
+        getModelSwitch: () => adapter.getModelSwitch(),
+        detectModelKey: () => adapter.detectModelKey(),
+        getModelMenuOptions: () => adapter.getModelMenuOptions()
+    });
+}
 
-    init() {
-        let model;
-        try { model = GM_getValue(this.STORAGE_KEY, 'pro'); }
-        catch (e) { model = 'pro'; }
-        this._preferredModel = model;
-        this._lastUrl = location.href;
-        this._startUrlWatcher();
-        Logger.info('DefaultModelModule initialized', { preferred: this._preferredModel });
-    },
+export function createDefaultModelController({
+    globalObject = globalThis,
+    storage = null,
+    repository = null,
+    adapter = null,
+    surface = null,
+    scheduler = null,
+    waitFor = null,
+    logger = Logger
+} = {}) {
+    const timer = scheduler || Object.freeze({
+        setInterval: (callback, delay) => globalObject.setInterval(callback, delay),
+        clearInterval: handle => globalObject.clearInterval(handle)
+    });
+    const persistence = repository || createLegacyPreferenceRepository({
+        key: LEGACY_PREFERENCE_KEYS.DEFAULT_MODEL,
+        storage: storage || createGlobalGmPreferencesStorage(globalObject),
+        defaultValue: 'pro',
+        normalize: normalizePreferredModel,
+        onReadError: error => logger?.warn?.('Default model preference read failed', { error: String(error) })
+    });
+    const ui = surface || createDomPreferencesSurface({
+        getDocument: () => globalObject.document,
+        translate: (zh, en) => NativeUI.t(zh, en),
+        getLocale: () => (NativeUI.isZH ? 'zh' : 'en')
+    });
+    return new DefaultModelPreferenceController({
+        repository: persistence,
+        adapter: adapter || createDefaultModelAdapter(),
+        surface: ui,
+        scheduler: timer,
+        waitFor: waitFor || createPollingWaitFor({
+            setInterval: timer.setInterval,
+            clearInterval: timer.clearInterval,
+            intervalMs: 100
+        }),
+        logger,
+        pollIntervalMs: 800,
+        menuTimeoutMs: TIMINGS.MODEL_MENU_TIMEOUT
+    });
+}
 
-    destroy() {
-        if (this._pollTimer) {
-            clearInterval(this._pollTimer);
-            this._pollTimer = null;
+function assertController(controller) {
+    for (const method of [
+        'start', 'stop', 'onSessionChange', 'refreshIndicator', 'removeIndicator',
+        'setPreferredModel', 'applyToCurrentNewChat', 'renderSettings', 'getStatus'
+    ]) {
+        if (!controller || typeof controller[method] !== 'function') {
+            throw new TypeError(`Default model controller must implement ${method}()`);
         }
-        this._switching = false;
-        this.removeNativeUI();
-    },
-
-    onUserChange() {},
-
-    // --- \u539F\u751F UI \u6CE8\u5165 ---
-    injectNativeUI() {
-        const LOCK_ID = 'gc-model-lock';
-        if (document.getElementById(LOCK_ID)) return;
-
-        const modelBtn = NativeUI.getModelSwitch();
-        if (!modelBtn) return;
-        const parent = modelBtn.parentElement;
-        if (!parent) return;
-
-        const lock = document.createElement('span');
-        lock.id = LOCK_ID;
-        lock.className = 'gc-model-lock';
-        lock.appendChild(createIcon('lock', 9));
-        const modelLabel = this._preferredModel === 'flash' ? 'Fast' : this._preferredModel === 'thinking' ? 'Thinking' : 'Pro';
-        lock.title = NativeUI.t('\u5DF2\u9501\u5B9A: ' + modelLabel, 'Locked: ' + modelLabel);
-        parent.appendChild(lock);
-    },
-
-    removeNativeUI() {
-        NativeUI.remove('gc-model-lock');
-    },
-
-    setPreferredModel(model) {
-        this._preferredModel = model;
-        try { GM_setValue(this.STORAGE_KEY, model); } catch (e) { /* silent */ }
-        // \u5237\u65B0\u9501\u5B9A\u6307\u793A\u5668
-        this.removeNativeUI();
-        this.injectNativeUI();
-        Logger.info('Default model set', { model });
-    },
-
-    _isNewChat() {
-        return GeminiAdapter.isNewChatUrl();
-    },
-
-    _startUrlWatcher() {
-        if (this._pollTimer) return;  // Guard against duplicate
-        this._pollTimer = setInterval(() => {
-            const currentUrl = location.href;
-            if (currentUrl !== this._lastUrl) {
-                const wasChat = this._lastUrl.includes('/app/');
-                this._lastUrl = currentUrl;
-                if (this._isNewChat() || (!wasChat && this._isNewChat())) {
-                    this._attemptModelSwitch();
-                }
-            }
-        }, 800);
-    },
-
-    async _attemptModelSwitch() {
-        if (this._switching) return;
-        this._switching = true;
-        try {
-            // Wait for the mode picker button — keep the wait gating logic on
-            // the model switch button rather than a brittle selector string.
-            await this._waitFor(() => GeminiAdapter.getModelSwitch(), 5000);
-            const currentModel = this._detectCurrentModel();
-            if (currentModel === this._preferredModel) {
-                Logger.info('Already on preferred model', { model: currentModel });
-                return;
-            }
-            const modeBtn = GeminiAdapter.getModelSwitch();
-            if (!modeBtn) return;
-            modeBtn.click();
-            // Wait for menu items to render
-            await this._waitFor(
-                () => GeminiAdapter.getModelMenuOptions().length > 0,
-                TIMINGS.MODEL_MENU_TIMEOUT
-            );
-
-            const option = GeminiAdapter.findModelMenuItem(this._preferredModel);
-            if (option) {
-                option.click();
-                Logger.info('Model switched', { from: currentModel, to: this._preferredModel });
-            } else {
-                document.body.click();
-                Logger.warn('Model option not found', { preferred: this._preferredModel });
-            }
-        } catch (e) {
-            Logger.warn('Model switch failed', { error: e.message });
-            // Make sure the mode picker isn't left open if we threw after
-            // clicking the trigger but before finding/clicking an option.
-            try { document.body.click(); } catch { /* swallow */ }
-        } finally {
-            this._switching = false;
-        }
-    },
-
-    _detectCurrentModel() {
-        return GeminiAdapter.detectModelKey() || 'flash';
-    },
-
-    _waitFor(predicate, timeout) {
-        return new Promise((resolve, reject) => {
-            if (predicate()) return resolve(true);
-            const start = Date.now();
-            let check = null;
-            const cleanup = () => { if (check) clearInterval(check); };
-            check = setInterval(() => {
-                if (predicate()) { cleanup(); resolve(true); }
-                else if (Date.now() - start > timeout) { cleanup(); reject(new Error('timeout')); }
-            }, 200);
-        });
-    },
-
-    _sleep(ms) {
-        return Core.sleep(ms);
-    },
-
-    getOnboarding() {
-        return {
-            zh: {
-                rant: 'Gemini \u6BCF\u6B21\u65B0\u5EFA\u5BF9\u8BDD\u90FD\u9ED8\u8BA4\u9009 Flash\u3002\u4F60\u660E\u660E\u60F3\u7528 Pro\uFF0C\u4F46\u5B83\u504F\u8981\u4F60\u6BCF\u6B21\u624B\u52A8\u5207\u3002\u8FD9\u5C31\u50CF\u4E00\u4E2A\u5496\u5561\u5E97\uFF0C\u4F60\u5929\u5929\u6765\u70B9\u7F8E\u5F0F\uFF0C\u4F46\u670D\u52A1\u5458\u6BCF\u6B21\u90FD\u95EE\u201C\u5148\u751F\uFF0C\u6765\u676F\u901F\u6EB6\u5496\u5561\u5427\uFF1F\u201D\u3002Google\uFF0C\u6C42\u6C42\u4F60\u8BB0\u4F4F\u7528\u6237\u7684\u9009\u62E9\uFF0C\u8FD9\u4E0D\u96BE\u5BF9\u5427\uFF1F',
-                features: '\u81EA\u52A8\u5C06\u65B0\u5BF9\u8BDD\u5207\u6362\u5230\u4F60\u7684\u9996\u9009\u6A21\u578B\u3002\u6A21\u578B\u9009\u62E9\u6309\u94AE\u65C1\u663E\u793A \uD83D\uDD12 \u9501\u5B9A\u6807\u8BB0\u3002',
-                guide: '1. \u5728\u8BBE\u7F6E\u4E2D\u9009\u62E9\u9996\u9009\u6A21\u578B (Fast/Thinking/Pro)\n2. \u65B0\u5EFA\u5BF9\u8BDD\u65F6\u81EA\u52A8\u5207\u6362\n3. \u770B\u5230 \uD83D\uDD12 \u8868\u793A\u5DF2\u9501\u5B9A'
-            },
-            en: {
-                rant: "Gemini defaults to Flash for every new chat. You want Pro, but it insists on asking every time. It's like a coffee shop where you come daily for an americano, but the barista says 'instant coffee today, sir?' Google, please just remember the user's choice. It's not hard.",
-                features: 'Automatically switches new conversations to your preferred model. Shows a \uD83D\uDD12 lock indicator next to the model switch button.',
-                guide: '1. Select your preferred model in Settings (Fast/Thinking/Pro)\n2. New chats auto-switch to it\n3. The \uD83D\uDD12 icon confirms the lock is active'
-            }
-        };
-    },
-
-    renderToSettings(container) {
-        const row = document.createElement('div');
-        row.className = 'settings-row';
-        const label = document.createElement('span');
-        label.textContent = NativeUI.t('\uD83E\uDD16 \u9996\u9009\u6A21\u578B', '\uD83E\uDD16 Preferred Model');
-        const select = document.createElement('select');
-        select.style.cssText = 'background:var(--input-bg,rgba(255,255,255,0.1));color:var(--text-main);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:13px;';
-        const models = [
-            { value: 'flash', label: '3 Fast (Flash)' },
-            { value: 'thinking', label: '3 Flash Thinking' },
-            { value: 'pro', label: '3 Pro' }
-        ];
-        models.forEach(m => {
-            const opt = document.createElement('option');
-            opt.value = m.value;
-            opt.textContent = m.label;
-            if (m.value === this._preferredModel) opt.selected = true;
-            select.appendChild(opt);
-        });
-        select.addEventListener('change', () => {
-            this.setPreferredModel(select.value);
-        });
-        row.appendChild(label);
-        row.appendChild(select);
-        container.appendChild(row);
     }
-};
+}
+
+export function createDefaultModelModule({
+    controller = createDefaultModelController(),
+    translate = (zh, en) => NativeUI.t(zh, en)
+} = {}) {
+    assertController(controller);
+    if (typeof translate !== 'function') throw new TypeError('Default model translator must be a function');
+    return Object.freeze({
+        id: 'default-model',
+        name: translate('默认模型', 'Default Model'),
+        description: translate('为新对话应用首选模型', 'Apply a preferred model to new chats'),
+        icon: '\uD83E\uDD16',
+        iconId: 'settings',
+        defaultEnabled: false,
+        STORAGE_KEY: LEGACY_PREFERENCE_KEYS.DEFAULT_MODEL,
+        get capability() { return controller.capability; },
+        get _preferredModel() { return controller.preferredModel; },
+        get _lastUrl() { return controller._route; },
+        get _pollTimer() { return controller._routeTimer; },
+        get _switching() { return controller.getStatus().switching; },
+        init() { return controller.start(); },
+        destroy() { return controller.stop(); },
+        onUserChange() { return controller.onSessionChange(); },
+        injectNativeUI() { return controller.refreshIndicator(); },
+        removeNativeUI() { return controller.removeIndicator(); },
+        setPreferredModel(model) { return controller.setPreferredModel(model); },
+        _isNewChat() { return controller.adapter.isNewChatUrl(); },
+        _startUrlWatcher() { return controller.start(); },
+        _attemptModelSwitch() { return controller.applyToCurrentNewChat(); },
+        _detectCurrentModel() { return controller.adapter.detectModelKey() || 'flash'; },
+        _waitFor(predicate, timeout) { return controller.waitFor(predicate, timeout); },
+        getOnboarding() { return DEFAULT_MODEL_ONBOARDING; },
+        renderToSettings(container) { return controller.renderSettings(container); }
+    });
+}
+
+export const DefaultModelModule = createDefaultModelModule();

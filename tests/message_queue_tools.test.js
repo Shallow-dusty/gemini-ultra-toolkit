@@ -6,10 +6,12 @@ const {
     cancelQueueItem,
     clearQueueHistory,
     createQueueItem,
+    createQueueRunToken,
     DEFAULT_QUEUE_INTERVAL_MS,
     evaluateQueueSafety,
     getNextQueuedItem,
     getQueueStats,
+    isQueueRunCurrent,
     MAX_QUEUE_INTERVAL_MS,
     MIN_QUEUE_INTERVAL_MS,
     markQueueItemFailed,
@@ -28,6 +30,34 @@ const {
 describe('message_queue_tools', () => {
     const nowIso = '2026-06-08T00:00:00.000Z';
     const laterIso = '2026-06-08T01:00:00.000Z';
+
+    it('guards queue run continuations by generation, account, route, visibility, and pause state', () => {
+        const token = createQueueRunToken(4, {
+            storageKey: '  queue_user@example.com  ',
+            routeKey: '  https://gemini.google.com/app/one  '
+        });
+
+        assert.deepEqual(token, {
+            generation: 4,
+            storageKey: 'queue_user@example.com',
+            routeKey: 'https://gemini.google.com/app/one'
+        });
+        const current = {
+            storageKey: 'queue_user@example.com',
+            routeKey: 'https://gemini.google.com/app/one',
+            visible: true,
+            paused: false
+        };
+        assert.equal(isQueueRunCurrent(token, 4, current), true);
+        assert.equal(isQueueRunCurrent(null, 4, current), false);
+        assert.equal(isQueueRunCurrent('bad', 4, current), false);
+        assert.equal(isQueueRunCurrent(token, 5, current), false);
+        assert.equal(isQueueRunCurrent(token, 4, { ...current, storageKey: 'queue_other@example.com' }), false);
+        assert.equal(isQueueRunCurrent(token, 4, { ...current, routeKey: 'https://gemini.google.com/app/two' }), false);
+        assert.equal(isQueueRunCurrent(token, 4, { ...current, visible: false }), false);
+        assert.equal(isQueueRunCurrent(token, 4, { ...current, paused: true }), false);
+        assert.equal(isQueueRunCurrent(createQueueRunToken(0), 0), true);
+    });
 
     it('normalizes queue items and recovers stranded sending state when requested', () => {
         assert.equal(normalizeQueueItem(null), null);

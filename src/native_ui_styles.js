@@ -3,17 +3,49 @@
  *
  * IMPORTANT: These elements are injected INTO Gemini's native UI (sidebar,
  * input area, chat header) — they must match Gemini's own colors, NOT the
- * floating panel's theme. All colors are hardcoded to Gemini's native palette.
- *
- * Gemini native palette (dark mode):
- *   text-main: #e8eaed   text-sub: #9aa0a6   accent: #8ab4f8
- *   hover-bg: rgba(255,255,255,0.06)   badge-bg: rgba(255,255,255,0.06)
+ * floating panel's theme. Prefer Gemini/Material design tokens and inherit
+ * from the surrounding native surface when a host token is unavailable.
  */
 
-export function injectNativeUIStyles() {
-    GM_addStyle(`
+export function injectNativeUIStyles(addStyle) {
+    if (typeof addStyle !== 'function') throw new TypeError('Native UI styles require an addStyle port');
+    const css = `
+        :where(
+            .gc-filter-bar, .gc-filter-tab, .gc-sidebar-toolbar, .gc-sidebar-btn,
+            .gc-count-label, .gc-batch-check, .gc-input-btn, .gc-tweaks-dots,
+            .gc-tweaks-status, .gc-send-hint, .gc-input-counter, .gc-header-btn,
+            .gc-model-lock, .gc-quote-fab, .gc-toast
+        ) {
+            color-scheme: inherit;
+            --primer-native-text: var(--gem-sys-color--on-surface,
+                var(--mat-sys-on-surface, currentColor));
+            --primer-native-muted: var(--gem-sys-color--on-surface-variant,
+                var(--mat-sys-on-surface-variant,
+                    color-mix(in srgb, currentColor 68%, transparent)));
+            --primer-native-accent: var(--gem-sys-color--primary,
+                var(--mat-sys-primary, Highlight));
+            --primer-native-on-accent: var(--gem-sys-color--on-primary,
+                var(--mat-sys-on-primary, HighlightText));
+            --primer-native-hover: var(--gem-sys-color--surface-container-high,
+                var(--mat-sys-surface-container-high,
+                    color-mix(in srgb, currentColor 9%, transparent)));
+            --primer-native-surface: var(--gem-sys-color--surface-container,
+                var(--mat-sys-surface-container,
+                    color-mix(in srgb, Canvas 94%, currentColor)));
+            --primer-native-outline: var(--gem-sys-color--outline-variant,
+                var(--mat-sys-outline-variant,
+                    color-mix(in srgb, currentColor 22%, transparent)));
+            --primer-native-error: var(--gem-sys-color--error,
+                var(--mat-sys-error, currentColor));
+            --primer-native-error-container: var(--gem-sys-color--error-container,
+                var(--mat-sys-error-container,
+                    color-mix(in srgb, currentColor 14%, transparent)));
+            --primer-native-on-error-container: var(--gem-sys-color--on-error-container,
+                var(--mat-sys-on-error-container, currentColor));
+        }
+
         /* ============================================ */
-        /* Sidebar injections (Gemini-native colors)    */
+        /* Sidebar injections (host-adaptive colors)    */
         /* ============================================ */
 
         .gc-filter-bar {
@@ -35,12 +67,12 @@ export function injectNativeUIStyles() {
             padding: 4px 12px;
             border-radius: 14px;
             font-size: 12px;
-            font-family: 'Google Sans', Roboto, sans-serif;
+            font-family: inherit;
             white-space: nowrap;
             cursor: pointer;
             border: none;
             background: transparent;
-            color: #9aa0a6;
+            color: var(--primer-native-muted);
             font-weight: 400;
             transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1),
                         color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
@@ -50,8 +82,8 @@ export function injectNativeUIStyles() {
             opacity: 0.7;
         }
         .gc-filter-tab:hover {
-            background: rgba(255,255,255,0.06);
-            color: #e8eaed;
+            background: var(--primer-native-hover);
+            color: var(--primer-native-text);
             opacity: 1;
         }
         .gc-filter-tab:focus-visible,
@@ -59,12 +91,14 @@ export function injectNativeUIStyles() {
         .gc-input-btn:focus-visible,
         .gc-header-btn:focus-visible,
         .gc-quote-fab:focus-visible {
-            outline: 2px solid #8ab4f8;
+            outline: 2px solid var(--primer-native-accent);
             outline-offset: 2px;
         }
         .gc-filter-tab.active {
             font-weight: 500;
             opacity: 1;
+            color: var(--primer-native-accent);
+            background: color-mix(in srgb, var(--primer-native-accent) 12%, transparent);
         }
 
         .gc-sidebar-toolbar {
@@ -77,11 +111,11 @@ export function injectNativeUIStyles() {
         .gc-sidebar-btn {
             background: transparent;
             border: none;
-            color: #9aa0a6;
+            color: var(--primer-native-muted);
             border-radius: 14px;
             padding: 5px 14px;
             font-size: 12px;
-            font-family: 'Google Sans', Roboto, sans-serif;
+            font-family: inherit;
             cursor: pointer;
             transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1),
                         color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
@@ -90,20 +124,20 @@ export function injectNativeUIStyles() {
             opacity: 0.6;
         }
         .gc-sidebar-btn:hover {
-            color: #e8eaed;
-            background: rgba(255,255,255,0.06);
+            color: var(--primer-native-text);
+            background: var(--primer-native-hover);
             opacity: 1;
         }
         .gc-sidebar-btn.full-width {
             width: 100%;
         }
         .gc-sidebar-btn.danger {
-            background: rgba(234,67,53,0.15);
-            color: #f28b82;
+            background: var(--primer-native-error-container);
+            color: var(--primer-native-on-error-container);
             border: none;
         }
         .gc-sidebar-btn.danger:hover {
-            background: rgba(234,67,53,0.25);
+            background: color-mix(in srgb, var(--primer-native-error) 22%, transparent);
         }
 
         .gc-sidebar-toolbar-active {
@@ -114,7 +148,7 @@ export function injectNativeUIStyles() {
 
         .gc-count-label {
             font-size: 11px;
-            color: #8ab4f8;
+            color: var(--primer-native-accent);
             flex: 1;
             text-align: center;
             font-weight: 500;
@@ -124,26 +158,26 @@ export function injectNativeUIStyles() {
             width: 16px;
             height: 16px;
             border-radius: 4px;
-            border: 2px solid #5f6368;
+            border: 2px solid var(--primer-native-outline);
             background: transparent;
             flex-shrink: 0;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             font-size: 10px;
-            color: #fff;
+            color: var(--primer-native-on-accent);
             cursor: pointer;
             margin-right: 6px;
             vertical-align: middle;
             transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .gc-batch-check[data-checked="true"] {
-            border-color: #8ab4f8;
-            background: #8ab4f8;
+            border-color: var(--primer-native-accent);
+            background: var(--primer-native-accent);
         }
 
         /* ============================================ */
-        /* Input area injections (Gemini-native colors) */
+        /* Input area injections (host-adaptive colors) */
         /* ============================================ */
 
         .gc-input-btn {
@@ -157,11 +191,11 @@ export function injectNativeUIStyles() {
             align-items: center;
             justify-content: center;
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            color: #9aa0a6;
+            color: var(--primer-native-muted);
         }
         .gc-input-btn:hover {
-            background: rgba(128,128,128,0.15);
-            color: #e8eaed;
+            background: var(--primer-native-hover);
+            color: var(--primer-native-text);
         }
         .gc-input-btn:active {
             transform: scale(0.92);
@@ -181,11 +215,13 @@ export function injectNativeUIStyles() {
             width: 6px;
             height: 6px;
             border-radius: 50%;
-            background: #555;
+            background: currentColor;
+            opacity: 0.42;
             transition: background 0.3s;
         }
         .gc-tweaks-dot.on {
-            background: #8ab4f8;
+            background: var(--primer-native-accent);
+            opacity: 1;
             animation: gcDotPulse 2.5s infinite;
         }
         @keyframes gcDotPulse {
@@ -207,10 +243,10 @@ export function injectNativeUIStyles() {
         .gc-send-hint,
         .gc-input-counter {
             font-size: 11px;
-            color: #9aa0a6;
+            color: var(--primer-native-muted);
             opacity: 0.6;
             font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-            background: rgba(255,255,255,0.06);
+            background: var(--primer-native-hover);
             padding: 2px 6px;
             border-radius: 4px;
             line-height: 1.4;
@@ -218,7 +254,7 @@ export function injectNativeUIStyles() {
         }
 
         /* ============================================ */
-        /* Chat header injections (Gemini-native)       */
+        /* Chat header injections (host-adaptive)       */
         /* ============================================ */
 
         .gc-header-btn {
@@ -233,23 +269,24 @@ export function injectNativeUIStyles() {
             justify-content: center;
             opacity: 0.7;
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            color: #9aa0a6;
+            color: var(--primer-native-muted);
         }
         .gc-header-btn:hover {
             opacity: 1;
-            background: rgba(128, 128, 128, 0.15);
+            color: var(--primer-native-text);
+            background: var(--primer-native-hover);
         }
         .gc-header-btn:active {
             transform: scale(0.92);
         }
 
         /* ============================================ */
-        /* Model lock indicator (Gemini-native)         */
+        /* Model lock indicator (host-adaptive)         */
         /* ============================================ */
 
         .gc-model-lock {
             font-size: 9px;
-            color: #9aa0a6;
+            color: var(--primer-native-muted);
             margin-left: 2px;
             cursor: default;
             user-select: none;
@@ -265,14 +302,14 @@ export function injectNativeUIStyles() {
         .gc-quote-fab {
             position: fixed;
             z-index: 2147483646;
-            background: #8ab4f8;
-            color: #fff;
+            background: var(--primer-native-accent);
+            color: var(--primer-native-on-accent);
             padding: 4px;
             border-radius: 16px;
             font-size: 12px;
             font-weight: 600;
-            font-family: 'Google Sans', Roboto, sans-serif;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+            font-family: inherit;
+            box-shadow: 0 2px 12px color-mix(in srgb, CanvasText 28%, transparent);
             user-select: none;
             transition: opacity 0.15s, transform 0.15s;
             opacity: 0;
@@ -298,12 +335,12 @@ export function injectNativeUIStyles() {
         }
         .gc-quote-fab-btn:hover,
         .gc-quote-fab-btn:focus-visible {
-            background: rgba(255, 255, 255, 0.18);
+            background: color-mix(in srgb, currentColor 18%, transparent);
             outline: none;
         }
 
         /* ============================================ */
-        /* Toast notification (theme vars OK — floats)  */
+        /* Toast notification (native host surface)     */
         /* ============================================ */
 
         .gc-toast {
@@ -311,15 +348,15 @@ export function injectNativeUIStyles() {
             bottom: 24px;
             left: 50%;
             transform: translateX(-50%) translateY(10px);
-            background: var(--bg, #303134);
-            color: var(--text-main, #e8eaed);
-            border: 1px solid var(--border, rgba(255,255,255,0.12));
+            background: var(--primer-native-surface);
+            color: var(--primer-native-text);
+            border: 1px solid var(--primer-native-outline);
             padding: 10px 24px;
             border-radius: 14px;
             font-size: 13px;
-            font-family: 'Google Sans', Roboto, sans-serif;
+            font-family: inherit;
             z-index: 2147483647;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 20px color-mix(in srgb, CanvasText 25%, transparent);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             opacity: 0;
@@ -355,5 +392,7 @@ export function injectNativeUIStyles() {
                 scroll-behavior: auto !important;
             }
         }
-    `);
+    `;
+    addStyle(css);
+    return css;
 }
